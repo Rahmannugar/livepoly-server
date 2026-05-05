@@ -8,15 +8,12 @@ import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ApiResponseInterceptor } from './common/interceptors/api-response.interceptor';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-
-const API_PREFIX = 'api';
-const SWAGGER_PATH = `${API_PREFIX}/docs`;
-
-const CORS_ORIGINS = [
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'https://livepoly.vercel.app',
-];
+import {
+  API_DOCUMENTATION,
+  API_PREFIX,
+  CORS_ORIGINS,
+  SWAGGER_PATH,
+} from './config/app.constants';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -46,9 +43,9 @@ async function bootstrap() {
   const port = configService.getOrThrow<number>('PORT');
 
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('LivePoly API')
-    .setDescription('Backend API for LivePoly.')
-    .setVersion('0.1.0')
+    .setTitle(API_DOCUMENTATION.title)
+    .setDescription(API_DOCUMENTATION.description)
+    .setVersion(API_DOCUMENTATION.version)
     .addBearerAuth()
     .build();
 

@@ -10,6 +10,6 @@ export const CORS_ORIGINS = [
 
 export const API_DOCUMENTATION = {
   title: 'LivePoly API',
-  description: 'Authoritative backend API for LivePoly.',
+  description: 'Backend API for LivePoly.',
   version: '0.1.0',
 } as const;

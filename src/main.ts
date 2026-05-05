@@ -1,3 +1,4 @@
+import './observability/newrelic';
 import { ValidationPipe } from '@nestjs/common';
 import { Logger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';

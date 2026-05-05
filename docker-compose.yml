@@ -1,11 +1,14 @@
+name: livepoly
+
 services:
   livepoly-server:
+    image: livepoly-server
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: livepoly-server
+    container_name: livepoly
     ports:
-      - "3002:3002"
+      - '3002:3002'
     env_file:
       - .env
     environment:

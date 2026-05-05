@@ -1,0 +1,18 @@
+services:
+  livepoly-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: livepoly-server
+    ports:
+      - "3002:3002"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      PORT: 3002
+    volumes:
+      - .:/app
+      - /app/node_modules
+    command: npm run start:dev
+    restart: unless-stopped

@@ -1,0 +1,17 @@
+export const TABLE_NAMES = {
+  users: 'users',
+  sessions: 'sessions',
+  oauthAccounts: 'oauth_accounts',
+  otpTokens: 'otp_tokens',
+  friendships: 'friendships',
+  rooms: 'rooms',
+  roomPlayers: 'room_players',
+  roomSpectators: 'room_spectators',
+  roomResults: 'room_results',
+  roomPlayerResults: 'room_player_results',
+  playerStats: 'player_stats',
+  ratingHistory: 'rating_history',
+  leaderboardSnapshots: 'leaderboard_snapshots',
+  notifications: 'notifications',
+  pushSubscriptions: 'push_subscriptions',
+} as const;

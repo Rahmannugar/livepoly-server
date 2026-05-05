@@ -13,3 +13,9 @@ export const API_DOCUMENTATION = {
   description: 'Backend API for LivePoly.',
   version: '0.1.0',
 } as const;
+
+export const SERVER_TIMEOUTS = {
+  requestTimeoutMs: 30_000,
+  headersTimeoutMs: 35_000,
+  keepAliveTimeoutMs: 5_000,
+} as const;

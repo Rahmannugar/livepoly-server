@@ -14,6 +14,12 @@ const envSchema = z
     NEW_RELIC_APP_NAME: z.string().min(1).default('LivePoly Server'),
     NEW_RELIC_LICENSE_KEY: z.string().optional(),
     NEW_RELIC_LOG_LEVEL: z.string().min(1).default('info'),
+    JWT_ACCESS_SECRET: z.string().min(32),
+    MAIL_FROM: z.string().min(1),
+    SMTP_HOST: z.string().min(1),
+    SMTP_PORT: z.coerce.number().int().positive().max(65535),
+    SMTP_USER: z.email(),
+    SMTP_PASS: z.string().min(1),
   })
   .superRefine((env, ctx) => {
     if (env.NEW_RELIC_ENABLED && !env.NEW_RELIC_LICENSE_KEY) {

@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: livepoly
+    container_name: livepoly-server
     ports:
       - '3002:3002'
     env_file:
@@ -14,8 +14,45 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3002
+      REDIS_URL: redis://livepoly-redis:6379
+      INSTANCE_ROLE: server
     volumes:
       - .:/app
       - /app/node_modules
+    depends_on:
+      - livepoly-redis
     command: npm run start:dev
     restart: unless-stopped
+
+  livepoly-worker:
+    image: livepoly-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: livepoly-worker
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: development
+      REDIS_URL: redis://livepoly-redis:6379
+      INSTANCE_ROLE: worker
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - livepoly-redis
+    command: npm run start:worker:dev
+    restart: unless-stopped
+
+  livepoly-redis:
+    image: redis:7-alpine
+    container_name: livepoly-redis
+    ports:
+      - '6380:6379'
+    volumes:
+      - livepoly-redis-data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+
+volumes:
+  livepoly-redis-data:

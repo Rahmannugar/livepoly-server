@@ -20,6 +20,7 @@ const envSchema = z
     SMTP_PORT: z.coerce.number().int().positive().max(65535),
     SMTP_USER: z.email(),
     SMTP_PASS: z.string().min(1),
+    REDIS_URL: z.url(),
   })
   .superRefine((env, ctx) => {
     if (env.NEW_RELIC_ENABLED && !env.NEW_RELIC_LICENSE_KEY) {

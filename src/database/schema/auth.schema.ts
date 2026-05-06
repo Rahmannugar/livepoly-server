@@ -1,5 +1,4 @@
 import {
-  boolean,
   index,
   integer,
   pgEnum,
@@ -9,6 +8,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { users } from './user.schema';
 import { TABLE_NAMES } from './schema.constants';
 import { createdAt, id, updatedAt } from './schema.helpers';
 
@@ -21,26 +21,6 @@ export const otpPurposeEnum = pgEnum('otp_purpose', [
   'email_verification',
   'password_reset',
 ]);
-
-export const users = pgTable(
-  TABLE_NAMES.users,
-  {
-    id: id(),
-    email: text('email').notNull(),
-    username: text('username').notNull(),
-    passwordHash: text('password_hash'),
-    emailVerified: boolean('email_verified').notNull().default(false),
-    avatarObjectKey: text('avatar_object_key'),
-    bio: text('bio'),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-    deletedAt: timestamp('deleted_at', { withTimezone: true }),
-  },
-  (table) => [
-    uniqueIndex('users_email_unique_idx').on(table.email),
-    uniqueIndex('users_username_unique_idx').on(table.username),
-  ],
-);
 
 export const sessions = pgTable(
   TABLE_NAMES.sessions,

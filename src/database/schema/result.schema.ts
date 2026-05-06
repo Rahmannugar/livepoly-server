@@ -60,9 +60,12 @@ export const roomPlayerResults = pgTable(
     roomId: uuid('room_id')
       .notNull()
       .references(() => rooms.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id')
+    roomPlayerId: uuid('room_player_id')
       .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
+      .references(() => roomPlayers.id, { onDelete: 'restrict' }),
+    userId: uuid('user_id').references(() => users.id, {
+      onDelete: 'restrict',
+    }),
     seatNumber: integer('seat_number').notNull(),
     startingCash: integer('starting_cash').notNull(),
     finalCash: integer('final_cash').notNull(),
@@ -72,15 +75,16 @@ export const roomPlayerResults = pgTable(
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex('room_player_results_room_user_unique_idx').on(
+    uniqueIndex('room_player_results_room_player_unique_idx').on(
       table.roomId,
-      table.userId,
+      table.roomPlayerId,
     ),
     uniqueIndex('room_player_results_room_seat_unique_idx').on(
       table.roomId,
       table.seatNumber,
     ),
     index('room_player_results_room_id_idx').on(table.roomId),
+    index('room_player_results_room_player_id_idx').on(table.roomPlayerId),
     index('room_player_results_user_id_idx').on(table.userId),
     index('room_player_results_placement_idx').on(table.placement),
   ],

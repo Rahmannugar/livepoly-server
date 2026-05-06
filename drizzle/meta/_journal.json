@@ -22,6 +22,13 @@
       "when": 1778075198166,
       "tag": "0002_add_game_result_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778075332238,
+      "tag": "0003_add_notification_schema",
+      "breakpoints": true
     }
   ]
 }

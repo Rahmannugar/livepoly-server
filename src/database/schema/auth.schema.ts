@@ -1,4 +1,6 @@
+import { sql } from 'drizzle-orm';
 import {
+  check,
   index,
   integer,
   pgEnum,
@@ -69,6 +71,10 @@ export const oauthAccounts = pgTable(
       table.provider,
       table.providerAccountId,
     ),
+    uniqueIndex('oauth_accounts_user_provider_unique_idx').on(
+      table.userId,
+      table.provider,
+    ),
     index('oauth_accounts_user_id_idx').on(table.userId),
   ],
 );
@@ -91,5 +97,6 @@ export const otpTokens = pgTable(
     uniqueIndex('otp_tokens_otp_hash_unique_idx').on(table.otpHash),
     index('otp_tokens_user_id_purpose_idx').on(table.userId, table.purpose),
     index('otp_tokens_expires_at_idx').on(table.expiresAt),
+    check('otp_tokens_attempt_count_chk', sql`${table.attemptCount} >= 0`),
   ],
 );

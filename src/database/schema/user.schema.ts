@@ -109,5 +109,25 @@ export const playerStats = pgTable(
   (table) => [
     index('player_stats_current_rating_idx').on(table.currentRating),
     index('player_stats_games_played_idx').on(table.gamesPlayed),
+    check('player_stats_games_played_chk', sql`${table.gamesPlayed} >= 0`),
+    check('player_stats_first_place_chk', sql`${table.firstPlace} >= 0`),
+    check('player_stats_second_place_chk', sql`${table.secondPlace} >= 0`),
+    check('player_stats_third_place_chk', sql`${table.thirdPlace} >= 0`),
+    check('player_stats_fourth_place_chk', sql`${table.fourthPlace} >= 0`),
+    check('player_stats_avg_position_chk', sql`${table.avgPosition} >= 0`),
+    check('player_stats_current_rating_chk', sql`${table.currentRating} > 0`),
+    check('player_stats_peak_rating_chk', sql`${table.peakRating} > 0`),
+    check(
+      'player_stats_total_net_worth_chk',
+      sql`${table.totalNetWorth} >= 0`,
+    ),
+    check(
+      'player_stats_total_rent_collected_chk',
+      sql`${table.totalRentCollected} >= 0`,
+    ),
+    check(
+      'player_stats_total_rent_paid_chk',
+      sql`${table.totalRentPaid} >= 0`,
+    ),
   ],
 );

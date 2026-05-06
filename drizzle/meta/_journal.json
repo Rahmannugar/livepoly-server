@@ -36,6 +36,13 @@
       "when": 1778075513268,
       "tag": "0004_support_bot_player_results",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778076245833,
+      "tag": "0005_harden_schema_constraints",
+      "breakpoints": true
     }
   ]
 }

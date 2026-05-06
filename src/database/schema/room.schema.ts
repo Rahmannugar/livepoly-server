@@ -61,6 +61,7 @@ export const rooms = pgTable(
       'rooms_duration_minutes_chk',
       sql`${table.durationMinutes} in (30, 60, 120, 180)`,
     ),
+    check('rooms_code_format_chk', sql`${table.code} ~ '^[A-Za-z0-9]{8}$'`),
   ],
 );
 
@@ -83,6 +84,10 @@ export const roomPlayers = pgTable(
     leftAt: timestamp('left_at', { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex('room_players_room_id_id_unique_idx').on(
+      table.roomId,
+      table.id,
+    ),
     uniqueIndex('room_players_room_user_unique_idx').on(
       table.roomId,
       table.userId,

@@ -1,5 +1,7 @@
+import { sql } from 'drizzle-orm';
 import {
   boolean,
+  check,
   index,
   jsonb,
   pgEnum,
@@ -44,6 +46,20 @@ export const notifications = pgTable(
       table.createdAt,
     ),
     index('notifications_user_id_read_idx').on(table.userId, table.read),
+    check(
+      'notifications_read_state_chk',
+      sql`
+        (
+          ${table.read} = false
+          and ${table.readAt} is null
+        )
+        or
+        (
+          ${table.read} = true
+          and ${table.readAt} is not null
+        )
+      `,
+    ),
   ],
 );
 

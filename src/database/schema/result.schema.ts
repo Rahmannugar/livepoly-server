@@ -1,5 +1,8 @@
+import { sql } from 'drizzle-orm';
 import {
+  check,
   date,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -32,9 +35,7 @@ export const roomResults = pgTable(
     roomId: uuid('room_id')
       .notNull()
       .references(() => rooms.id, { onDelete: 'cascade' }),
-    winnerRoomPlayerId: uuid('winner_room_player_id')
-      .notNull()
-      .references(() => roomPlayers.id, { onDelete: 'restrict' }),
+    winnerRoomPlayerId: uuid('winner_room_player_id'),
     winnerUserId: uuid('winner_user_id').references(() => users.id, {
       onDelete: 'restrict',
     }),
@@ -50,6 +51,30 @@ export const roomResults = pgTable(
     index('room_results_winner_room_player_id_idx').on(
       table.winnerRoomPlayerId,
     ),
+    check(
+      'room_results_winner_required_chk',
+      sql`
+    (
+      ${table.endReason} = 'cancelled'
+      and ${table.winnerRoomPlayerId} is null
+      and ${table.winnerUserId} is null
+    )
+    or
+    (
+      ${table.endReason} in ('bankruptcy', 'time_elapsed')
+      and ${table.winnerRoomPlayerId} is not null
+    )
+  `,
+    ),
+    check(
+      'room_results_duration_seconds_chk',
+      sql`${table.durationSeconds} >= 0`,
+    ),
+    foreignKey({
+      name: 'room_results_winner_room_player_fk',
+      columns: [table.roomId, table.winnerRoomPlayerId],
+      foreignColumns: [roomPlayers.roomId, roomPlayers.id],
+    }).onDelete('restrict'),
   ],
 );
 
@@ -60,9 +85,7 @@ export const roomPlayerResults = pgTable(
     roomId: uuid('room_id')
       .notNull()
       .references(() => rooms.id, { onDelete: 'cascade' }),
-    roomPlayerId: uuid('room_player_id')
-      .notNull()
-      .references(() => roomPlayers.id, { onDelete: 'restrict' }),
+    roomPlayerId: uuid('room_player_id').notNull(),
     userId: uuid('user_id').references(() => users.id, {
       onDelete: 'restrict',
     }),
@@ -87,6 +110,27 @@ export const roomPlayerResults = pgTable(
     index('room_player_results_room_player_id_idx').on(table.roomPlayerId),
     index('room_player_results_user_id_idx').on(table.userId),
     index('room_player_results_placement_idx').on(table.placement),
+    check(
+      'room_player_results_seat_number_chk',
+      sql`${table.seatNumber} between 1 and 4`,
+    ),
+    check(
+      'room_player_results_placement_chk',
+      sql`${table.placement} between 1 and 4`,
+    ),
+    check(
+      'room_player_results_starting_cash_chk',
+      sql`${table.startingCash} >= 0`,
+    ),
+    check(
+      'room_player_results_final_net_worth_chk',
+      sql`${table.finalNetWorth} >= 0`,
+    ),
+    foreignKey({
+      name: 'room_player_results_room_player_fk',
+      columns: [table.roomId, table.roomPlayerId],
+      foreignColumns: [roomPlayers.roomId, roomPlayers.id],
+    }).onDelete('restrict'),
   ],
 );
 
@@ -110,6 +154,16 @@ export const ratingHistory = pgTable(
     index('rating_history_user_id_idx').on(table.userId),
     index('rating_history_room_id_idx').on(table.roomId),
     index('rating_history_created_at_idx').on(table.createdAt),
+    uniqueIndex('rating_history_room_user_unique_idx').on(
+      table.roomId,
+      table.userId,
+    ),
+    check(
+      'rating_history_placement_chk',
+      sql`${table.placement} between 1 and 4`,
+    ),
+    check('rating_history_rating_before_chk', sql`${table.ratingBefore} > 0`),
+    check('rating_history_rating_after_chk', sql`${table.ratingAfter} > 0`),
   ],
 );
 
@@ -128,6 +182,10 @@ export const leaderboardSnapshots = pgTable(
       table.periodType,
       table.periodStart,
       table.periodEnd,
+    ),
+    check(
+      'leaderboard_snapshots_period_range_chk',
+      sql`${table.periodStart} <= ${table.periodEnd}`,
     ),
   ],
 );

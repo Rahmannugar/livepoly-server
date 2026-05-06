@@ -15,6 +15,13 @@
       "when": 1778074760540,
       "tag": "0001_add_room_lobby_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778075198166,
+      "tag": "0002_add_game_result_schema",
+      "breakpoints": true
     }
   ]
 }

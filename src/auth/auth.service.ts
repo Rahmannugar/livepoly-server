@@ -3,18 +3,18 @@ import { AUTH } from './auth.constants';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
 import { generateOtpCode, hashPassword, hashToken } from './utils/utils';
-import { MailService } from '../mail/mail.service';
+import { MailQueueService } from '../mail/mail-queue.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly authRepository: AuthRepository,
-    private readonly mailService: MailService,
+    private readonly mailQueueService: MailQueueService,
   ) {}
 
   async register(dto: RegisterDto) {
     const email = dto.email.trim().toLowerCase();
-    const username = dto.username.trim();
+    const username = dto.username.trim().toLowerCase();
 
     const existingUser = await this.authRepository.findUserByEmailOrUsername(
       email,
@@ -40,7 +40,10 @@ export class AuthService {
       otpExpiresAt,
     });
 
-    await this.mailService.sendEmailVerificationOtp(user.email, otpCode);
+    await this.mailQueueService.enqueueEmailVerificationOtp({
+      email: user.email,
+      otpCode,
+    });
 
     return {
       message: 'Verification code sent',

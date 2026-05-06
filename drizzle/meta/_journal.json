@@ -43,6 +43,13 @@
       "when": 1778076245833,
       "tag": "0005_harden_schema_constraints",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778082268156,
+      "tag": "0006_enforce_lowercase_user_identity",
+      "breakpoints": true
     }
   ]
 }

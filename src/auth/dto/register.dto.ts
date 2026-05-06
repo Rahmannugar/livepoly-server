@@ -14,8 +14,9 @@ export class RegisterDto {
 
   @IsString()
   @Length(3, 24)
-  @Matches(/^[a-zA-Z0-9_]+$/, {
-    message: 'username can only contain letters, numbers, and underscores',
+  @Matches(/^[a-z0-9_]+$/, {
+    message:
+      'username can only contain lowercase letters, numbers, and underscores',
   })
   username: string;
 

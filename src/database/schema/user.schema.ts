@@ -39,6 +39,14 @@ export const users = pgTable(
   (table) => [
     uniqueIndex('users_email_unique_idx').on(table.email),
     uniqueIndex('users_username_unique_idx').on(table.username),
+    check(
+      'users_email_lowercase_chk',
+      sql`${table.email} = lower(${table.email})`,
+    ),
+    check(
+      'users_username_lowercase_chk',
+      sql`${table.username} = lower(${table.username})`,
+    ),
   ],
 );
 
@@ -117,17 +125,11 @@ export const playerStats = pgTable(
     check('player_stats_avg_position_chk', sql`${table.avgPosition} >= 0`),
     check('player_stats_current_rating_chk', sql`${table.currentRating} > 0`),
     check('player_stats_peak_rating_chk', sql`${table.peakRating} > 0`),
-    check(
-      'player_stats_total_net_worth_chk',
-      sql`${table.totalNetWorth} >= 0`,
-    ),
+    check('player_stats_total_net_worth_chk', sql`${table.totalNetWorth} >= 0`),
     check(
       'player_stats_total_rent_collected_chk',
       sql`${table.totalRentCollected} >= 0`,
     ),
-    check(
-      'player_stats_total_rent_paid_chk',
-      sql`${table.totalRentPaid} >= 0`,
-    ),
+    check('player_stats_total_rent_paid_chk', sql`${table.totalRentPaid} >= 0`),
   ],
 );

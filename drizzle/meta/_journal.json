@@ -57,6 +57,13 @@
       "when": 1778164539623,
       "tag": "0007_remove_otp_tokens_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1778186507465,
+      "tag": "0008_add_user_token_version",
+      "breakpoints": true
     }
   ]
 }

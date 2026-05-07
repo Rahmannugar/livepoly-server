@@ -30,6 +30,7 @@ export const users = pgTable(
     username: text('username').notNull(),
     passwordHash: text('password_hash'),
     emailVerified: boolean('email_verified').notNull().default(false),
+    tokenVersion: integer('token_version').notNull().default(0),
     avatarObjectKey: text('avatar_object_key'),
     bio: text('bio'),
     createdAt: createdAt(),

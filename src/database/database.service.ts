@@ -4,10 +4,17 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres, { Sql } from 'postgres';
 import { schema } from './schema';
 
+type Database = ReturnType<typeof drizzle<typeof schema>>;
+type DatabaseTransaction = Parameters<
+  Parameters<Database['transaction']>[0]
+>[0];
+
+export type DatabaseExecutor = Database | DatabaseTransaction;
+
 @Injectable()
 export class DatabaseService implements OnModuleDestroy {
   private readonly client: Sql;
-  readonly db: ReturnType<typeof drizzle<typeof schema>>;
+  readonly db: Database;
 
   constructor(configService: ConfigService) {
     const databaseUrl = configService.getOrThrow<string>('DATABASE_URL');
@@ -23,6 +30,10 @@ export class DatabaseService implements OnModuleDestroy {
     this.db = drizzle(this.client, {
       schema,
     });
+  }
+
+  transaction<T>(callback: (tx: DatabaseTransaction) => Promise<T>) {
+    return this.db.transaction(callback);
   }
 
   async onModuleDestroy(): Promise<void> {

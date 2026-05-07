@@ -10,6 +10,14 @@ type GetOrSetInput<T> = {
   lockSeconds?: number;
 };
 
+type WithLockInput<T> = {
+  key: string;
+  ttlSeconds: number;
+  callback: () => Promise<T>;
+  waitTimeoutMs?: number;
+  retryDelayMs?: number;
+};
+
 const RELEASE_LOCK_SCRIPT = `
 if redis.call("GET", KEYS[1]) == ARGV[1] then
   return redis.call("DEL", KEYS[1])
@@ -36,8 +44,7 @@ export class CacheService implements OnModuleDestroy {
   }
 
   async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
-    const serialized = JSON.stringify(value);
-    await this.redis.set(key, serialized, 'EX', ttlSeconds);
+    await this.redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
   }
 
   async del(key: string): Promise<void> {
@@ -70,6 +77,34 @@ export class CacheService implements OnModuleDestroy {
     return promise;
   }
 
+  async withLock<T>(input: WithLockInput<T>): Promise<T> {
+    const token = randomUUID();
+    const deadline = Date.now() + (input.waitTimeoutMs ?? 5000);
+    const retryDelayMs = input.retryDelayMs ?? 100;
+
+    while (Date.now() < deadline) {
+      const acquired = await this.redis.set(
+        input.key,
+        token,
+        'EX',
+        input.ttlSeconds,
+        'NX',
+      );
+
+      if (acquired === 'OK') {
+        try {
+          return await input.callback();
+        } finally {
+          await this.redis.eval(RELEASE_LOCK_SCRIPT, 1, input.key, token);
+        }
+      }
+
+      await this.sleep(retryDelayMs);
+    }
+
+    throw new Error('Could not acquire cache lock');
+  }
+
   async onModuleDestroy(): Promise<void> {
     await this.redis.quit();
   }
@@ -77,44 +112,22 @@ export class CacheService implements OnModuleDestroy {
   private async loadWithDistributedLock<T>(
     input: GetOrSetInput<T>,
   ): Promise<T> {
-    const lockKey = `lock:${input.key}`;
-    const lockToken = randomUUID();
-    const lockMs = (input.lockSeconds ?? 10) * 1000;
+    return this.withLock({
+      key: `lock:${input.key}`,
+      ttlSeconds: input.lockSeconds ?? 10,
+      callback: async () => {
+        const cached = await this.get<T>(input.key);
 
-    const acquired = await this.redis.set(
-      lockKey,
-      lockToken,
-      'PX',
-      lockMs,
-      'NX',
-    );
+        if (cached !== null) {
+          return cached;
+        }
 
-    if (acquired !== 'OK') {
-      await this.sleep(100);
+        const value = await input.factory();
+        await this.set(input.key, value, input.ttlSeconds);
 
-      const cached = await this.get<T>(input.key);
-
-      if (cached !== null) {
-        return cached;
-      }
-
-      return this.loadWithDistributedLock(input);
-    }
-
-    try {
-      const cached = await this.get<T>(input.key);
-
-      if (cached !== null) {
-        return cached;
-      }
-
-      const value = await input.factory();
-      await this.set(input.key, value, input.ttlSeconds);
-
-      return value;
-    } finally {
-      await this.redis.eval(RELEASE_LOCK_SCRIPT, 1, lockKey, lockToken);
-    }
+        return value;
+      },
+    });
   }
 
   private sleep(milliseconds: number): Promise<void> {

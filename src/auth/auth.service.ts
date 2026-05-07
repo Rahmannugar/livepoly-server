@@ -4,17 +4,29 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { OtpService } from '../otp/otp.service';
 import { RateLimitService } from '../rate-limit/rate-limit.service';
+import { SessionCacheService } from '../session/session-cache.service';
+import { DatabaseService } from '../database/database.service';
 import { AUTH } from './auth.constants';
 import { AuthRepository } from './auth.repository';
+import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
-import { generateOtpCode, hashPassword } from './utils/utils';
+import {
+  generateOpaqueToken,
+  generateOtpCode,
+  hashPassword,
+  hashToken,
+  verifyPassword,
+} from './utils/utils';
 
 type AuthRequestContext = {
   ip?: string;
+  userAgent?: string;
 };
 
 @Injectable()
@@ -24,6 +36,10 @@ export class AuthService {
     private readonly mailQueueService: MailQueueService,
     private readonly rateLimitService: RateLimitService,
     private readonly otpService: OtpService,
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+    private readonly sessionCacheService: SessionCacheService,
+    private readonly databaseService: DatabaseService,
   ) {}
 
   private async enforceRegisterRateLimit(
@@ -59,6 +75,34 @@ export class AuthService {
     await this.rateLimitService.consume({
       scope: 'auth:verify-email:email',
       identifier: email,
+      limit: 5,
+      windowSeconds: 15 * 60,
+    });
+  }
+
+  private async enforceLoginRateLimit(
+    context: AuthRequestContext,
+    email: string,
+  ) {
+    const ip = this.resolveIp(context);
+
+    await this.rateLimitService.consume({
+      scope: 'auth:login:ip',
+      identifier: ip,
+      limit: 20,
+      windowSeconds: 10 * 60,
+    });
+
+    await this.rateLimitService.consume({
+      scope: 'auth:login:email',
+      identifier: email,
+      limit: 5,
+      windowSeconds: 15 * 60,
+    });
+
+    await this.rateLimitService.consume({
+      scope: 'auth:login:ip-email',
+      identifier: `${ip}:${email}`,
       limit: 5,
       windowSeconds: 15 * 60,
     });
@@ -139,6 +183,108 @@ export class AuthService {
 
     return {
       message: 'Email verified',
+    };
+  }
+
+  async login(dto: LoginDto, context: AuthRequestContext) {
+    const email = dto.email.trim().toLowerCase();
+
+    await this.enforceLoginRateLimit(context, email);
+
+    const user = await this.authRepository.findUserByEmail(email);
+
+    if (!user?.passwordHash) {
+      throw new BadRequestException('Invalid email or password');
+    }
+
+    const passwordValid = await verifyPassword(user.passwordHash, dto.password);
+
+    if (!passwordValid) {
+      throw new BadRequestException('Invalid email or password');
+    }
+
+    if (!user.emailVerified) {
+      throw new BadRequestException('Email verification required');
+    }
+
+    const refreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashToken(refreshToken);
+    const refreshExpiresAt = new Date(
+      Date.now() + AUTH.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
+    );
+
+    const { session, revokedSession } =
+      await this.sessionCacheService.withUserSessionLock(user.id, () =>
+        this.databaseService.transaction(async (tx) => {
+          const activeSessions = await this.authRepository.countActiveSessions(
+            user.id,
+            tx,
+          );
+
+          let revokedSession:
+            | { id: string; refreshTokenHash: string }
+            | undefined;
+
+          if (activeSessions >= AUTH.maxActiveSessions) {
+            revokedSession =
+              await this.authRepository.revokeOldestActiveSession(user.id, tx);
+          }
+
+          const session = await this.authRepository.createSession(
+            {
+              userId: user.id,
+              refreshTokenHash,
+              expiresAt: refreshExpiresAt,
+              ipAddress: context.ip,
+              userAgent: context.userAgent,
+            },
+            tx,
+          );
+
+          return { session, revokedSession };
+        }),
+      );
+
+    if (revokedSession) {
+      await this.sessionCacheService.deleteSession(
+        revokedSession.refreshTokenHash,
+      );
+    }
+
+    const refreshTtlSeconds = AUTH.refreshTokenTtlDays * 24 * 60 * 60;
+
+    await this.sessionCacheService.storeSession({
+      session: {
+        id: session.id,
+        userId: session.userId,
+        refreshTokenHash: session.refreshTokenHash,
+        expiresAt: session.expiresAt.toISOString(),
+      },
+      ttlSeconds: refreshTtlSeconds,
+    });
+
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        sid: session.id,
+        tv: user.tokenVersion,
+        email: user.email,
+        username: user.username,
+      },
+      {
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+        expiresIn: AUTH.accessTokenTtl,
+      },
+    );
+
+    return {
+      accessToken,
+      refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+      },
     };
   }
 }

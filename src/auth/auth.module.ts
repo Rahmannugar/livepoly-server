@@ -7,6 +7,7 @@ import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { OtpModule } from '../otp/otp.module';
+import { SessionModule } from '../session/session.module';
 
 @Module({
   imports: [
@@ -14,6 +15,7 @@ import { OtpModule } from '../otp/otp.module';
     MailModule,
     RateLimitModule,
     OtpModule,
+    SessionModule,
     JwtModule.register({}),
   ],
   controllers: [AuthController],

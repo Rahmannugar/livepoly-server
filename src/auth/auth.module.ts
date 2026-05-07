@@ -6,12 +6,14 @@ import { AuthController } from './auth.controller';
 import { AuthRepository } from './auth.repository';
 import { AuthService } from './auth.service';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
+import { OtpModule } from '../otp/otp.module';
 
 @Module({
   imports: [
     DatabaseModule,
     MailModule,
     RateLimitModule,
+    OtpModule,
     JwtModule.register({}),
   ],
   controllers: [AuthController],

@@ -1,8 +1,7 @@
-import { Injectable, Logger, OnModuleDestroy } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import Redis from 'ioredis';
-import { RateLimitException } from './rate-limit.exception';
+import { Injectable, Logger } from '@nestjs/common';
+import { CacheService } from '../cache/cache.service';
 import { ObservabilityService } from '../observability/observability.service';
+import { RateLimitException } from './rate-limit.exception';
 
 type ConsumeRateLimitInput = {
   scope: string;
@@ -38,29 +37,21 @@ return {1, count, ttl}
 `;
 
 @Injectable()
-export class RateLimitService implements OnModuleDestroy {
+export class RateLimitService {
   private readonly logger = new Logger(RateLimitService.name);
-  private readonly redis: Redis;
 
   constructor(
-    configService: ConfigService,
+    private readonly cacheService: CacheService,
     private readonly observabilityService: ObservabilityService,
-  ) {
-    this.redis = new Redis(configService.getOrThrow<string>('REDIS_URL'), {
-      maxRetriesPerRequest: 2,
-      enableReadyCheck: true,
-    });
-  }
+  ) {}
 
   async consume(input: ConsumeRateLimitInput): Promise<void> {
     const key = this.buildKey(input.scope, input.identifier);
 
-    const [allowed, count, retryAfterSeconds] = (await this.redis.eval(
+    const [allowed, count, retryAfterSeconds] = (await this.cacheService.eval(
       RATE_LIMIT_SCRIPT,
-      1,
-      key,
-      input.limit,
-      input.windowSeconds,
+      [key],
+      [input.limit, input.windowSeconds],
     )) as RateLimitResult;
 
     if (allowed === 1) {
@@ -83,10 +74,6 @@ export class RateLimitService implements OnModuleDestroy {
     });
 
     throw new RateLimitException();
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.redis.quit();
   }
 
   private buildKey(scope: string, identifier: string): string {

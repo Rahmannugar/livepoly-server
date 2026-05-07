@@ -1,10 +1,10 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { CacheModule } from '../cache/cache.module';
 import { ObservabilityModule } from '../observability/observability.module';
 import { RateLimitService } from './rate-limit.service';
 
 @Module({
-  imports: [ConfigModule, ObservabilityModule],
+  imports: [CacheModule, ObservabilityModule],
   providers: [RateLimitService],
   exports: [RateLimitService],
 })

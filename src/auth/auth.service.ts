@@ -5,12 +5,13 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { MailQueueService } from '../mail/mail-queue.service';
+import { OtpService } from '../otp/otp.service';
 import { RateLimitService } from '../rate-limit/rate-limit.service';
 import { AUTH } from './auth.constants';
 import { AuthRepository } from './auth.repository';
 import { RegisterDto } from './dto/register.dto';
 import { VerifyEmailDto } from './dto/verify-email.dto';
-import { generateOtpCode, hashPassword, hashToken } from './utils/utils';
+import { generateOtpCode, hashPassword } from './utils/utils';
 
 type AuthRequestContext = {
   ip?: string;
@@ -22,6 +23,7 @@ export class AuthService {
     private readonly authRepository: AuthRepository,
     private readonly mailQueueService: MailQueueService,
     private readonly rateLimitService: RateLimitService,
+    private readonly otpService: OtpService,
   ) {}
 
   private async enforceRegisterRateLimit(
@@ -83,17 +85,17 @@ export class AuthService {
 
     const passwordHash = await hashPassword(dto.password);
     const otpCode = generateOtpCode();
-    const otpHash = hashToken(otpCode);
-    const otpExpiresAt = new Date(
-      Date.now() + AUTH.emailOtpTtlMinutes * 60 * 1000,
-    );
 
-    const user = await this.authRepository.createUserWithEmailOtp({
+    const user = await this.authRepository.createUser({
       email,
       username,
       passwordHash,
-      otpHash,
-      otpExpiresAt,
+    });
+
+    await this.otpService.storeEmailVerificationOtp({
+      userId: user.id,
+      otpCode,
+      ttlSeconds: AUTH.emailOtpTtlMinutes * 60,
     });
 
     await this.mailQueueService.enqueueEmailVerificationOtp({
@@ -108,7 +110,6 @@ export class AuthService {
 
   async verifyEmail(dto: VerifyEmailDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
-    const otpHash = hashToken(dto.otpCode);
 
     await this.enforceVerifyEmailRateLimit(context, email);
 
@@ -124,14 +125,17 @@ export class AuthService {
       };
     }
 
-    const verified = await this.authRepository.verifyEmailOtp({
-      userId: user.id,
-      otpHash,
-    });
+    const verified = await this.otpService.isValidEmailVerificationOtp(
+      user.id,
+      dto.otpCode,
+    );
 
     if (!verified) {
       throw new BadRequestException('Invalid or expired verification code');
     }
+
+    await this.authRepository.markEmailVerified(user.id);
+    await this.otpService.deleteEmailVerificationOtp(user.id);
 
     return {
       message: 'Email verified',

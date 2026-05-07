@@ -2,7 +2,6 @@ export const TABLE_NAMES = {
   users: 'users',
   sessions: 'sessions',
   oauthAccounts: 'oauth_accounts',
-  otpTokens: 'otp_tokens',
   friendships: 'friendships',
   rooms: 'rooms',
   roomPlayers: 'room_players',

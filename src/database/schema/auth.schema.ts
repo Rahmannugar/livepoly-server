@@ -1,8 +1,5 @@
-import { sql } from 'drizzle-orm';
 import {
-  check,
   index,
-  integer,
   pgEnum,
   pgTable,
   text,
@@ -17,11 +14,6 @@ import { createdAt, id, updatedAt } from './schema.helpers';
 export const oauthProviderEnum = pgEnum('oauth_provider', [
   'google',
   'discord',
-]);
-
-export const otpPurposeEnum = pgEnum('otp_purpose', [
-  'email_verification',
-  'password_reset',
 ]);
 
 export const sessions = pgTable(
@@ -76,27 +68,5 @@ export const oauthAccounts = pgTable(
       table.provider,
     ),
     index('oauth_accounts_user_id_idx').on(table.userId),
-  ],
-);
-
-export const otpTokens = pgTable(
-  TABLE_NAMES.otpTokens,
-  {
-    id: id(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    purpose: otpPurposeEnum('purpose').notNull(),
-    otpHash: text('otp_hash').notNull(),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    usedAt: timestamp('used_at', { withTimezone: true }),
-    attemptCount: integer('attempt_count').notNull().default(0),
-    createdAt: createdAt(),
-  },
-  (table) => [
-    uniqueIndex('otp_tokens_otp_hash_unique_idx').on(table.otpHash),
-    index('otp_tokens_user_id_purpose_idx').on(table.userId, table.purpose),
-    index('otp_tokens_expires_at_idx').on(table.expiresAt),
-    check('otp_tokens_attempt_count_chk', sql`${table.attemptCount} >= 0`),
   ],
 );

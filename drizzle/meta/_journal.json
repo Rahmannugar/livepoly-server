@@ -50,6 +50,13 @@
       "when": 1778082268156,
       "tag": "0006_enforce_lowercase_user_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778164539623,
+      "tag": "0007_remove_otp_tokens_schema",
+      "breakpoints": true
     }
   ]
 }

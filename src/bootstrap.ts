@@ -9,6 +9,7 @@ import {
   CORS_ORIGINS,
   SWAGGER_PATH,
 } from './config/app.constants';
+import cookieParser from 'cookie-parser';
 
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix(API_PREFIX);
@@ -17,6 +18,7 @@ export function configureApp(app: INestApplication): void {
     origin: CORS_ORIGINS,
     credentials: true,
   });
+  app.use(cookieParser());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,

@@ -12,3 +12,9 @@ export class VerifyEmailDto {
   })
   otpCode: string;
 }
+
+export class ResendEmailVerificationDto {
+  @IsEmail()
+  @MaxLength(254)
+  email: string;
+}

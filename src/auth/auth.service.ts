@@ -3,19 +3,26 @@ import {
   ConflictException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { DatabaseService } from '../database/database.service';
 import { MailQueueService } from '../mail/mail-queue.service';
 import { OtpService } from '../otp/otp.service';
-import { RateLimitService } from '../rate-limit/rate-limit.service';
 import { SessionCacheService } from '../session/session-cache.service';
-import { DatabaseService } from '../database/database.service';
+import {
+  AuthRateLimitService,
+  AuthRequestContext,
+} from './auth-rate-limit.service';
 import { AUTH } from './auth.constants';
 import { AuthRepository } from './auth.repository';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
+import {
+  ResendEmailVerificationDto,
+  VerifyEmailDto,
+} from './dto/verify-email.dto';
 import {
   generateOpaqueToken,
   generateOtpCode,
@@ -24,99 +31,24 @@ import {
   verifyPassword,
 } from './utils/utils';
 
-type AuthRequestContext = {
-  ip?: string;
-  userAgent?: string;
-};
-
 @Injectable()
 export class AuthService {
   constructor(
     private readonly authRepository: AuthRepository,
     private readonly mailQueueService: MailQueueService,
-    private readonly rateLimitService: RateLimitService,
     private readonly otpService: OtpService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly sessionCacheService: SessionCacheService,
     private readonly databaseService: DatabaseService,
+    private readonly authRateLimitService: AuthRateLimitService,
   ) {}
-
-  private async enforceRegisterRateLimit(
-    context: AuthRequestContext,
-    email: string,
-  ) {
-    await this.rateLimitService.consume({
-      scope: 'auth:register:ip',
-      identifier: this.resolveIp(context),
-      limit: 5,
-      windowSeconds: 10 * 60,
-    });
-
-    await this.rateLimitService.consume({
-      scope: 'auth:register:email',
-      identifier: email,
-      limit: 3,
-      windowSeconds: 30 * 60,
-    });
-  }
-
-  private async enforceVerifyEmailRateLimit(
-    context: AuthRequestContext,
-    email: string,
-  ) {
-    await this.rateLimitService.consume({
-      scope: 'auth:verify-email:ip',
-      identifier: this.resolveIp(context),
-      limit: 10,
-      windowSeconds: 10 * 60,
-    });
-
-    await this.rateLimitService.consume({
-      scope: 'auth:verify-email:email',
-      identifier: email,
-      limit: 5,
-      windowSeconds: 15 * 60,
-    });
-  }
-
-  private async enforceLoginRateLimit(
-    context: AuthRequestContext,
-    email: string,
-  ) {
-    const ip = this.resolveIp(context);
-
-    await this.rateLimitService.consume({
-      scope: 'auth:login:ip',
-      identifier: ip,
-      limit: 20,
-      windowSeconds: 10 * 60,
-    });
-
-    await this.rateLimitService.consume({
-      scope: 'auth:login:email',
-      identifier: email,
-      limit: 5,
-      windowSeconds: 15 * 60,
-    });
-
-    await this.rateLimitService.consume({
-      scope: 'auth:login:ip-email',
-      identifier: `${ip}:${email}`,
-      limit: 5,
-      windowSeconds: 15 * 60,
-    });
-  }
-
-  private resolveIp(context: AuthRequestContext): string {
-    return context.ip || 'unknown';
-  }
 
   async register(dto: RegisterDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
     const username = dto.username.trim().toLowerCase();
 
-    await this.enforceRegisterRateLimit(context, email);
+    await this.authRateLimitService.enforceRegister(context, email);
 
     const existingUser = await this.authRepository.findUserByEmailOrUsername(
       email,
@@ -155,7 +87,7 @@ export class AuthService {
   async verifyEmail(dto: VerifyEmailDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
 
-    await this.enforceVerifyEmailRateLimit(context, email);
+    await this.authRateLimitService.enforceVerifyEmail(context, email);
 
     const user = await this.authRepository.findUserByEmail(email);
 
@@ -186,10 +118,51 @@ export class AuthService {
     };
   }
 
+  async resendEmailVerification(
+    dto: ResendEmailVerificationDto,
+    context: AuthRequestContext,
+  ) {
+    const email = dto.email.trim().toLowerCase();
+
+    await this.authRateLimitService.enforceResendEmailVerification(
+      context,
+      email,
+    );
+
+    const user = await this.authRepository.findUserByEmail(email);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.emailVerified) {
+      return {
+        message: 'Email already verified',
+      };
+    }
+
+    const otpCode = generateOtpCode();
+
+    await this.otpService.storeEmailVerificationOtp({
+      userId: user.id,
+      otpCode,
+      ttlSeconds: AUTH.emailOtpTtlMinutes * 60,
+    });
+
+    await this.mailQueueService.enqueueEmailVerificationOtp({
+      email: user.email,
+      otpCode,
+    });
+
+    return {
+      message: 'Verification code sent',
+    };
+  }
+
   async login(dto: LoginDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
 
-    await this.enforceLoginRateLimit(context, email);
+    await this.authRateLimitService.enforceLogin(context, email);
 
     const user = await this.authRepository.findUserByEmail(email);
 
@@ -280,6 +253,98 @@ export class AuthService {
     return {
       accessToken,
       refreshToken,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+      },
+    };
+  }
+
+  async refresh(refreshToken: string | undefined) {
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token required');
+    }
+
+    const currentRefreshTokenHash = hashToken(refreshToken);
+
+    const cachedSession = await this.sessionCacheService.getSession(
+      currentRefreshTokenHash,
+    );
+
+    const session =
+      cachedSession ??
+      (await this.authRepository.findActiveSessionByRefreshTokenHash(
+        currentRefreshTokenHash,
+      ));
+
+    if (!session) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const user = await this.authRepository.findUserByIdForAuthToken(
+      session.userId,
+    );
+
+    if (!user?.emailVerified) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const nextRefreshToken = generateOpaqueToken();
+    const nextRefreshTokenHash = hashToken(nextRefreshToken);
+    const nextRefreshExpiresAt = new Date(
+      Date.now() + AUTH.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
+    );
+
+    const rotatedSession = await this.sessionCacheService.withUserSessionLock(
+      user.id,
+      () =>
+        this.databaseService.transaction((tx) =>
+          this.authRepository.rotateSessionRefreshToken(
+            {
+              sessionId: session.id,
+              currentRefreshTokenHash,
+              nextRefreshTokenHash,
+              expiresAt: nextRefreshExpiresAt,
+            },
+            tx,
+          ),
+        ),
+    );
+
+    if (!rotatedSession) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    await this.sessionCacheService.deleteSession(currentRefreshTokenHash);
+
+    await this.sessionCacheService.storeSession({
+      session: {
+        id: rotatedSession.id,
+        userId: rotatedSession.userId,
+        refreshTokenHash: rotatedSession.refreshTokenHash,
+        expiresAt: rotatedSession.expiresAt.toISOString(),
+      },
+      ttlSeconds: AUTH.refreshTokenTtlDays * 24 * 60 * 60,
+    });
+
+    const accessToken = await this.jwtService.signAsync(
+      {
+        sub: user.id,
+        sid: rotatedSession.id,
+        tv: user.tokenVersion,
+        email: user.email,
+        username: user.username,
+      },
+      {
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+        expiresIn: AUTH.accessTokenTtl,
+      },
+    );
+
+    return {
+      accessToken,
+      refreshToken: nextRefreshToken,
       user: {
         id: user.id,
         email: user.email,

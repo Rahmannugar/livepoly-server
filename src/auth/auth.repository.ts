@@ -155,4 +155,77 @@ export class AuthRepository {
 
     return session;
   }
+
+  async findUserByIdForAuthToken(userId: string) {
+    const [user] = await this.databaseService.db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        tokenVersion: users.tokenVersion,
+        emailVerified: users.emailVerified,
+      })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
+
+    return user ?? null;
+  }
+
+  async findActiveSessionByRefreshTokenHash(refreshTokenHash: string) {
+    const [session] = await this.databaseService.db
+      .select({
+        id: sessions.id,
+        userId: sessions.userId,
+        refreshTokenHash: sessions.refreshTokenHash,
+        expiresAt: sessions.expiresAt,
+      })
+      .from(sessions)
+      .where(
+        and(
+          eq(sessions.refreshTokenHash, refreshTokenHash),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, new Date()),
+        ),
+      )
+      .limit(1);
+
+    return session ?? null;
+  }
+
+  async rotateSessionRefreshToken(
+    input: {
+      sessionId: string;
+      currentRefreshTokenHash: string;
+      nextRefreshTokenHash: string;
+      expiresAt: Date;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [session] = await db
+      .update(sessions)
+      .set({
+        refreshTokenHash: input.nextRefreshTokenHash,
+        expiresAt: input.expiresAt,
+        lastUsedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(sessions.id, input.sessionId),
+          eq(sessions.refreshTokenHash, input.currentRefreshTokenHash),
+          isNull(sessions.revokedAt),
+          gt(sessions.expiresAt, new Date()),
+        ),
+      )
+      .returning({
+        id: sessions.id,
+        userId: sessions.userId,
+        refreshTokenHash: sessions.refreshTokenHash,
+        expiresAt: sessions.expiresAt,
+      });
+
+    return session ?? null;
+  }
 }

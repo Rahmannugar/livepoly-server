@@ -2,7 +2,10 @@ import { Body, Controller, Post, Req, Res } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
+import {
+  ResendEmailVerificationDto,
+  VerifyEmailDto,
+} from './dto/verify-email.dto';
 import { AUTH } from './auth.constants';
 import { LoginDto } from './dto/login.dto';
 
@@ -38,6 +41,17 @@ export class AuthController {
     });
   }
 
+  @Post('verify-email/resend')
+  resendEmailVerification(
+    @Body() dto: ResendEmailVerificationDto,
+    @Req() request: Request,
+  ) {
+    return this.authService.resendEmailVerification(dto, {
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+  }
+
   @Post('login')
   async login(
     @Body() dto: LoginDto,
@@ -48,6 +62,23 @@ export class AuthController {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
+
+    this.setRefreshCookie(response, result.refreshToken);
+
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+    };
+  }
+
+  @Post('refresh')
+  async refresh(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.refresh(
+      request.cookies?.refreshToken,
+    );
 
     this.setRefreshCookie(response, result.refreshToken);
 

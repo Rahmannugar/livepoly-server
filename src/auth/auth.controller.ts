@@ -33,6 +33,17 @@ export class AuthController {
     });
   }
 
+  private clearRefreshCookie(response: Response) {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    response.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/api/auth/refresh',
+    });
+  }
+
   @Post('register')
   register(@Body() dto: RegisterDto, @Req() request: Request) {
     return this.authService.register(dto, {
@@ -98,5 +109,18 @@ export class AuthController {
       accessToken: result.accessToken,
       user: result.user,
     };
+  }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  async logout(
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const result = await this.authService.logout(request.cookies?.refreshToken);
+
+    this.clearRefreshCookie(response);
+
+    return result;
   }
 }

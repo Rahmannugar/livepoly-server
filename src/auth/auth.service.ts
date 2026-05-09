@@ -352,4 +352,21 @@ export class AuthService {
       },
     };
   }
+
+  async logout(refreshToken: string | undefined) {
+    if (!refreshToken) {
+      return {
+        message: 'User logged out',
+      };
+    }
+
+    const refreshTokenHash = hashToken(refreshToken);
+
+    await this.authRepository.revokeSession(refreshTokenHash);
+    await this.sessionCacheService.deleteSession(refreshTokenHash);
+
+    return {
+      message: 'User logged out',
+    };
+  }
 }

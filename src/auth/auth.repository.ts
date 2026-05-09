@@ -228,4 +228,24 @@ export class AuthRepository {
 
     return session ?? null;
   }
+
+  async revokeSession(refreshTokenHash: string) {
+    const [session] = await this.databaseService.db
+      .update(sessions)
+      .set({
+        revokedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(sessions.refreshTokenHash, refreshTokenHash),
+          isNull(sessions.revokedAt),
+        ),
+      )
+      .returning({
+        id: sessions.id,
+        refreshTokenHash: sessions.refreshTokenHash,
+      });
+
+    return session ?? null;
+  }
 }

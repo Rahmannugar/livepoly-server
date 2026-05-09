@@ -23,6 +23,8 @@ import {
   ResendEmailVerificationDto,
   VerifyEmailDto,
 } from './dto/verify-email.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+
 import {
   generateOpaqueToken,
   generateOtpCode,
@@ -367,6 +369,74 @@ export class AuthService {
 
     return {
       message: 'User logged out',
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto, context: AuthRequestContext) {
+    const email = dto.email.trim().toLowerCase();
+
+    await this.authRateLimitService.enforceForgotPassword(context, email);
+
+    const user = await this.authRepository.findUserByEmail(email);
+
+    if (user) {
+      const otpCode = generateOtpCode();
+
+      await this.otpService.storePasswordResetOtp({
+        userId: user.id,
+        otpCode,
+        ttlSeconds: AUTH.passwordResetOtpTtlMinutes * 60,
+      });
+
+      await this.mailQueueService.enqueuePasswordResetOtp({
+        email: user.email,
+        otpCode,
+      });
+    }
+
+    return {
+      message: 'If the email exists, a password reset code has been sent',
+    };
+  }
+
+  async resetPassword(dto: ResetPasswordDto, context: AuthRequestContext) {
+    const email = dto.email.trim().toLowerCase();
+
+    await this.authRateLimitService.enforceResetPassword(context, email);
+
+    const user = await this.authRepository.findUserByEmail(email);
+
+    if (!user) {
+      throw new BadRequestException('Invalid or expired password reset code');
+    }
+
+    const validOtp = await this.otpService.isValidPasswordResetOtp(
+      user.id,
+      dto.otpCode,
+    );
+
+    if (!validOtp) {
+      throw new BadRequestException('Invalid or expired password reset code');
+    }
+
+    const passwordHash = await hashPassword(dto.password);
+
+    const revokedSessions = await this.databaseService.transaction(
+      async (tx) => {
+        await this.authRepository.updatePassword(user.id, passwordHash, tx);
+        return this.authRepository.revokeUserSessions(user.id, tx);
+      },
+    );
+
+    await Promise.all([
+      this.otpService.deletePasswordResetOtp(user.id),
+      ...revokedSessions.map((session) =>
+        this.sessionCacheService.deleteSession(session.refreshTokenHash),
+      ),
+    ]);
+
+    return {
+      message: 'Password reset successful',
     };
   }
 }

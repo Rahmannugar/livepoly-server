@@ -86,6 +86,38 @@ export class AuthRateLimitService {
     });
   }
 
+  async enforceForgotPassword(context: AuthRequestContext, email: string) {
+    await this.rateLimitService.consume({
+      scope: 'auth:forgot-password:ip',
+      identifier: this.resolveIp(context),
+      limit: 5,
+      windowSeconds: 10 * 60,
+    });
+
+    await this.rateLimitService.consume({
+      scope: 'auth:forgot-password:email',
+      identifier: email,
+      limit: 3,
+      windowSeconds: 30 * 60,
+    });
+  }
+
+  async enforceResetPassword(context: AuthRequestContext, email: string) {
+    await this.rateLimitService.consume({
+      scope: 'auth:reset-password:ip',
+      identifier: this.resolveIp(context),
+      limit: 10,
+      windowSeconds: 10 * 60,
+    });
+
+    await this.rateLimitService.consume({
+      scope: 'auth:reset-password:email',
+      identifier: email,
+      limit: 5,
+      windowSeconds: 15 * 60,
+    });
+  }
+
   private resolveIp(context: AuthRequestContext): string {
     return context.ip || 'unknown';
   }

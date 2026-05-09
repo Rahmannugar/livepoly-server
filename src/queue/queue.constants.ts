@@ -4,4 +4,5 @@ export const QUEUES = {
 
 export const MAIL_JOBS = {
   sendEmailVerificationOtp: 'send-email-verification-otp',
+  sendPasswordResetOtp: 'send-password-reset-otp',
 } as const;

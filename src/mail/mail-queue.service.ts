@@ -3,7 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { MAIL_JOBS, QUEUES } from '../queue/queue.constants';
 
-type SendEmailVerificationOtpInput = {
+type SendOtpInput = {
   email: string;
   otpCode: string;
 };
@@ -12,9 +12,28 @@ type SendEmailVerificationOtpInput = {
 export class MailQueueService {
   constructor(@InjectQueue(QUEUES.mail) private readonly mailQueue: Queue) {}
 
-  async enqueueEmailVerificationOtp(input: SendEmailVerificationOtpInput) {
+  async enqueueEmailVerificationOtp(input: SendOtpInput) {
     await this.mailQueue.add(
       MAIL_JOBS.sendEmailVerificationOtp,
+      {
+        email: input.email,
+        otpCode: input.otpCode,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: true,
+        removeOnFail: 100,
+      },
+    );
+  }
+
+  async enqueuePasswordResetOtp(input: SendOtpInput) {
+    await this.mailQueue.add(
+      MAIL_JOBS.sendPasswordResetOtp,
       {
         email: input.email,
         otpCode: input.otpCode,

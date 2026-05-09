@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, count, eq, gt, isNull, or } from 'drizzle-orm';
+import { and, asc, count, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import {
   DatabaseExecutor,
   DatabaseService,
@@ -229,8 +229,27 @@ export class AuthRepository {
     return session ?? null;
   }
 
-  async revokeSession(refreshTokenHash: string) {
-    const [session] = await this.databaseService.db
+  async updatePassword(
+    userId: string,
+    passwordHash: string,
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    await db
+      .update(users)
+      .set({
+        passwordHash,
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, userId));
+  }
+
+  async revokeSession(refreshTokenHash: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    const [session] = await db
       .update(sessions)
       .set({
         revokedAt: new Date(),
@@ -247,5 +266,22 @@ export class AuthRepository {
       });
 
     return session ?? null;
+  }
+
+  async revokeUserSessions(userId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    const revokedSessions = await db
+      .update(sessions)
+      .set({
+        revokedAt: new Date(),
+      })
+      .where(and(eq(sessions.userId, userId), isNull(sessions.revokedAt)))
+      .returning({
+        id: sessions.id,
+        refreshTokenHash: sessions.refreshTokenHash,
+      });
+
+    return revokedSessions;
   }
 }

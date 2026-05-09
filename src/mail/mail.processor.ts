@@ -4,7 +4,7 @@ import { Job } from 'bullmq';
 import { MAIL_JOBS, QUEUES } from '../queue/queue.constants';
 import { MailService } from './mail.service';
 
-type SendEmailVerificationOtpJob = {
+type MailJob = {
   email: string;
   otpCode: string;
 };
@@ -17,15 +17,23 @@ export class MailProcessor extends WorkerHost {
     super();
   }
 
-  async process(job: Job<SendEmailVerificationOtpJob>) {
-    if (job.name !== MAIL_JOBS.sendEmailVerificationOtp) {
-      this.logger.warn(`Unknown mail job received: ${job.name}`);
+  async process(job: Job<MailJob>) {
+    if (job.name === MAIL_JOBS.sendEmailVerificationOtp) {
+      await this.mailService.sendEmailVerificationOtp(
+        job.data.email,
+        job.data.otpCode,
+      );
       return;
     }
 
-    await this.mailService.sendEmailVerificationOtp(
-      job.data.email,
-      job.data.otpCode,
-    );
+    if (job.name === MAIL_JOBS.sendPasswordResetOtp) {
+      await this.mailService.sendPasswordResetOtp(
+        job.data.email,
+        job.data.otpCode,
+      );
+      return;
+    }
+
+    this.logger.warn(`Unknown mail job received: ${job.name}`);
   }
 }

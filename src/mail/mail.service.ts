@@ -29,4 +29,13 @@ export class MailService {
       text: `Your LivePoly verification code is ${otpCode}. It expires in 15 minutes.`,
     });
   }
+
+  async sendPasswordResetOtp(email: string, otpCode: string) {
+    await this.transporter.sendMail({
+      from: this.configService.getOrThrow<string>('MAIL_FROM'),
+      to: email,
+      subject: 'Reset your LivePoly password',
+      text: `Your LivePoly password reset code is ${otpCode}. It expires in 5 minutes.`,
+    });
+  }
 }

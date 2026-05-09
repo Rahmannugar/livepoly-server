@@ -16,6 +16,7 @@ import {
 } from './dto/verify-email.dto';
 import { AUTH } from './auth.constants';
 import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 
 @Controller('auth')
 export class AuthController {
@@ -122,5 +123,23 @@ export class AuthController {
     this.clearRefreshCookie(response);
 
     return result;
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() request: Request) {
+    return this.authService.forgotPassword(dto, {
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  resetPassword(@Body() dto: ResetPasswordDto, @Req() request: Request) {
+    return this.authService.resetPassword(dto, {
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
   }
 }

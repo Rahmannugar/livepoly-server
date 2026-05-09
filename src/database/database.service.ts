@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres, { Sql } from 'postgres';
 import { schema } from './schema';
+import { sql } from 'drizzle-orm';
 
 type Database = ReturnType<typeof drizzle<typeof schema>>;
 type DatabaseTransaction = Parameters<
@@ -34,6 +35,10 @@ export class DatabaseService implements OnModuleDestroy {
 
   transaction<T>(callback: (tx: DatabaseTransaction) => Promise<T>) {
     return this.db.transaction(callback);
+  }
+
+  async ping(): Promise<void> {
+    await this.db.execute(sql`select 1`);
   }
 
   async onModuleDestroy(): Promise<void> {

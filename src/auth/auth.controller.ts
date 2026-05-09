@@ -1,4 +1,12 @@
-import { Body, Controller, Post, Req, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
@@ -34,6 +42,7 @@ export class AuthController {
   }
 
   @Post('verify-email')
+  @HttpCode(HttpStatus.OK)
   verifyEmail(@Body() dto: VerifyEmailDto, @Req() request: Request) {
     return this.authService.verifyEmail(dto, {
       ip: request.ip,
@@ -42,6 +51,7 @@ export class AuthController {
   }
 
   @Post('verify-email/resend')
+  @HttpCode(HttpStatus.OK)
   resendEmailVerification(
     @Body() dto: ResendEmailVerificationDto,
     @Req() request: Request,
@@ -53,6 +63,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,
     @Req() request: Request,
@@ -72,6 +83,7 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @HttpCode(HttpStatus.OK)
   async refresh(
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,

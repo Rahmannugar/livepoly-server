@@ -1,8 +1,11 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { DatabaseService } from '../database/database.service';
 
 @Controller('health')
 export class HealthController {
-  @Get()
+  constructor(private readonly databaseService: DatabaseService) {}
+
+  @Get('live')
   getHealth() {
     return {
       status: 'ok',
@@ -12,14 +15,21 @@ export class HealthController {
   }
 
   @Get('ready')
-  getReadiness() {
-    return {
-      status: 'ok',
-      service: 'livepoly-server',
-      checks: {
-        app: 'ok',
-      },
-      checkedAt: new Date().toISOString(),
-    };
+  async getReadiness() {
+    try {
+      await this.databaseService.ping();
+
+      return {
+        status: 'ok',
+        service: 'livepoly-server',
+        checks: {
+          app: 'ok',
+          database: 'ok',
+        },
+        checkedAt: new Date().toISOString(),
+      };
+    } catch {
+      throw new ServiceUnavailableException('Service is not ready');
+    }
   }
 }

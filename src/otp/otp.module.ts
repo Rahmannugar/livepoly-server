@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { CacheModule } from '../cache/cache.module';
+import { CacheModule } from '../infra/cache/cache.module';
 import { OtpService } from './otp.service';
 
 @Module({

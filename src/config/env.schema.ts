@@ -21,6 +21,14 @@ const envSchema = z
     SMTP_USER: z.email(),
     SMTP_PASS: z.string().min(1),
     REDIS_URL: z.url(),
+    GOOGLE_OAUTH_CLIENT_ID: z.string().min(1),
+    GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1),
+    GOOGLE_OAUTH_REDIRECT_URI: z.url(),
+    DISCORD_OAUTH_CLIENT_ID: z.string().min(1),
+    DISCORD_OAUTH_CLIENT_SECRET: z.string().min(1),
+    DISCORD_OAUTH_REDIRECT_URI: z.url(),
+    OAUTH_SUCCESS_REDIRECT_URL: z.url(),
+    OAUTH_FAILURE_REDIRECT_URL: z.url(),
   })
   .superRefine((env, ctx) => {
     if (env.NEW_RELIC_ENABLED && !env.NEW_RELIC_LICENSE_KEY) {

@@ -13,6 +13,7 @@ import cookieParser from 'cookie-parser';
 
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix(API_PREFIX);
+  app.getHttpAdapter().getInstance().set('trust proxy', 1);
   app.use(helmet());
   app.enableCors({
     origin: CORS_ORIGINS,

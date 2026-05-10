@@ -3,8 +3,8 @@ import { and, asc, count, eq, gt, isNull, or, sql } from 'drizzle-orm';
 import {
   DatabaseExecutor,
   DatabaseService,
-} from '../database/database.service';
-import { sessions, users } from '../database/schema';
+} from '../infra/database/database.service';
+import { sessions, users } from '../infra/database/schema';
 
 type CreateUserInput = {
   email: string;

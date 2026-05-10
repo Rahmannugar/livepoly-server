@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { CacheService } from '../cache/cache.service';
+import { CacheService } from '../infra/cache/cache.service';
 
 type CachedSession = {
   id: string;

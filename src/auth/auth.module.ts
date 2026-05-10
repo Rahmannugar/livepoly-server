@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { DatabaseModule } from '../database/database.module';
+import { DatabaseModule } from '../infra/database/database.module';
 import { MailModule } from '../mail/mail.module';
 import { AuthController } from './auth.controller';
 import { AuthRepository } from './auth.repository';
@@ -9,6 +9,7 @@ import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { OtpModule } from '../otp/otp.module';
 import { SessionModule } from '../session/session.module';
 import { AuthRateLimitService } from './auth-rate-limit.service';
+import { OAuthStateService } from './oauth-state.service';
 
 @Module({
   imports: [
@@ -20,6 +21,11 @@ import { AuthRateLimitService } from './auth-rate-limit.service';
     JwtModule.register({}),
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthRepository, AuthRateLimitService],
+  providers: [
+    AuthService,
+    AuthRepository,
+    AuthRateLimitService,
+    OAuthStateService,
+  ],
 })
 export class AuthModule {}

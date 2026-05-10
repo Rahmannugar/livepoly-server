@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { CacheService } from '../cache/cache.service';
-import { ObservabilityService } from '../observability/observability.service';
+import { CacheService } from '../infra/cache/cache.service';
+import { ObservabilityService } from '../infra/observability/observability.service';
 import { RateLimitException } from './rate-limit.exception';
 
 type ConsumeRateLimitInput = {

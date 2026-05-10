@@ -1,4 +1,4 @@
-import './observability/newrelic';
+import './infra/observability/newrelic';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
 import { WorkerModule } from './worker.module';

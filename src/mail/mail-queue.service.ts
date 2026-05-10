@@ -1,7 +1,7 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { MAIL_JOBS, QUEUES } from '../queue/queue.constants';
+import { MAIL_JOBS, QUEUES } from '../infra/queue/queue.constants';
 
 type SendOtpInput = {
   email: string;

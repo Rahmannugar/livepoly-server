@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
+import { SignupDto } from './dto/signup.dto';
 import {
   ResendEmailVerificationDto,
   VerifyEmailDto,
@@ -19,7 +19,9 @@ import {
 import { AUTH } from './auth.constants';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
+import { AuthDocs } from './docs/auth.swagger';
 
+@AuthDocs.Controller()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
@@ -47,14 +49,16 @@ export class AuthController {
     });
   }
 
-  @Post('register')
-  register(@Body() dto: RegisterDto, @Req() request: Request) {
-    return this.authService.register(dto, {
+  @AuthDocs.Signup()
+  @Post('signup')
+  signup(@Body() dto: SignupDto, @Req() request: Request) {
+    return this.authService.signup(dto, {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
   }
 
+  @AuthDocs.VerifyEmail()
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   verifyEmail(@Body() dto: VerifyEmailDto, @Req() request: Request) {
@@ -64,6 +68,7 @@ export class AuthController {
     });
   }
 
+  @AuthDocs.ResendEmailVerification()
   @Post('verify-email/resend')
   @HttpCode(HttpStatus.OK)
   resendEmailVerification(
@@ -76,6 +81,7 @@ export class AuthController {
     });
   }
 
+  @AuthDocs.Login()
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -96,6 +102,7 @@ export class AuthController {
     };
   }
 
+  @AuthDocs.Refresh()
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
@@ -114,6 +121,7 @@ export class AuthController {
     };
   }
 
+  @AuthDocs.Logout()
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   async logout(
@@ -127,6 +135,7 @@ export class AuthController {
     return result;
   }
 
+  @AuthDocs.ForgotPassword()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto, @Req() request: Request) {
@@ -136,6 +145,7 @@ export class AuthController {
     });
   }
 
+  @AuthDocs.ResetPassword()
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   resetPassword(@Body() dto: ResetPasswordDto, @Req() request: Request) {
@@ -145,12 +155,14 @@ export class AuthController {
     });
   }
 
+  @AuthDocs.StartGoogleOAuth()
   @Get('oauth/google')
   async startGoogleOAuth(@Res() response: Response) {
     const url = await this.authService.getGoogleOAuthUrl();
     return response.redirect(url);
   }
 
+  @AuthDocs.GoogleOAuthCallback()
   @Get('oauth/google/callback')
   async handleGoogleOAuthCallback(
     @Query('code') code: string | undefined,
@@ -175,12 +187,14 @@ export class AuthController {
     }
   }
 
+  @AuthDocs.StartDiscordOAuth()
   @Get('oauth/discord')
   async startDiscordOAuth(@Res() response: Response) {
     const url = await this.authService.getDiscordOAuthUrl();
     return response.redirect(url);
   }
 
+  @AuthDocs.DiscordOAuthCallback()
   @Get('oauth/discord/callback')
   async handleDiscordOAuthCallback(
     @Query('code') code: string | undefined,

@@ -35,7 +35,21 @@ export function configureApp(app: INestApplication): void {
     .setTitle(API_DOCUMENTATION.title)
     .setDescription(API_DOCUMENTATION.description)
     .setVersion(API_DOCUMENTATION.version)
-    .addBearerAuth()
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        description: 'Access token returned by login or refresh',
+      },
+      'accessToken',
+    )
+    .addCookieAuth('refreshToken', {
+      type: 'apiKey',
+      in: 'cookie',
+      name: 'refreshToken',
+      description: 'HTTP-only refresh token cookie set by login/oauth/refresh',
+    })
     .build();
 
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);

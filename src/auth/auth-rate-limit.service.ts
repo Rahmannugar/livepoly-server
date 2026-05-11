@@ -10,9 +10,9 @@ export type AuthRequestContext = {
 export class AuthRateLimitService {
   constructor(private readonly rateLimitService: RateLimitService) {}
 
-  async enforceRegister(context: AuthRequestContext, email: string) {
+  async enforceSignup(context: AuthRequestContext, email: string) {
     await this.rateLimitService.consume({
-      scope: 'auth:register:ip',
+      scope: 'auth:signup:ip',
       identifier: this.resolveIp(context),
       limit: 5,
       windowSeconds: 10 * 60,
@@ -20,7 +20,7 @@ export class AuthRateLimitService {
     });
 
     await this.rateLimitService.consume({
-      scope: 'auth:register:email',
+      scope: 'auth:signup:email',
       identifier: email,
       limit: 3,
       windowSeconds: 30 * 60,

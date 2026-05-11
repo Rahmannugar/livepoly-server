@@ -1,10 +1,13 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
 import { DatabaseService } from '../infra/database/database.service';
+import { HealthDocs } from './docs/health.swagger';
 
+@HealthDocs.Controller()
 @Controller('health')
 export class HealthController {
   constructor(private readonly databaseService: DatabaseService) {}
 
+  @HealthDocs.Live()
   @Get('live')
   getHealth() {
     return {
@@ -14,6 +17,7 @@ export class HealthController {
     };
   }
 
+  @HealthDocs.Ready()
   @Get('ready')
   async getReadiness() {
     try {

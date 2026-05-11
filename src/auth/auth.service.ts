@@ -19,7 +19,7 @@ import {
 import { AUTH } from './auth.constants';
 import { AuthRepository } from './auth.repository';
 import { LoginDto } from './dto/login.dto';
-import { RegisterDto } from './dto/register.dto';
+import { SignupDto } from './dto/signup.dto';
 import {
   ResendEmailVerificationDto,
   VerifyEmailDto,
@@ -222,11 +222,11 @@ export class AuthService {
     return `player${randomInt(100000, 999999)}`;
   }
 
-  async register(dto: RegisterDto, context: AuthRequestContext) {
+  async signup(dto: SignupDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
     const username = dto.username.trim().toLowerCase();
 
-    await this.authRateLimitService.enforceRegister(context, email);
+    await this.authRateLimitService.enforceSignup(context, email);
 
     const existingUser = await this.authRepository.findUserByEmailOrUsername(
       email,

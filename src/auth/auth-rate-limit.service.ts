@@ -16,6 +16,7 @@ export class AuthRateLimitService {
       identifier: this.resolveIp(context),
       limit: 5,
       windowSeconds: 10 * 60,
+      burstLimit: 3,
     });
 
     await this.rateLimitService.consume({
@@ -23,6 +24,7 @@ export class AuthRateLimitService {
       identifier: email,
       limit: 3,
       windowSeconds: 30 * 60,
+      burstLimit: 2,
     });
   }
 
@@ -32,6 +34,7 @@ export class AuthRateLimitService {
       identifier: this.resolveIp(context),
       limit: 10,
       windowSeconds: 10 * 60,
+      burstLimit: 5,
     });
 
     await this.rateLimitService.consume({
@@ -39,6 +42,7 @@ export class AuthRateLimitService {
       identifier: email,
       limit: 5,
       windowSeconds: 15 * 60,
+      burstLimit: 3,
     });
   }
 
@@ -51,6 +55,7 @@ export class AuthRateLimitService {
       identifier: this.resolveIp(context),
       limit: 3,
       windowSeconds: 10 * 60,
+      burstLimit: 2,
     });
 
     await this.rateLimitService.consume({
@@ -58,6 +63,7 @@ export class AuthRateLimitService {
       identifier: email,
       limit: 2,
       windowSeconds: 15 * 60,
+      burstLimit: 1,
     });
   }
 
@@ -69,6 +75,7 @@ export class AuthRateLimitService {
       identifier: ip,
       limit: 20,
       windowSeconds: 10 * 60,
+      burstLimit: 8,
     });
 
     await this.rateLimitService.consume({
@@ -76,6 +83,7 @@ export class AuthRateLimitService {
       identifier: email,
       limit: 5,
       windowSeconds: 15 * 60,
+      burstLimit: 3,
     });
 
     await this.rateLimitService.consume({
@@ -83,6 +91,7 @@ export class AuthRateLimitService {
       identifier: `${ip}:${email}`,
       limit: 5,
       windowSeconds: 15 * 60,
+      burstLimit: 3,
     });
   }
 
@@ -92,6 +101,7 @@ export class AuthRateLimitService {
       identifier: this.resolveIp(context),
       limit: 5,
       windowSeconds: 10 * 60,
+      burstLimit: 3,
     });
 
     await this.rateLimitService.consume({
@@ -99,6 +109,7 @@ export class AuthRateLimitService {
       identifier: email,
       limit: 3,
       windowSeconds: 30 * 60,
+      burstLimit: 1,
     });
   }
 
@@ -108,6 +119,7 @@ export class AuthRateLimitService {
       identifier: this.resolveIp(context),
       limit: 10,
       windowSeconds: 10 * 60,
+      burstLimit: 5,
     });
 
     await this.rateLimitService.consume({
@@ -115,6 +127,7 @@ export class AuthRateLimitService {
       identifier: email,
       limit: 5,
       windowSeconds: 15 * 60,
+      burstLimit: 3,
     });
   }
 

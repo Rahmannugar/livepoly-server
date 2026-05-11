@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -32,6 +33,7 @@ import {
   hashToken,
   verifyPassword,
 } from './utils/utils';
+import { AuthTokenVersionCacheService } from './auth-token-version-cache.service';
 
 @Injectable()
 export class AuthService {
@@ -44,6 +46,7 @@ export class AuthService {
     private readonly sessionCacheService: SessionCacheService,
     private readonly databaseService: DatabaseService,
     private readonly authRateLimitService: AuthRateLimitService,
+    private readonly authTokenVersionCacheService: AuthTokenVersionCacheService,
   ) {}
 
   async register(dto: RegisterDto, context: AuthRequestContext) {
@@ -238,6 +241,8 @@ export class AuthService {
       ttlSeconds: refreshTtlSeconds,
     });
 
+    await this.authTokenVersionCacheService.set(user.id, user.tokenVersion);
+
     const accessToken = await this.jwtService.signAsync(
       {
         sub: user.id,
@@ -330,6 +335,8 @@ export class AuthService {
       ttlSeconds: AUTH.refreshTokenTtlDays * 24 * 60 * 60,
     });
 
+    await this.authTokenVersionCacheService.set(user.id, user.tokenVersion);
+
     const accessToken = await this.jwtService.signAsync(
       {
         sub: user.id,
@@ -421,15 +428,32 @@ export class AuthService {
 
     const passwordHash = await hashPassword(dto.password);
 
-    const revokedSessions = await this.databaseService.transaction(
-      async (tx) => {
-        await this.authRepository.updatePassword(user.id, passwordHash, tx);
-        return this.authRepository.revokeUserSessions(user.id, tx);
-      },
-    );
+    const { revokedSessions, tokenVersion } =
+      await this.databaseService.transaction(async (tx) => {
+        const updatedUser = await this.authRepository.updatePassword(
+          user.id,
+          passwordHash,
+          tx,
+        );
+
+        if (!updatedUser) {
+          throw new InternalServerErrorException('Failed to update password');
+        }
+
+        const revokedSessions = await this.authRepository.revokeUserSessions(
+          user.id,
+          tx,
+        );
+
+        return {
+          revokedSessions,
+          tokenVersion: updatedUser.tokenVersion,
+        };
+      });
 
     await Promise.all([
       this.otpService.deletePasswordResetOtp(user.id),
+      this.authTokenVersionCacheService.set(user.id, tokenVersion),
       ...revokedSessions.map((session) =>
         this.sessionCacheService.deleteSession(session.refreshTokenHash),
       ),

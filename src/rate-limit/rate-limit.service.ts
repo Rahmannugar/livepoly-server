@@ -98,7 +98,7 @@ export class RateLimitService {
       throw new Error('Invalid rate limit configuration');
     }
 
-    const burstLimit = input.burstLimit ?? input.limit;
+    const burstLimit = input.burstLimit;
 
     if (burstLimit <= 0) {
       throw new Error('Invalid rate limit burst configuration');

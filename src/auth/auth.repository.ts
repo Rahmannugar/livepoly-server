@@ -236,14 +236,19 @@ export class AuthRepository {
   ) {
     const db = this.executor(executor);
 
-    await db
+    const [user] = await db
       .update(users)
       .set({
         passwordHash,
         tokenVersion: sql`${users.tokenVersion} + 1`,
         updatedAt: new Date(),
       })
-      .where(eq(users.id, userId));
+      .where(eq(users.id, userId))
+      .returning({
+        tokenVersion: users.tokenVersion,
+      });
+
+    return user;
   }
 
   async revokeSession(refreshTokenHash: string, executor?: DatabaseExecutor) {

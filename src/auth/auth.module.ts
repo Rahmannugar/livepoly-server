@@ -10,6 +10,7 @@ import { OtpModule } from '../otp/otp.module';
 import { SessionModule } from '../session/session.module';
 import { AuthRateLimitService } from './auth-rate-limit.service';
 import { OAuthStateService } from './oauth-state.service';
+import { AuthTokenVersionCacheService } from './auth-token-version-cache.service';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { OAuthStateService } from './oauth-state.service';
     AuthRepository,
     AuthRateLimitService,
     OAuthStateService,
+    AuthTokenVersionCacheService,
   ],
 })
 export class AuthModule {}

@@ -4,7 +4,8 @@ import {
   DatabaseExecutor,
   DatabaseService,
 } from '../infra/database/database.service';
-import { sessions, users } from '../infra/database/schema';
+import { oauthAccounts, sessions, users } from '../infra/database/schema';
+import { OAuthProvider } from './auth.types';
 
 type CreateUserInput = {
   email: string;
@@ -59,6 +60,122 @@ export class AuthRepository {
     return user ?? null;
   }
 
+  async findUserByUsername(username: string) {
+    const [user] = await this.databaseService.db
+      .select({ id: users.id })
+      .from(users)
+      .where(eq(users.username, username))
+      .limit(1);
+
+    return user ?? null;
+  }
+
+  async findUserByOAuthAccount(
+    provider: OAuthProvider,
+    providerAccountId: string,
+  ) {
+    const [user] = await this.databaseService.db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        tokenVersion: users.tokenVersion,
+        emailVerified: users.emailVerified,
+      })
+      .from(oauthAccounts)
+      .innerJoin(users, eq(oauthAccounts.userId, users.id))
+      .where(
+        and(
+          eq(oauthAccounts.provider, provider),
+          eq(oauthAccounts.providerAccountId, providerAccountId),
+        ),
+      )
+      .limit(1);
+
+    return user ?? null;
+  }
+
+  async linkOAuthAccount(
+    input: {
+      userId: string;
+      provider: OAuthProvider;
+      providerAccountId: string;
+      providerEmail: string;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    await db.insert(oauthAccounts).values({
+      userId: input.userId,
+      provider: input.provider,
+      providerAccountId: input.providerAccountId,
+      providerEmail: input.providerEmail,
+    });
+  }
+
+  async createOAuthUser(
+    input: {
+      email: string;
+      username: string;
+      provider: OAuthProvider;
+      providerAccountId: string;
+      providerEmail: string;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [user] = await db
+      .insert(users)
+      .values({
+        email: input.email,
+        username: input.username,
+        passwordHash: null,
+        emailVerified: true,
+      })
+      .returning({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        tokenVersion: users.tokenVersion,
+        emailVerified: users.emailVerified,
+      });
+
+    await db.insert(oauthAccounts).values({
+      userId: user.id,
+      provider: input.provider,
+      providerAccountId: input.providerAccountId,
+      providerEmail: input.providerEmail,
+    });
+
+    return user;
+  }
+
+  async updateOAuthAccountEmail(
+    input: {
+      provider: OAuthProvider;
+      providerAccountId: string;
+      providerEmail: string;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    await db
+      .update(oauthAccounts)
+      .set({
+        providerEmail: input.providerEmail,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(oauthAccounts.provider, input.provider),
+          eq(oauthAccounts.providerAccountId, input.providerAccountId),
+        ),
+      );
+  }
+
   async createUser(input: CreateUserInput) {
     const [user] = await this.databaseService.db
       .insert(users)
@@ -76,8 +193,10 @@ export class AuthRepository {
     return user;
   }
 
-  async markEmailVerified(userId: string) {
-    await this.databaseService.db
+  async markEmailVerified(userId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    await db
       .update(users)
       .set({
         emailVerified: true,

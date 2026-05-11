@@ -34,6 +34,10 @@ import {
   verifyPassword,
 } from './utils/utils';
 import { AuthTokenVersionCacheService } from './auth-token-version-cache.service';
+import { randomInt } from 'crypto';
+import { OAuthClientService } from './oauth-client.service';
+import { OAuthProfile } from './auth.types';
+import { OAuthStateService } from './oauth-state.service';
 
 @Injectable()
 export class AuthService {
@@ -46,8 +50,177 @@ export class AuthService {
     private readonly sessionCacheService: SessionCacheService,
     private readonly databaseService: DatabaseService,
     private readonly authRateLimitService: AuthRateLimitService,
+    private readonly oauthClientService: OAuthClientService,
+    private readonly oauthStateService: OAuthStateService,
     private readonly authTokenVersionCacheService: AuthTokenVersionCacheService,
   ) {}
+
+  //helpers
+  private async createSessionForUser(
+    user: {
+      id: string;
+      email: string;
+      username: string;
+      tokenVersion: number;
+    },
+    context: AuthRequestContext,
+  ) {
+    const refreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashToken(refreshToken);
+    const refreshExpiresAt = new Date(
+      Date.now() + AUTH.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
+    );
+
+    const { session, revokedSession } =
+      await this.sessionCacheService.withUserSessionLock(user.id, () =>
+        this.databaseService.transaction(async (tx) => {
+          const activeSessions = await this.authRepository.countActiveSessions(
+            user.id,
+            tx,
+          );
+
+          let revokedSession:
+            | { id: string; refreshTokenHash: string }
+            | undefined;
+
+          if (activeSessions >= AUTH.maxActiveSessions) {
+            revokedSession =
+              await this.authRepository.revokeOldestActiveSession(user.id, tx);
+          }
+
+          const session = await this.authRepository.createSession(
+            {
+              userId: user.id,
+              refreshTokenHash,
+              expiresAt: refreshExpiresAt,
+              ipAddress: context.ip,
+              userAgent: context.userAgent,
+            },
+            tx,
+          );
+
+          return { session, revokedSession };
+        }),
+      );
+
+    if (revokedSession) {
+      await this.sessionCacheService.deleteSession(
+        revokedSession.refreshTokenHash,
+      );
+    }
+
+    await Promise.all([
+      this.sessionCacheService.storeSession({
+        session: {
+          id: session.id,
+          userId: session.userId,
+          refreshTokenHash: session.refreshTokenHash,
+          expiresAt: session.expiresAt.toISOString(),
+        },
+        ttlSeconds: AUTH.refreshTokenTtlDays * 24 * 60 * 60,
+      }),
+      this.authTokenVersionCacheService.set(user.id, user.tokenVersion),
+    ]);
+
+    return {
+      refreshToken,
+      sessionId: session.id,
+      user,
+    };
+  }
+
+  private async loginOrCreateOAuthUser(
+    profile: OAuthProfile,
+    context: AuthRequestContext,
+  ) {
+    if (!profile.emailVerified) {
+      throw new UnauthorizedException('OAuth email must be verified');
+    }
+
+    const oauthUser = await this.authRepository.findUserByOAuthAccount(
+      profile.provider,
+      profile.providerAccountId,
+    );
+
+    if (oauthUser) {
+      await this.authRepository.updateOAuthAccountEmail({
+        provider: profile.provider,
+        providerAccountId: profile.providerAccountId,
+        providerEmail: profile.email,
+      });
+
+      return this.createSessionForUser(oauthUser, context);
+    }
+
+    const user = await this.databaseService.transaction(async (tx) => {
+      const emailUser = await this.authRepository.findUserByEmail(
+        profile.email,
+      );
+
+      if (emailUser) {
+        await this.authRepository.linkOAuthAccount(
+          {
+            userId: emailUser.id,
+            provider: profile.provider,
+            providerAccountId: profile.providerAccountId,
+            providerEmail: profile.email,
+          },
+          tx,
+        );
+
+        if (!emailUser.emailVerified) {
+          await this.authRepository.markEmailVerified(emailUser.id, tx);
+        }
+
+        return {
+          id: emailUser.id,
+          email: emailUser.email,
+          username: emailUser.username,
+          tokenVersion: emailUser.tokenVersion,
+        };
+      }
+
+      const username = await this.generateAvailableUsername(
+        profile.usernameSeed,
+      );
+
+      return this.authRepository.createOAuthUser(
+        {
+          email: profile.email,
+          username,
+          provider: profile.provider,
+          providerAccountId: profile.providerAccountId,
+          providerEmail: profile.email,
+        },
+        tx,
+      );
+    });
+
+    return this.createSessionForUser(user, context);
+  }
+
+  private async generateAvailableUsername(seed: string) {
+    const base = seed
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, 20);
+
+    const fallbackBase = base || 'player';
+
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const suffix = attempt === 0 ? '' : `${randomInt(1000, 9999)}`;
+      const username = `${fallbackBase}${suffix}`;
+
+      const existing = await this.authRepository.findUserByUsername(username);
+
+      if (!existing) {
+        return username;
+      }
+    }
+
+    return `player${randomInt(100000, 999999)}`;
+  }
 
   async register(dto: RegisterDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
@@ -185,68 +358,20 @@ export class AuthService {
       throw new BadRequestException('Email verification required');
     }
 
-    const refreshToken = generateOpaqueToken();
-    const refreshTokenHash = hashToken(refreshToken);
-    const refreshExpiresAt = new Date(
-      Date.now() + AUTH.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
-    );
-
-    const { session, revokedSession } =
-      await this.sessionCacheService.withUserSessionLock(user.id, () =>
-        this.databaseService.transaction(async (tx) => {
-          const activeSessions = await this.authRepository.countActiveSessions(
-            user.id,
-            tx,
-          );
-
-          let revokedSession:
-            | { id: string; refreshTokenHash: string }
-            | undefined;
-
-          if (activeSessions >= AUTH.maxActiveSessions) {
-            revokedSession =
-              await this.authRepository.revokeOldestActiveSession(user.id, tx);
-          }
-
-          const session = await this.authRepository.createSession(
-            {
-              userId: user.id,
-              refreshTokenHash,
-              expiresAt: refreshExpiresAt,
-              ipAddress: context.ip,
-              userAgent: context.userAgent,
-            },
-            tx,
-          );
-
-          return { session, revokedSession };
-        }),
-      );
-
-    if (revokedSession) {
-      await this.sessionCacheService.deleteSession(
-        revokedSession.refreshTokenHash,
-      );
-    }
-
-    const refreshTtlSeconds = AUTH.refreshTokenTtlDays * 24 * 60 * 60;
-
-    await this.sessionCacheService.storeSession({
-      session: {
-        id: session.id,
-        userId: session.userId,
-        refreshTokenHash: session.refreshTokenHash,
-        expiresAt: session.expiresAt.toISOString(),
+    const result = await this.createSessionForUser(
+      {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        tokenVersion: user.tokenVersion,
       },
-      ttlSeconds: refreshTtlSeconds,
-    });
-
-    await this.authTokenVersionCacheService.set(user.id, user.tokenVersion);
+      context,
+    );
 
     const accessToken = await this.jwtService.signAsync(
       {
         sub: user.id,
-        sid: session.id,
+        sid: result.sessionId,
         tv: user.tokenVersion,
         email: user.email,
         username: user.username,
@@ -259,7 +384,7 @@ export class AuthService {
 
     return {
       accessToken,
-      refreshToken,
+      refreshToken: result.refreshToken,
       user: {
         id: user.id,
         email: user.email,
@@ -462,5 +587,67 @@ export class AuthService {
     return {
       message: 'Password reset successful',
     };
+  }
+
+  async getGoogleOAuthUrl() {
+    const state = await this.oauthStateService.createState('google');
+    return this.oauthClientService.buildGoogleAuthorizationUrl(state);
+  }
+
+  async getDiscordOAuthUrl() {
+    const state = await this.oauthStateService.createState('discord');
+    return this.oauthClientService.buildDiscordAuthorizationUrl(state);
+  }
+
+  async handleGoogleOAuthCallback(
+    code: string | undefined,
+    state: string | undefined,
+    context: AuthRequestContext,
+  ) {
+    if (!code || !state) {
+      throw new BadRequestException('Invalid OAuth callback');
+    }
+
+    await this.oauthStateService.consumeState('google', state);
+
+    const profile =
+      await this.oauthClientService.exchangeGoogleCodeForProfile(code);
+
+    const result = await this.loginOrCreateOAuthUser(profile, context);
+
+    return {
+      refreshToken: result.refreshToken,
+      redirectUrl: this.configService.getOrThrow<string>(
+        'OAUTH_SUCCESS_REDIRECT_URL',
+      ),
+    };
+  }
+
+  async handleDiscordOAuthCallback(
+    code: string | undefined,
+    state: string | undefined,
+    context: AuthRequestContext,
+  ) {
+    if (!code || !state) {
+      throw new BadRequestException('Invalid OAuth callback');
+    }
+
+    await this.oauthStateService.consumeState('discord', state);
+
+    const profile =
+      await this.oauthClientService.exchangeDiscordCodeForProfile(code);
+
+    const result = await this.loginOrCreateOAuthUser(profile, context);
+
+    return {
+      refreshToken: result.refreshToken,
+      redirectUrl: this.configService.getOrThrow<string>(
+        'OAUTH_SUCCESS_REDIRECT_URL',
+      ),
+    };
+  }
+
+  getOAuthFailureRedirectUrl() {
+    return this.configService.getOrThrow<string>('OAUTH_FAILURE_REDIRECT_URL');
   }
 }

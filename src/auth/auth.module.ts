@@ -11,10 +11,13 @@ import { SessionModule } from '../session/session.module';
 import { AuthRateLimitService } from './auth-rate-limit.service';
 import { OAuthStateService } from './oauth-state.service';
 import { AuthTokenVersionCacheService } from './auth-token-version-cache.service';
+import { OAuthClientService } from './oauth-client.service';
+import { CacheModule } from '../infra/cache/cache.module';
 
 @Module({
   imports: [
     DatabaseModule,
+    CacheModule,
     MailModule,
     RateLimitModule,
     OtpModule,
@@ -27,6 +30,7 @@ import { AuthTokenVersionCacheService } from './auth-token-version-cache.service
     AuthRepository,
     AuthRateLimitService,
     OAuthStateService,
+    OAuthClientService,
     AuthTokenVersionCacheService,
   ],
 })

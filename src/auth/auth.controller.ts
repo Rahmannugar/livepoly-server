@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Req,
   Res,
 } from '@nestjs/common';
@@ -141,5 +143,65 @@ export class AuthController {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
+  }
+
+  @Get('oauth/google')
+  async startGoogleOAuth(@Res() response: Response) {
+    const url = await this.authService.getGoogleOAuthUrl();
+    return response.redirect(url);
+  }
+
+  @Get('oauth/google/callback')
+  async handleGoogleOAuthCallback(
+    @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    try {
+      const result = await this.authService.handleGoogleOAuthCallback(
+        code,
+        state,
+        {
+          ip: request.ip,
+          userAgent: request.headers['user-agent'],
+        },
+      );
+
+      this.setRefreshCookie(response, result.refreshToken);
+      return response.redirect(result.redirectUrl);
+    } catch {
+      return response.redirect(this.authService.getOAuthFailureRedirectUrl());
+    }
+  }
+
+  @Get('oauth/discord')
+  async startDiscordOAuth(@Res() response: Response) {
+    const url = await this.authService.getDiscordOAuthUrl();
+    return response.redirect(url);
+  }
+
+  @Get('oauth/discord/callback')
+  async handleDiscordOAuthCallback(
+    @Query('code') code: string | undefined,
+    @Query('state') state: string | undefined,
+    @Req() request: Request,
+    @Res() response: Response,
+  ) {
+    try {
+      const result = await this.authService.handleDiscordOAuthCallback(
+        code,
+        state,
+        {
+          ip: request.ip,
+          userAgent: request.headers['user-agent'],
+        },
+      );
+
+      this.setRefreshCookie(response, result.refreshToken);
+      return response.redirect(result.redirectUrl);
+    } catch {
+      return response.redirect(this.authService.getOAuthFailureRedirectUrl());
+    }
   }
 }

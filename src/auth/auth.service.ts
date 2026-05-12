@@ -38,6 +38,7 @@ import { randomInt } from 'crypto';
 import { OAuthClientService } from './oauth-client.service';
 import { OAuthProfile } from './auth.types';
 import { OAuthStateService } from './oauth-state.service';
+import { ObservabilityService } from '../infra/observability/observability.service';
 
 @Injectable()
 export class AuthService {
@@ -53,6 +54,7 @@ export class AuthService {
     private readonly oauthClientService: OAuthClientService,
     private readonly oauthStateService: OAuthStateService,
     private readonly authTokenVersionCacheService: AuthTokenVersionCacheService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   //helpers
@@ -134,6 +136,12 @@ export class AuthService {
     context: AuthRequestContext,
   ) {
     if (!profile.emailVerified) {
+      this.recordSecurityEvent('OAuthFailed', {
+        provider: profile.provider,
+        reason: 'email_unverified',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new UnauthorizedException('OAuth email must be verified');
     }
 
@@ -222,9 +230,24 @@ export class AuthService {
     return `player${randomInt(100000, 999999)}`;
   }
 
+  private recordSecurityEvent(
+    eventName: string,
+    attributes: Record<
+      string,
+      string | number | boolean | null | undefined
+    > = {},
+  ) {
+    this.observabilityService.recordSecurityEvent(eventName, attributes);
+  }
+
+  //public methods
   async signup(dto: SignupDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
     const username = dto.username.trim().toLowerCase();
+
+    this.recordSecurityEvent('SignupRequested', {
+      hasIp: Boolean(context.ip),
+    });
 
     await this.authRateLimitService.enforceSignup(context, email);
 
@@ -234,6 +257,11 @@ export class AuthService {
     );
 
     if (existingUser) {
+      this.recordSecurityEvent('SignupFailed', {
+        reason: 'email_or_username_exists',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new ConflictException('Email or username already exists');
     }
 
@@ -257,6 +285,11 @@ export class AuthService {
       otpCode,
     });
 
+    this.recordSecurityEvent('SignupSucceeded', {
+      userId: user.id,
+      hasIp: Boolean(context.ip),
+    });
+
     return {
       message: 'Verification code sent',
     };
@@ -270,10 +303,21 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
+      this.recordSecurityEvent('EmailVerificationFailed', {
+        reason: 'user_not_found',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new NotFoundException('User not found');
     }
 
     if (user.emailVerified) {
+      this.recordSecurityEvent('EmailVerificationSucceeded', {
+        userId: user.id,
+        alreadyVerified: true,
+        hasIp: Boolean(context.ip),
+      });
+
       return {
         message: 'Email already verified',
       };
@@ -285,11 +329,23 @@ export class AuthService {
     );
 
     if (!verified) {
+      this.recordSecurityEvent('EmailVerificationFailed', {
+        reason: 'invalid_otp',
+        userId: user.id,
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Invalid or expired verification code');
     }
 
     await this.authRepository.markEmailVerified(user.id);
     await this.otpService.deleteEmailVerificationOtp(user.id);
+
+    this.recordSecurityEvent('EmailVerificationSucceeded', {
+      userId: user.id,
+      alreadyVerified: false,
+      hasIp: Boolean(context.ip),
+    });
 
     return {
       message: 'Email verified',
@@ -310,10 +366,21 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
+      this.recordSecurityEvent('EmailVerificationResendFailed', {
+        reason: 'user_not_found',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new NotFoundException('User not found');
     }
 
     if (user.emailVerified) {
+      this.recordSecurityEvent('EmailVerificationResendFailed', {
+        reason: 'already_verified',
+        userId: user.id,
+        hasIp: Boolean(context.ip),
+      });
+
       return {
         message: 'Email already verified',
       };
@@ -332,6 +399,11 @@ export class AuthService {
       otpCode,
     });
 
+    this.recordSecurityEvent('EmailVerificationResent', {
+      userId: user.id,
+      hasIp: Boolean(context.ip),
+    });
+
     return {
       message: 'Verification code sent',
     };
@@ -345,16 +417,33 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user?.passwordHash) {
+      this.recordSecurityEvent('LoginFailed', {
+        reason: 'invalid_credentials',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Invalid email or password');
     }
 
     const passwordValid = await verifyPassword(user.passwordHash, dto.password);
 
     if (!passwordValid) {
+      this.recordSecurityEvent('LoginFailed', {
+        reason: 'invalid_credentials',
+        userId: user.id,
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Invalid email or password');
     }
 
     if (!user.emailVerified) {
+      this.recordSecurityEvent('LoginFailed', {
+        reason: 'email_unverified',
+        userId: user.id,
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Email verification required');
     }
 
@@ -382,6 +471,11 @@ export class AuthService {
       },
     );
 
+    this.recordSecurityEvent('LoginSucceeded', {
+      userId: user.id,
+      hasIp: Boolean(context.ip),
+    });
+
     return {
       accessToken,
       refreshToken: result.refreshToken,
@@ -395,6 +489,10 @@ export class AuthService {
 
   async refresh(refreshToken: string | undefined) {
     if (!refreshToken) {
+      this.recordSecurityEvent('RefreshFailed', {
+        reason: 'missing_refresh_token',
+      });
+
       throw new UnauthorizedException('Refresh token required');
     }
 
@@ -411,6 +509,10 @@ export class AuthService {
       ));
 
     if (!session) {
+      this.recordSecurityEvent('RefreshFailed', {
+        reason: 'invalid_session',
+      });
+
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -419,6 +521,11 @@ export class AuthService {
     );
 
     if (!user?.emailVerified) {
+      this.recordSecurityEvent('RefreshFailed', {
+        reason: 'invalid_user',
+        userId: session.userId,
+      });
+
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -445,6 +552,11 @@ export class AuthService {
     );
 
     if (!rotatedSession) {
+      this.recordSecurityEvent('RefreshFailed', {
+        reason: 'rotation_failed',
+        userId: user.id,
+      });
+
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -476,6 +588,10 @@ export class AuthService {
       },
     );
 
+    this.recordSecurityEvent('RefreshSucceeded', {
+      userId: user.id,
+    });
+
     return {
       accessToken,
       refreshToken: nextRefreshToken,
@@ -489,6 +605,10 @@ export class AuthService {
 
   async logout(refreshToken: string | undefined) {
     if (!refreshToken) {
+      this.recordSecurityEvent('LogoutSucceeded', {
+        hasRefreshToken: false,
+      });
+
       return {
         message: 'User logged out',
       };
@@ -498,6 +618,10 @@ export class AuthService {
 
     await this.authRepository.revokeSession(refreshTokenHash);
     await this.sessionCacheService.deleteSession(refreshTokenHash);
+
+    this.recordSecurityEvent('LogoutSucceeded', {
+      hasRefreshToken: true,
+    });
 
     return {
       message: 'User logged out',
@@ -526,6 +650,11 @@ export class AuthService {
       });
     }
 
+    this.recordSecurityEvent('PasswordResetRequested', {
+      userExists: Boolean(user),
+      hasIp: Boolean(context.ip),
+    });
+
     return {
       message: 'If the email exists, a password reset code has been sent',
     };
@@ -539,6 +668,11 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
+      this.recordSecurityEvent('PasswordResetFailed', {
+        reason: 'user_not_found',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Invalid or expired password reset code');
     }
 
@@ -548,6 +682,12 @@ export class AuthService {
     );
 
     if (!validOtp) {
+      this.recordSecurityEvent('PasswordResetFailed', {
+        reason: 'invalid_otp',
+        userId: user.id,
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Invalid or expired password reset code');
     }
 
@@ -562,6 +702,12 @@ export class AuthService {
         );
 
         if (!updatedUser) {
+          this.recordSecurityEvent('PasswordResetFailed', {
+            reason: 'password_update_failed',
+            userId: user.id,
+            hasIp: Boolean(context.ip),
+          });
+
           throw new InternalServerErrorException('Failed to update password');
         }
 
@@ -584,17 +730,31 @@ export class AuthService {
       ),
     ]);
 
+    this.recordSecurityEvent('PasswordResetSucceeded', {
+      userId: user.id,
+      revokedSessionCount: revokedSessions.length,
+      hasIp: Boolean(context.ip),
+    });
+
     return {
       message: 'Password reset successful',
     };
   }
 
   async getGoogleOAuthUrl() {
+    this.recordSecurityEvent('OAuthStartRequested', {
+      provider: 'google',
+    });
+
     const state = await this.oauthStateService.createState('google');
     return this.oauthClientService.buildGoogleAuthorizationUrl(state);
   }
 
   async getDiscordOAuthUrl() {
+    this.recordSecurityEvent('OAuthStartRequested', {
+      provider: 'discord',
+    });
+
     const state = await this.oauthStateService.createState('discord');
     return this.oauthClientService.buildDiscordAuthorizationUrl(state);
   }
@@ -605,6 +765,12 @@ export class AuthService {
     context: AuthRequestContext,
   ) {
     if (!code || !state) {
+      this.recordSecurityEvent('OAuthFailed', {
+        provider: 'google',
+        reason: 'invalid_callback',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Invalid OAuth callback');
     }
 
@@ -614,6 +780,11 @@ export class AuthService {
       await this.oauthClientService.exchangeGoogleCodeForProfile(code);
 
     const result = await this.loginOrCreateOAuthUser(profile, context);
+
+    this.recordSecurityEvent('OAuthSucceeded', {
+      provider: 'google',
+      hasIp: Boolean(context.ip),
+    });
 
     return {
       refreshToken: result.refreshToken,
@@ -629,6 +800,12 @@ export class AuthService {
     context: AuthRequestContext,
   ) {
     if (!code || !state) {
+      this.recordSecurityEvent('OAuthFailed', {
+        provider: 'discord',
+        reason: 'invalid_callback',
+        hasIp: Boolean(context.ip),
+      });
+
       throw new BadRequestException('Invalid OAuth callback');
     }
 
@@ -638,6 +815,11 @@ export class AuthService {
       await this.oauthClientService.exchangeDiscordCodeForProfile(code);
 
     const result = await this.loginOrCreateOAuthUser(profile, context);
+
+    this.recordSecurityEvent('OAuthSucceeded', {
+      provider: 'discord',
+      hasIp: Boolean(context.ip),
+    });
 
     return {
       refreshToken: result.refreshToken,

@@ -2,6 +2,7 @@ import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../../infra/database/database.service';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 import { MailQueueService } from '../../mail/mail-queue.service';
 import { OtpService } from '../../otp/otp.service';
 import { SessionCacheService } from '../../session/session-cache.service';
@@ -173,6 +174,13 @@ type DatabaseServiceMock = {
   transaction<T>(callback: (tx: Executor) => Promise<T>): Promise<T>;
 };
 
+type ObservabilityServiceMock = {
+  recordSecurityEvent: jest.Mock<
+    void,
+    [string, Record<string, string | number | boolean | null | undefined>?]
+  >;
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -186,6 +194,7 @@ describe('AuthService', () => {
   let authTokenVersionCacheService: AuthTokenVersionCacheServiceMock;
   let oauthClientService: OAuthClientServiceMock;
   let oauthStateService: OAuthStateServiceMock;
+  let observabilityService: ObservabilityServiceMock;
 
   const tx: Executor = Symbol('tx');
 
@@ -377,19 +386,13 @@ describe('AuthService', () => {
         _userId: string,
         callback: () => Promise<T>,
       ) => callback(),
-      storeSession: jest.fn<Promise<void>, [unknown]>(
-        async () => undefined,
-      ),
-      deleteSession: jest.fn<Promise<void>, [string]>(
-        async () => undefined,
-      ),
+      storeSession: jest.fn<Promise<void>, [unknown]>(async () => undefined),
+      deleteSession: jest.fn<Promise<void>, [string]>(async () => undefined),
       getSession: jest.fn<Promise<unknown>, [string]>(async () => null),
     };
 
     authTokenVersionCacheService = {
-      set: jest.fn<Promise<void>, [string, number]>(
-        async () => undefined,
-      ),
+      set: jest.fn<Promise<void>, [string, number]>(async () => undefined),
       get: jest.fn<Promise<number | null>, [string]>(async () => null),
       delete: jest.fn<Promise<void>, [string]>(async () => undefined),
     };
@@ -446,6 +449,13 @@ describe('AuthService', () => {
       enforceResetPassword: jest.fn(async () => undefined),
     };
 
+    observabilityService = {
+      recordSecurityEvent: jest.fn<
+        void,
+        [string, Record<string, string | number | boolean | null | undefined>?]
+      >(),
+    };
+
     service = new AuthService(
       authRepository as unknown as AuthRepository,
       mailQueueService as unknown as MailQueueService,
@@ -458,6 +468,7 @@ describe('AuthService', () => {
       oauthClientService as unknown as OAuthClientService,
       oauthStateService as unknown as OAuthStateService,
       authTokenVersionCacheService as unknown as AuthTokenVersionCacheService,
+      observabilityService as unknown as ObservabilityService,
     );
   });
 

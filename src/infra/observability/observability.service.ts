@@ -7,9 +7,34 @@ type RateLimitExceededInput = {
   retryAfterSeconds: number;
 };
 
+type SecurityEventAttributes = Record<
+  string,
+  string | number | boolean | null | undefined
+>;
+
 @Injectable()
 export class ObservabilityService {
   private readonly enabled = process.env.NEW_RELIC_ENABLED === 'true';
+
+  recordSecurityEvent(
+    eventName: string,
+    attributes: SecurityEventAttributes = {},
+  ): void {
+    if (!this.enabled) {
+      return;
+    }
+
+    const newrelic = require('newrelic');
+
+    newrelic.recordCustomEvent(
+      eventName,
+      Object.fromEntries(
+        Object.entries(attributes).filter(([, value]) => value !== undefined),
+      ),
+    );
+
+    newrelic.incrementMetric(`Custom/Security/${eventName}`);
+  }
 
   recordRateLimitExceeded(input: RateLimitExceededInput): void {
     if (!this.enabled) {

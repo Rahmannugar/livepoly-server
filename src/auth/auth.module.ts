@@ -13,6 +13,7 @@ import { OAuthStateService } from './oauth-state.service';
 import { AuthTokenVersionCacheService } from './auth-token-version-cache.service';
 import { OAuthClientService } from './oauth-client.service';
 import { CacheModule } from '../infra/cache/cache.module';
+import { ObservabilityModule } from '../infra/observability/observability.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { CacheModule } from '../infra/cache/cache.module';
     CacheModule,
     MailModule,
     RateLimitModule,
+    ObservabilityModule,
     OtpModule,
     SessionModule,
     JwtModule.register({}),

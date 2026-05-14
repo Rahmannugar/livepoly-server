@@ -8,19 +8,22 @@ import {
   Param,
   Patch,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import type { Request } from 'express';
-import { Req } from '@nestjs/common';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
+import { UsersDocs } from './docs/users.swagger';
 
+@UsersDocs.Controller()
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @UsersDocs.GetMe()
   @UseGuards(AuthGuard)
   @Get('me')
   @HttpCode(HttpStatus.OK)
@@ -31,6 +34,7 @@ export class UsersController {
     });
   }
 
+  @UsersDocs.UpdateMe()
   @UseGuards(AuthGuard)
   @Patch('me')
   @HttpCode(HttpStatus.OK)
@@ -45,6 +49,7 @@ export class UsersController {
     });
   }
 
+  @UsersDocs.DeleteMe()
   @UseGuards(AuthGuard)
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -58,6 +63,7 @@ export class UsersController {
     });
   }
 
+  @UsersDocs.GetByUsername()
   @Get(':username')
   @HttpCode(HttpStatus.OK)
   getByUsername(@Param('username') username: string, @Req() request: Request) {

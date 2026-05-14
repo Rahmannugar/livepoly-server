@@ -176,6 +176,7 @@ export class UsersService {
         this.sessionCacheService.deleteSession(session.refreshTokenHash),
       ),
     );
+    
     await this.usersQueueService.enqueueDeletedUserCleanup({
       userId: user.id,
       email: user.email,

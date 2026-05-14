@@ -10,6 +10,7 @@ export class UsersProcessor extends WorkerHost {
   constructor(private readonly mailQueueService: MailQueueService) {
     super();
   }
+  
   private readonly logger = new Logger(UsersProcessor.name);
 
   async process(job: Job<DeletedUserCleanupJob>) {

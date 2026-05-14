@@ -14,6 +14,7 @@ import { AuthTokenVersionCacheService } from './auth-token-version-cache.service
 import { OAuthClientService } from './oauth-client.service';
 import { CacheModule } from '../infra/cache/cache.module';
 import { ObservabilityModule } from '../infra/observability/observability.module';
+import { AuthGuard } from './guards/auth.guard';
 
 @Module({
   imports: [
@@ -34,6 +35,8 @@ import { ObservabilityModule } from '../infra/observability/observability.module
     OAuthStateService,
     OAuthClientService,
     AuthTokenVersionCacheService,
+    AuthGuard,
   ],
+  exports: [AuthGuard],
 })
 export class AuthModule {}

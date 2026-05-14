@@ -283,6 +283,7 @@ export class AuthRepository {
         username: users.username,
         tokenVersion: users.tokenVersion,
         emailVerified: users.emailVerified,
+        deletedAt: users.deletedAt,
       })
       .from(users)
       .where(eq(users.id, userId))

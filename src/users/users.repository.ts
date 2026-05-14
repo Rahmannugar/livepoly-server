@@ -103,7 +103,9 @@ export class UsersRepository {
       .where(and(eq(users.id, userId), isNull(users.deletedAt)))
       .returning({
         id: users.id,
+        email: users.email,
         username: users.username,
+        avatarObjectKey: users.avatarObjectKey,
       });
 
     return user ?? null;

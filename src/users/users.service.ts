@@ -12,6 +12,11 @@ import { AuthRepository } from '../auth/auth.repository';
 import type { AuthUser } from '../auth/types/auth-user.type';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersRepository } from './users.repository';
+import {
+  UsersRateLimitService,
+  UsersRequestContext,
+} from './users-rate-limit.service';
+import { UsersQueueService } from './users-queue.service';
 
 @Injectable()
 export class UsersService {
@@ -22,9 +27,13 @@ export class UsersService {
     private readonly databaseService: DatabaseService,
     private readonly configService: ConfigService,
     private readonly observabilityService: ObservabilityService,
+    private readonly usersRateLimitService: UsersRateLimitService,
+    private readonly usersQueueService: UsersQueueService,
   ) {}
 
-  async getMe(authUser: AuthUser) {
+  async getMe(authUser: AuthUser, context: UsersRequestContext) {
+    await this.usersRateLimitService.enforceGetMe(authUser, context);
+
     const user = await this.usersRepository.findActiveUserById(authUser.id);
 
     if (!user) {
@@ -45,7 +54,13 @@ export class UsersService {
     return this.toPrivateProfile(user);
   }
 
-  async updateMe(authUser: AuthUser, dto: UpdateUserDto) {
+  async updateMe(
+    authUser: AuthUser,
+    dto: UpdateUserDto,
+    context: UsersRequestContext,
+  ) {
+    await this.usersRateLimitService.enforceUpdateMe(authUser, context);
+
     const username = dto.username?.trim().toLowerCase();
     const bio = dto.bio === undefined ? undefined : dto.bio.trim() || null;
 
@@ -118,7 +133,12 @@ export class UsersService {
     return this.toPrivateProfile(user);
   }
 
-  async deleteMe(authUser: AuthUser): Promise<void> {
+  async deleteMe(
+    authUser: AuthUser,
+    context: UsersRequestContext,
+  ): Promise<void> {
+    await this.usersRateLimitService.enforceDeleteMe(authUser, context);
+
     this.recordSecurityEvent('UserDeleteRequested', {
       userId: authUser.id,
       username: authUser.username,
@@ -156,6 +176,13 @@ export class UsersService {
         this.sessionCacheService.deleteSession(session.refreshTokenHash),
       ),
     );
+    await this.usersQueueService.enqueueDeletedUserCleanup({
+      userId: user.id,
+      email: user.email,
+      username: user.username,
+      avatarObjectKey: user.avatarObjectKey,
+      deletedAt: new Date().toISOString(),
+    });
 
     this.recordSecurityEvent('UserDeleted', {
       userId: authUser.id,
@@ -163,7 +190,8 @@ export class UsersService {
     });
   }
 
-  async getByUsername(username: string) {
+  async getByUsername(username: string, context: UsersRequestContext) {
+    await this.usersRateLimitService.enforceGetPublicProfile(context);
     const normalizedUsername = username.trim().toLowerCase();
     const user =
       await this.usersRepository.findActiveUserByUsername(normalizedUsername);

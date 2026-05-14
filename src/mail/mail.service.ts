@@ -38,4 +38,17 @@ export class MailService {
       text: `Your LivePoly password reset code is ${otpCode}. It expires in 5 minutes.`,
     });
   }
+
+  async sendAccountDeletedEmail(email: string, username: string) {
+    await this.transporter.sendMail({
+      from: this.configService.getOrThrow<string>('MAIL_FROM'),
+      to: email,
+      subject: 'Your LivePoly account was deleted',
+      text: `Hello ${username},
+
+Your LivePoly account has been deleted.
+
+If this was not you, please contact support immediately.`,
+    });
+  }
 }

@@ -8,6 +8,11 @@ type SendOtpInput = {
   otpCode: string;
 };
 
+type SendAccountDeletedEmailInput = {
+  email: string;
+  username: string;
+};
+
 @Injectable()
 export class MailQueueService {
   constructor(@InjectQueue(QUEUES.mail) private readonly mailQueue: Queue) {}
@@ -37,6 +42,25 @@ export class MailQueueService {
       {
         email: input.email,
         otpCode: input.otpCode,
+      },
+      {
+        attempts: 3,
+        backoff: {
+          type: 'exponential',
+          delay: 5000,
+        },
+        removeOnComplete: true,
+        removeOnFail: 100,
+      },
+    );
+  }
+
+  async enqueueAccountDeletedEmail(input: SendAccountDeletedEmailInput) {
+    await this.mailQueue.add(
+      MAIL_JOBS.sendAccountDeletedEmail,
+      {
+        email: input.email,
+        username: input.username,
       },
       {
         attempts: 3,

@@ -6,17 +6,28 @@ import { SessionModule } from '../session/session.module';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
-import { JwtModule } from '@nestjs/jwt';
+import { RateLimitModule } from 'src/rate-limit/rate-limit.module';
+import { UsersRateLimitService } from './users-rate-limit.service';
+import { BullModule } from '@nestjs/bullmq';
+import { QUEUES } from '../infra/queue/queue.constants';
+import { UsersQueueService } from './users-queue.service';
 
 @Module({
   imports: [
+    BullModule.registerQueue({ name: QUEUES.users }),
     DatabaseModule,
     AuthModule,
     SessionModule,
     ObservabilityModule,
-    JwtModule,
+    RateLimitModule,
   ],
   controllers: [UsersController],
-  providers: [UsersService, UsersRepository],
+  providers: [
+    UsersService,
+    UsersRepository,
+    UsersRateLimitService,
+    UsersQueueService,
+  ],
+  exports: [UsersQueueService],
 })
 export class UsersModule {}

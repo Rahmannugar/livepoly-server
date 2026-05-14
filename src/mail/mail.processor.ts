@@ -18,11 +18,25 @@ export class MailProcessor extends WorkerHost {
   }
 
   async process(job: Job<MailJob>) {
+    this.logger.log({
+      message: 'Mail job started',
+      jobId: job.id,
+      jobName: job.name,
+      attemptsMade: job.attemptsMade,
+    });
+
     if (job.name === MAIL_JOBS.sendEmailVerificationOtp) {
       await this.mailService.sendEmailVerificationOtp(
         job.data.email,
         job.data.otpCode,
       );
+
+      this.logger.log({
+        message: 'Email verification OTP sent',
+        jobId: job.id,
+        jobName: job.name,
+      });
+
       return;
     }
 
@@ -31,9 +45,20 @@ export class MailProcessor extends WorkerHost {
         job.data.email,
         job.data.otpCode,
       );
+
+      this.logger.log({
+        message: 'Password reset OTP sent',
+        jobId: job.id,
+        jobName: job.name,
+      });
+
       return;
     }
 
-    this.logger.warn(`Unknown mail job received: ${job.name}`);
+    this.logger.warn({
+      message: 'Unknown mail job received',
+      jobId: job.id,
+      jobName: job.name,
+    });
   }
 }

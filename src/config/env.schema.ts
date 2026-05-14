@@ -29,6 +29,12 @@ const envSchema = z
     DISCORD_OAUTH_REDIRECT_URI: z.url(),
     OAUTH_SUCCESS_REDIRECT_URL: z.url(),
     OAUTH_FAILURE_REDIRECT_URL: z.url(),
+    R2_PUBLIC_BASE_URL: z.url(),
+    R2_ACCOUNT_ID: z.string().min(1),
+    R2_ACCESS_KEY_ID: z.string().min(1),
+    R2_SECRET_ACCESS_KEY: z.string().min(1),
+    R2_AVATAR_MAX_BYTES: z.coerce.number().int().positive().default(10485760),
+    R2_BUCKET_NAME: z.string().min(1),
   })
   .superRefine((env, ctx) => {
     if (env.NEW_RELIC_ENABLED && !env.NEW_RELIC_LICENSE_KEY) {

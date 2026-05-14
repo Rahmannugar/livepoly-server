@@ -363,27 +363,30 @@ export class AuthService {
       email,
     );
 
+    const genericResponse = {
+      message:
+        'If the email belongs to a Livepoly account that requires verification, a code will be sent',
+    };
+
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
-      this.recordSecurityEvent('EmailVerificationResendFailed', {
+      this.recordSecurityEvent('EmailVerificationResendSkipped', {
         reason: 'user_not_found',
         hasIp: Boolean(context.ip),
       });
 
-      throw new NotFoundException('User not found');
+      return genericResponse;
     }
 
     if (user.emailVerified) {
-      this.recordSecurityEvent('EmailVerificationResendFailed', {
+      this.recordSecurityEvent('EmailVerificationResendSkipped', {
         reason: 'already_verified',
         userId: user.id,
         hasIp: Boolean(context.ip),
       });
 
-      return {
-        message: 'Email already verified',
-      };
+      return genericResponse;
     }
 
     const otpCode = generateOtpCode();
@@ -404,9 +407,7 @@ export class AuthService {
       hasIp: Boolean(context.ip),
     });
 
-    return {
-      message: 'Verification code sent',
-    };
+    return genericResponse;
   }
 
   async login(dto: LoginDto, context: AuthRequestContext) {

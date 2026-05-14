@@ -37,6 +37,6 @@ import { AuthGuard } from './guards/auth.guard';
     AuthTokenVersionCacheService,
     AuthGuard,
   ],
-  exports: [AuthGuard],
+  exports: [AuthGuard, AuthRepository],
 })
 export class AuthModule {}

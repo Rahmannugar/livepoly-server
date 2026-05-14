@@ -6,6 +6,7 @@ import { HealthModule } from './health/health.module';
 import { AuthModule } from './auth/auth.module';
 import { MailModule } from './mail/mail.module';
 import { QueueModule } from './infra/queue/queue.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { QueueModule } from './infra/queue/queue.module';
     QueueModule,
     MailModule,
     AuthModule,
+    UsersModule,
   ],
 })
 export class AppModule {}

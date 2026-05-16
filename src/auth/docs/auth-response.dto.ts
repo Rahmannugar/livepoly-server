@@ -27,28 +27,12 @@ export class AuthTokenDataDto {
   user: AuthUserResponseDto;
 }
 
-export class MessageDataDto {
-  @ApiProperty({ example: 'Verification code sent' })
-  message: string;
-}
-
 export class AuthTokenResponseDto {
   @ApiProperty({ example: true })
   success: boolean;
 
   @ApiProperty({ type: AuthTokenDataDto })
   data: AuthTokenDataDto;
-
-  @ApiProperty({ type: ResponseMetaDto })
-  meta: ResponseMetaDto;
-}
-
-export class MessageResponseDto {
-  @ApiProperty({ example: true })
-  success: boolean;
-
-  @ApiProperty({ type: MessageDataDto })
-  data: MessageDataDto;
 
   @ApiProperty({ type: ResponseMetaDto })
   meta: ResponseMetaDto;

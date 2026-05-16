@@ -20,7 +20,7 @@ export class StorageService {
     return this.storageClient.getObjectMetadata(objectKey);
   }
 
-  async getObjectBytes(objectKey: string, byteRange: string) {
+  getObjectBytes(objectKey: string, byteRange: string) {
     return this.storageClient.getObjectBytes(objectKey, byteRange);
   }
 

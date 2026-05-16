@@ -16,7 +16,42 @@ import {
   ResendEmailVerificationDto,
   VerifyEmailDto,
 } from '../dto/verify-email.dto';
-import { AuthTokenResponseDto, MessageResponseDto } from './auth-response.dto';
+import { AuthTokenResponseDto } from './auth-response.dto';
+
+const messageResponseSchema = (message: string) => ({
+  schema: {
+    example: {
+      success: true,
+      data: { message },
+      meta: {
+        statusCode: 200,
+        requestId: 'b0a45b42-6cd4-4c33-a8b4-f969cba8aed0',
+      },
+    },
+    properties: {
+      success: { type: 'boolean', example: true },
+      data: {
+        type: 'object',
+        properties: {
+          message: { type: 'string', example: message },
+        },
+        required: ['message'],
+      },
+      meta: {
+        type: 'object',
+        properties: {
+          statusCode: { type: 'number', example: 200 },
+          requestId: {
+            type: 'string',
+            example: 'b0a45b42-6cd4-4c33-a8b4-f969cba8aed0',
+          },
+        },
+        required: ['statusCode', 'requestId'],
+      },
+    },
+    required: ['success', 'data', 'meta'],
+  },
+});
 
 export const AuthDocs = {
   Controller: () => applyDecorators(ApiTags('Auth')),
@@ -40,7 +75,7 @@ export const AuthDocs = {
       ApiResponse({
         status: HttpStatus.CREATED,
         description: 'Verification code sent',
-        type: MessageResponseDto,
+        ...messageResponseSchema('Verification code sent'),
       }),
       ApiResponse({
         status: HttpStatus.CONFLICT,
@@ -63,7 +98,10 @@ export const AuthDocs = {
           },
         },
       }),
-      ApiOkResponse({ type: MessageResponseDto }),
+      ApiOkResponse({
+        description: 'Email verified',
+        ...messageResponseSchema('Email verified'),
+      }),
     ),
 
   ResendEmailVerification: () =>
@@ -80,7 +118,13 @@ export const AuthDocs = {
           },
         },
       }),
-      ApiOkResponse({ type: MessageResponseDto }),
+      ApiOkResponse({
+        description:
+          'If this email belongs to a LivePoly account, a verification code will be sent',
+        ...messageResponseSchema(
+          'If this email belongs to a LivePoly account, a verification code will be sent',
+        ),
+      }),
     ),
 
   Login: () =>
@@ -118,7 +162,10 @@ export const AuthDocs = {
     applyDecorators(
       ApiOperation({ summary: 'Logout current refresh session' }),
       ApiCookieAuth('refreshToken'),
-      ApiOkResponse({ type: MessageResponseDto }),
+      ApiOkResponse({
+        description: 'User logged out',
+        ...messageResponseSchema('User logged out'),
+      }),
     ),
 
   ForgotPassword: () =>
@@ -135,7 +182,13 @@ export const AuthDocs = {
           },
         },
       }),
-      ApiOkResponse({ type: MessageResponseDto }),
+      ApiOkResponse({
+        description:
+          'If this email belongs to a LivePoly account, a password reset code will be sent',
+        ...messageResponseSchema(
+          'If this email belongs to a LivePoly account, a password reset code will be sent',
+        ),
+      }),
     ),
 
   ResetPassword: () =>
@@ -154,7 +207,10 @@ export const AuthDocs = {
           },
         },
       }),
-      ApiOkResponse({ type: MessageResponseDto }),
+      ApiOkResponse({
+        description: 'Password reset successful',
+        ...messageResponseSchema('Password reset successful'),
+      }),
     ),
 
   StartGoogleOAuth: () =>

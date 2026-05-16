@@ -10,3 +10,12 @@ export type CreateOutboxEventInput = {
   payload: unknown;
   maxAttempts?: number;
 };
+
+export type OutboxEvent = {
+  id: string;
+  key: string;
+  topic: string;
+  payload: unknown;
+  attempts: number;
+  maxAttempts: number;
+};

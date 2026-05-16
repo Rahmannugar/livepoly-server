@@ -4,6 +4,7 @@ import { AppConfigModule } from './config/app-config.module';
 import { DatabaseModule } from './infra/database/database.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { MailWorkerModule } from './mail/jobs/mail-worker.module';
+import { OutboxWorkerModule } from './outbox/outbox-worker.module';
 import { UsersWorkerModule } from './users/jobs/users-worker.module';
 
 @Module({
@@ -14,6 +15,7 @@ import { UsersWorkerModule } from './users/jobs/users-worker.module';
     QueueModule,
     MailWorkerModule,
     UsersWorkerModule,
+    OutboxWorkerModule,
   ],
 })
 export class WorkerModule {}

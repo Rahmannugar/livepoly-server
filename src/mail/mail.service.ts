@@ -1,28 +1,16 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import nodemailer, { Transporter } from 'nodemailer';
+import { Inject, Injectable } from '@nestjs/common';
+import { MAIL_CLIENT } from './mail.types';
+import type { MailClient } from './mail.types';
 
 @Injectable()
 export class MailService {
-  private readonly transporter: Transporter;
-
-  constructor(private readonly configService: ConfigService) {
-    const smtpPort = this.configService.getOrThrow<number>('SMTP_PORT');
-
-    this.transporter = nodemailer.createTransport({
-      host: this.configService.getOrThrow<string>('SMTP_HOST'),
-      port: smtpPort,
-      secure: smtpPort === 465,
-      auth: {
-        user: this.configService.getOrThrow<string>('SMTP_USER'),
-        pass: this.configService.getOrThrow<string>('SMTP_PASS'),
-      },
-    });
-  }
+  constructor(
+    @Inject(MAIL_CLIENT)
+    private readonly mailClient: MailClient,
+  ) {}
 
   async sendEmailVerificationOtp(email: string, otpCode: string) {
-    await this.transporter.sendMail({
-      from: this.configService.getOrThrow<string>('MAIL_FROM'),
+    await this.mailClient.sendMail({
       to: email,
       subject: 'Verify your LivePoly account',
       text: `Your LivePoly verification code is ${otpCode}. It expires in 15 minutes.`,
@@ -30,8 +18,7 @@ export class MailService {
   }
 
   async sendPasswordResetOtp(email: string, otpCode: string) {
-    await this.transporter.sendMail({
-      from: this.configService.getOrThrow<string>('MAIL_FROM'),
+    await this.mailClient.sendMail({
       to: email,
       subject: 'Reset your LivePoly password',
       text: `Your LivePoly password reset code is ${otpCode}. It expires in 5 minutes.`,
@@ -39,8 +26,7 @@ export class MailService {
   }
 
   async sendAccountDeletedEmail(email: string, username: string) {
-    await this.transporter.sendMail({
-      from: this.configService.getOrThrow<string>('MAIL_FROM'),
+    await this.mailClient.sendMail({
       to: email,
       subject: 'Your LivePoly account was deleted',
       text: `Hello ${username},

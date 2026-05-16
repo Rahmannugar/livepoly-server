@@ -16,7 +16,7 @@ import {
   UsersRateLimitService,
   UsersRequestContext,
 } from './users-rate-limit.service';
-import { UsersQueueService } from './users-queue.service';
+import { UsersQueueService } from './jobs/users-queue.service';
 
 @Injectable()
 export class UsersService {

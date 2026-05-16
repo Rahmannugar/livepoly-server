@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
-import { MailQueueService } from '../../mail/mail-queue.service';
+import { MailQueueService } from '../../mail/jobs/mail-queue.service';
 import { OtpService } from '../../otp/otp.service';
 import { SessionCacheService } from '../../session/session-cache.service';
 import { AuthRateLimitService } from '../auth-rate-limit.service';

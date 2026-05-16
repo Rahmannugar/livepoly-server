@@ -1,16 +1,16 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { QUEUES, USER_JOBS } from '../infra/queue/queue.constants';
-import type { DeletedUserCleanupJob } from './users-queue.service';
-import { MailQueueService } from '../mail/mail-queue.service';
+import { MailQueueService } from '../../mail/jobs/mail-queue.service';
+import { QUEUES, USER_JOBS } from '../../infra/queue/queue.constants';
+import type { DeletedUserCleanupJob } from './users-jobs.types';
 
 @Processor(QUEUES.users)
 export class UsersProcessor extends WorkerHost {
   constructor(private readonly mailQueueService: MailQueueService) {
     super();
   }
-  
+
   private readonly logger = new Logger(UsersProcessor.name);
 
   async process(job: Job<DeletedUserCleanupJob>) {

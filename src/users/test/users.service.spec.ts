@@ -6,7 +6,7 @@ import { SessionCacheService } from '../../session/session-cache.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { UsersRateLimitService } from '../users-rate-limit.service';
-import { UsersQueueService } from '../users-queue.service';
+import { UsersQueueService } from '../jobs/users-queue.service';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { ConfigService } from '@nestjs/config';
 

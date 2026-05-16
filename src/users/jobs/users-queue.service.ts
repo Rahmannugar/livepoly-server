@@ -1,15 +1,8 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { QUEUES, USER_JOBS } from '../infra/queue/queue.constants';
-
-export type DeletedUserCleanupJob = {
-  userId: string;
-  email: string;
-  username: string;
-  avatarObjectKey: string | null;
-  deletedAt: string;
-};
+import { QUEUES, USER_JOBS } from '../../infra/queue/queue.constants';
+import type { DeletedUserCleanupJob } from './users-jobs.types';
 
 @Injectable()
 export class UsersQueueService {

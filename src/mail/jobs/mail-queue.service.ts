@@ -1,23 +1,17 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable } from '@nestjs/common';
 import { Queue } from 'bullmq';
-import { MAIL_JOBS, QUEUES } from '../infra/queue/queue.constants';
-
-type SendOtpInput = {
-  email: string;
-  otpCode: string;
-};
-
-type SendAccountDeletedEmailInput = {
-  email: string;
-  username: string;
-};
+import { MAIL_JOBS, QUEUES } from '../../infra/queue/queue.constants';
+import type {
+  SendAccountDeletedMailJob,
+  SendOtpMailJob,
+} from './mail-jobs.types';
 
 @Injectable()
 export class MailQueueService {
   constructor(@InjectQueue(QUEUES.mail) private readonly mailQueue: Queue) {}
 
-  async enqueueEmailVerificationOtp(input: SendOtpInput) {
+  async enqueueEmailVerificationOtp(input: SendOtpMailJob) {
     await this.mailQueue.add(
       MAIL_JOBS.sendEmailVerificationOtp,
       {
@@ -36,7 +30,7 @@ export class MailQueueService {
     );
   }
 
-  async enqueuePasswordResetOtp(input: SendOtpInput) {
+  async enqueuePasswordResetOtp(input: SendOtpMailJob) {
     await this.mailQueue.add(
       MAIL_JOBS.sendPasswordResetOtp,
       {
@@ -55,7 +49,7 @@ export class MailQueueService {
     );
   }
 
-  async enqueueAccountDeletedEmail(input: SendAccountDeletedEmailInput) {
+  async enqueueAccountDeletedEmail(input: SendAccountDeletedMailJob) {
     await this.mailQueue.add(
       MAIL_JOBS.sendAccountDeletedEmail,
       {

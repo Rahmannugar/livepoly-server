@@ -1,18 +1,9 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { MAIL_JOBS, QUEUES } from '../infra/queue/queue.constants';
-import { MailService } from './mail.service';
-
-type MailJob =
-  | {
-      email: string;
-      otpCode: string;
-    }
-  | {
-      email: string;
-      username: string;
-    };
+import { MAIL_JOBS, QUEUES } from '../../infra/queue/queue.constants';
+import { MailService } from '../mail.service';
+import type { MailJob } from './mail-jobs.types';
 
 @Processor(QUEUES.mail)
 export class MailProcessor extends WorkerHost {

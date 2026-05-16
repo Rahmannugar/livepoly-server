@@ -68,22 +68,8 @@
     {
       "idx": 9,
       "version": "7",
-      "when": 1778904324858,
-      "tag": "0009_condemned_gressill",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1778916162172,
-      "tag": "0010_sparkling_dust",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1778944810096,
-      "tag": "0011_robust_cable",
+      "when": 1778949891845,
+      "tag": "0009_add_jobs_outbox_user_media_and_room_indexes",
       "breakpoints": true
     }
   ]

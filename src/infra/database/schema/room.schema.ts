@@ -88,11 +88,9 @@ export const roomPlayers = pgTable(
       table.roomId,
       table.id,
     ),
-    uniqueIndex('room_players_room_user_unique_idx').on(
-      table.roomId,
-      table.userId,
-    ),
-    // Historical rows remain, but only one currently joined player can occupy a seat.
+    uniqueIndex('room_players_active_room_user_unique_idx')
+      .on(table.roomId, table.userId)
+      .where(sql`${table.status} = 'joined' and ${table.userId} is not null`),
     uniqueIndex('room_players_active_room_seat_unique_idx')
       .on(table.roomId, table.seatNumber)
       .where(sql`${table.status} = 'joined'`),
@@ -140,10 +138,9 @@ export const roomSpectators = pgTable(
     leftAt: timestamp('left_at', { withTimezone: true }),
   },
   (table) => [
-    uniqueIndex('room_spectators_room_user_unique_idx').on(
-      table.roomId,
-      table.userId,
-    ),
+    uniqueIndex('room_spectators_active_room_user_unique_idx')
+      .on(table.roomId, table.userId)
+      .where(sql`${table.leftAt} is null`),
     index('room_spectators_room_id_idx').on(table.roomId),
     index('room_spectators_user_id_idx').on(table.userId),
   ],

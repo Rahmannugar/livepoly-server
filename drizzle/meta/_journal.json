@@ -71,6 +71,13 @@
       "when": 1778904324858,
       "tag": "0009_condemned_gressill",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1778916162172,
+      "tag": "0010_sparkling_dust",
+      "breakpoints": true
     }
   ]
 }

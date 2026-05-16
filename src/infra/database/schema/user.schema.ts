@@ -134,3 +134,38 @@ export const playerStats = pgTable(
     check('player_stats_total_rent_paid_chk', sql`${table.totalRentPaid} >= 0`),
   ],
 );
+
+export const userAvatarUploads = pgTable(
+  TABLE_NAMES.userAvatarUploads,
+  {
+    id: id(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    objectKey: text('object_key').notNull(),
+    contentType: text('content_type').notNull(),
+    contentLength: integer('content_length').notNull(),
+    status: text('status').notNull().default('pending'),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+    cleanedUpAt: timestamp('cleaned_up_at', { withTimezone: true }),
+    expiredAt: timestamp('expired_at', { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (table) => [
+    uniqueIndex('user_avatar_uploads_object_key_unique_idx').on(
+      table.objectKey,
+    ),
+    index('user_avatar_uploads_user_status_idx').on(table.userId, table.status),
+    index('user_avatar_uploads_expires_at_idx').on(table.expiresAt),
+    check(
+      'user_avatar_uploads_status_chk',
+      sql`${table.status} in ('pending', 'confirmed', 'cleaned_up', 'expired')`,
+    ),
+    check(
+      'user_avatar_uploads_content_length_chk',
+      sql`${table.contentLength} > 0`,
+    ),
+  ],
+);

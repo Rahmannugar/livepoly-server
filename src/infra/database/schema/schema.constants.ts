@@ -14,4 +14,5 @@ export const TABLE_NAMES = {
   notifications: 'notifications',
   pushSubscriptions: 'push_subscriptions',
   jobs: 'jobs',
+  userAvatarUploads: 'user_avatar_uploads',
 } as const;

@@ -41,10 +41,12 @@ export class UsersProfileRepository {
     const [user] = await this.databaseService.db
       .select({
         id: users.id,
+        email: users.email,
         username: users.username,
         bio: users.bio,
         avatarObjectKey: users.avatarObjectKey,
         createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
       })
       .from(users)
       .where(and(eq(users.username, username), isNull(users.deletedAt)))

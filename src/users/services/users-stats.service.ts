@@ -5,11 +5,7 @@ import { UsersStatsRepository } from '../repositories/users-stats.repository';
 export class UsersStatsService {
   constructor(private readonly usersStatsRepository: UsersStatsRepository) {}
 
-  async getPublicStats(userId: string) {
-    return this.usersStatsRepository.getStats(userId);
-  }
-
-  async getPrivateStats(userId: string) {
+  async getStats(userId: string) {
     return this.usersStatsRepository.getStats(userId);
   }
 }

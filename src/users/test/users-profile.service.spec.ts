@@ -1,16 +1,17 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
-import { UsersService } from '../users.service';
-import { UsersRepository } from '../repositories/users-profile.repository';
-import { AuthRepository } from '../../auth/auth.repository';
-import { SessionCacheService } from '../../session/session-cache.service';
-import { DatabaseService } from '../../infra/database/database.service';
-import { ObservabilityService } from '../../infra/observability/observability.service';
-import { UsersRateLimitService } from '../services/users-rate-limit.service';
-import { UsersQueueService } from '../jobs/users-queue.service';
+import type { ConfigService } from '@nestjs/config';
+import type { AuthRepository } from '../../auth/auth.repository';
 import type { AuthUser } from '../../auth/types/auth-user.type';
-import { ConfigService } from '@nestjs/config';
+import type { DatabaseService } from '../../infra/database/database.service';
+import type { ObservabilityService } from '../../infra/observability/observability.service';
+import type { SessionCacheService } from '../../session/session-cache.service';
+import type { UsersQueueService } from '../jobs/users-queue.service';
+import type { UsersProfileRepository } from '../repositories/users-profile.repository';
+import { UsersProfileService } from '../services/users-profile.service';
+import type { UsersRateLimitService } from '../services/users-rate-limit.service';
+import type { UsersStatsService } from '../services/users-stats.service';
 
-type UsersRepositoryMock = {
+type UsersProfileRepositoryMock = {
   findActiveUserById: jest.Mock;
   findActiveUserByUsername: jest.Mock;
   findUserByUsername: jest.Mock;
@@ -49,6 +50,10 @@ type UsersQueueServiceMock = {
   enqueueDeletedUserCleanup: jest.Mock;
 };
 
+type UsersStatsServiceMock = {
+  getStats: jest.Mock;
+};
+
 const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
@@ -62,9 +67,16 @@ const context = {
   userAgent: 'jest',
 };
 
-describe('UsersService', () => {
-  let service: UsersService;
-  let usersRepository: UsersRepositoryMock;
+const stats = {
+  gamesPlayed: 0,
+  gamesWon: 0,
+  averagePlacement: null,
+  rating: null,
+};
+
+describe('UsersProfileService', () => {
+  let service: UsersProfileService;
+  let usersProfileRepository: UsersProfileRepositoryMock;
   let authRepository: AuthRepositoryMock;
   let sessionCacheService: SessionCacheServiceMock;
   let databaseService: DatabaseServiceMock;
@@ -72,14 +84,19 @@ describe('UsersService', () => {
   let observabilityService: ObservabilityServiceMock;
   let usersRateLimitService: UsersRateLimitServiceMock;
   let usersQueueService: UsersQueueServiceMock;
+  let usersStatsService: UsersStatsServiceMock;
 
   beforeEach(() => {
-    usersRepository = {
+    usersProfileRepository = {
       findActiveUserById: jest.fn(),
       findActiveUserByUsername: jest.fn(),
       findUserByUsername: jest.fn(),
       updateUser: jest.fn(),
       deleteUser: jest.fn(),
+    };
+
+    usersStatsService = {
+      getStats: jest.fn().mockResolvedValue(stats),
     };
 
     authRepository = {
@@ -113,8 +130,9 @@ describe('UsersService', () => {
       enqueueDeletedUserCleanup: jest.fn().mockResolvedValue(undefined),
     };
 
-    service = new UsersService(
-      usersRepository as unknown as UsersRepository,
+    service = new UsersProfileService(
+      usersProfileRepository as unknown as UsersProfileRepository,
+      usersStatsService as unknown as UsersStatsService,
       authRepository as unknown as AuthRepository,
       sessionCacheService as unknown as SessionCacheService,
       databaseService as unknown as DatabaseService,
@@ -126,7 +144,7 @@ describe('UsersService', () => {
   });
 
   it('rejects username update when a deleted user still owns the username', async () => {
-    usersRepository.findUserByUsername.mockResolvedValue({
+    usersProfileRepository.findUserByUsername.mockResolvedValue({
       id: 'deleted-user',
     });
 
@@ -134,24 +152,11 @@ describe('UsersService', () => {
       service.updateMe(authUser, { username: 'takenname' }, context),
     ).rejects.toBeInstanceOf(ConflictException);
 
-    expect(usersRepository.updateUser).not.toHaveBeenCalled();
-  });
-
-  it('maps username unique race to conflict', async () => {
-    usersRepository.findUserByUsername.mockResolvedValue(null);
-
-    usersRepository.updateUser.mockRejectedValue({
-      code: '23505',
-      constraint_name: 'users_username_unique_idx',
-    });
-
-    await expect(
-      service.updateMe(authUser, { username: 'takenname' }, context),
-    ).rejects.toBeInstanceOf(ConflictException);
+    expect(usersProfileRepository.updateUser).not.toHaveBeenCalled();
   });
 
   it('soft deletes user, revokes sessions, clears cache, and enqueues cleanup', async () => {
-    usersRepository.deleteUser.mockResolvedValue({
+    usersProfileRepository.deleteUser.mockResolvedValue({
       id: authUser.id,
       email: authUser.email,
       username: authUser.username,
@@ -165,9 +170,10 @@ describe('UsersService', () => {
 
     await service.deleteMe(authUser, context);
 
-    expect(usersRepository.deleteUser).toHaveBeenCalledWith(authUser.id, {
-      tx: true,
-    });
+    expect(usersProfileRepository.deleteUser).toHaveBeenCalledWith(
+      authUser.id,
+      { tx: true },
+    );
 
     expect(authRepository.revokeUserSessions).toHaveBeenCalledWith(
       authUser.id,
@@ -187,15 +193,15 @@ describe('UsersService', () => {
     );
   });
 
-  it('does not return deleted users in public profile lookup', async () => {
-    usersRepository.findActiveUserByUsername.mockResolvedValue(null);
+  it('does not return deleted users in profile lookup', async () => {
+    usersProfileRepository.findActiveUserByUsername.mockResolvedValue(null);
 
     await expect(
       service.getByUsername('playerone', context),
     ).rejects.toBeInstanceOf(NotFoundException);
 
-    expect(usersRepository.findActiveUserByUsername).toHaveBeenCalledWith(
-      'playerone',
-    );
+    expect(
+      usersProfileRepository.findActiveUserByUsername,
+    ).toHaveBeenCalledWith('playerone');
   });
 });

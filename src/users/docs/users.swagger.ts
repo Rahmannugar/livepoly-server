@@ -16,8 +16,7 @@ import {
 import { UpdateUserDto } from '../dto/update-user.dto';
 import {
   AvatarUploadUrlResponseDto,
-  PrivateUserProfileResponseDto,
-  PublicUserProfileResponseDto,
+  UserProfileResponseDto,
 } from './users-response.dto';
 
 export const UsersDocs = {
@@ -27,7 +26,7 @@ export const UsersDocs = {
     applyDecorators(
       ApiBearerAuth('accessToken'),
       ApiOperation({ summary: 'Get current authenticated user profile' }),
-      ApiOkResponse({ type: PrivateUserProfileResponseDto }),
+      ApiOkResponse({ type: UserProfileResponseDto }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,
         description: 'Authentication required',
@@ -54,7 +53,7 @@ export const UsersDocs = {
           },
         },
       }),
-      ApiOkResponse({ type: PrivateUserProfileResponseDto }),
+      ApiOkResponse({ type: UserProfileResponseDto }),
       ApiResponse({
         status: HttpStatus.BAD_REQUEST,
         description: 'Invalid or empty profile update',
@@ -131,7 +130,7 @@ export const UsersDocs = {
           },
         },
       }),
-      ApiOkResponse({ type: PrivateUserProfileResponseDto }),
+      ApiOkResponse({ type: UserProfileResponseDto }),
       ApiResponse({
         status: HttpStatus.BAD_REQUEST,
         description: 'Avatar object is invalid or was not uploaded',
@@ -149,7 +148,7 @@ export const UsersDocs = {
         name: 'username',
         example: 'rahmannugar',
       }),
-      ApiOkResponse({ type: PublicUserProfileResponseDto }),
+      ApiOkResponse({ type: UserProfileResponseDto }),
       ApiResponse({
         status: HttpStatus.NOT_FOUND,
         description: 'User not found',

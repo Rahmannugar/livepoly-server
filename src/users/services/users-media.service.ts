@@ -9,24 +9,24 @@ import type { AuthUser } from '../../auth/types/auth-user.type';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { StorageService } from '../../infra/storage/storage.service';
 import {
-  ALLOWED_AVATAR_CONTENT_TYPES,
   ConfirmAvatarUploadDto,
   CreateAvatarUploadUrlDto,
 } from '../dto/avatar.dto';
 import { UsersQueueService } from '../jobs/users-queue.service';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
+import { USER_AVATAR } from '../users.constants';
+import type { UserAvatarContentType } from '../users.constants';
 import {
   UsersRateLimitService,
   UsersRequestContext,
 } from './users-rate-limit.service';
-
-const MAX_AVATAR_BYTES = 10 * 1024 * 1024;
-const AVATAR_UPLOAD_EXPIRES_IN_SECONDS = 10 * 60;
+import { UsersStatsService } from './users-stats.service';
 
 @Injectable()
 export class UsersMediaService {
   constructor(
     private readonly usersProfileRepository: UsersProfileRepository,
+    private readonly usersStatsService: UsersStatsService,
     private readonly usersRateLimitService: UsersRateLimitService,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
@@ -61,7 +61,7 @@ export class UsersMediaService {
     return {
       uploadUrl,
       objectKey,
-      expiresInSeconds: AVATAR_UPLOAD_EXPIRES_IN_SECONDS,
+      expiresInSeconds: USER_AVATAR.uploadExpiresInSeconds,
     };
   }
 
@@ -104,7 +104,10 @@ export class UsersMediaService {
       throw new BadRequestException('Avatar file type is not allowed');
     }
 
-    if (!metadata.contentLength || metadata.contentLength > MAX_AVATAR_BYTES) {
+    if (
+      !metadata.contentLength ||
+      metadata.contentLength > USER_AVATAR.maxBytes
+    ) {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
         username: authUser.username,
@@ -155,6 +158,8 @@ export class UsersMediaService {
       });
     }
 
+    const stats = await this.usersStatsService.getStats(user.id);
+
     this.recordSecurityEvent('UserAvatarUpdated', {
       userId: user.id,
       username: user.username,
@@ -167,6 +172,7 @@ export class UsersMediaService {
       username: user.username,
       bio: user.bio,
       avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),
+      stats,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
@@ -182,9 +188,9 @@ export class UsersMediaService {
 
   private isAllowedAvatarContentType(
     contentType: string | null,
-  ): contentType is (typeof ALLOWED_AVATAR_CONTENT_TYPES)[number] {
-    return ALLOWED_AVATAR_CONTENT_TYPES.includes(
-      contentType as (typeof ALLOWED_AVATAR_CONTENT_TYPES)[number],
+  ): contentType is UserAvatarContentType {
+    return USER_AVATAR.allowedContentTypes.includes(
+      contentType as UserAvatarContentType,
     );
   }
 
@@ -199,7 +205,7 @@ export class UsersMediaService {
     return false;
   }
 
-  private avatarExtensionForContentType(contentType: string) {
+  private avatarExtensionForContentType(contentType: UserAvatarContentType) {
     if (contentType === 'image/jpeg') return 'jpg';
     if (contentType === 'image/png') return 'png';
 

@@ -51,14 +51,13 @@ export class UsersProfileService {
       throw new NotFoundException('User not found');
     }
 
-    const stats = await this.usersStatsService.getPublicStats(user.id);
+    const stats = await this.usersStatsService.getStats(user.id);
 
     this.recordSecurityEvent('PublicProfileViewed', {
       targetUserId: user.id,
       targetUsername: user.username,
     });
-
-    return this.toPublicProfile(user, stats);
+    return this.profile(user, stats);
   }
 
   async getMe(authUser: AuthUser, context: UsersRequestContext) {
@@ -78,14 +77,14 @@ export class UsersProfileService {
       throw new NotFoundException('User not found');
     }
 
-    const stats = await this.usersStatsService.getPrivateStats(user.id);
+    const stats = await this.usersStatsService.getStats(user.id);
 
     this.recordSecurityEvent('UserProfileViewed', {
       userId: user.id,
       username: user.username,
     });
 
-    return this.toPrivateProfile(user, stats);
+    return this.profile(user, stats);
   }
 
   async updateMe(
@@ -144,14 +143,14 @@ export class UsersProfileService {
         throw new NotFoundException('User not found');
       }
 
-      const stats = await this.usersStatsService.getPrivateStats(user.id);
+      const stats = await this.usersStatsService.getStats(user.id);
 
       this.recordSecurityEvent('UserProfileUpdated', {
         userId: user.id,
         username: user.username,
       });
 
-      return this.toPrivateProfile(user, stats);
+      return this.profile(user, stats);
     } catch (error) {
       if (this.isUsernameUniqueViolation(error)) {
         this.recordSecurityEvent('UserProfileUpdateFailed', {
@@ -228,7 +227,7 @@ export class UsersProfileService {
     });
   }
 
-  private toPrivateProfile(
+  private profile(
     user: {
       id: string;
       email: string;
@@ -238,7 +237,7 @@ export class UsersProfileService {
       createdAt: Date;
       updatedAt: Date;
     },
-    stats: Awaited<ReturnType<UsersStatsService['getPrivateStats']>>,
+    stats: Awaited<ReturnType<UsersStatsService['getStats']>>,
   ) {
     return {
       id: user.id,
@@ -249,26 +248,6 @@ export class UsersProfileService {
       stats,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
-    };
-  }
-
-  private toPublicProfile(
-    user: {
-      id: string;
-      username: string;
-      bio: string | null;
-      avatarObjectKey: string | null;
-      createdAt: Date;
-    },
-    stats: Awaited<ReturnType<UsersStatsService['getPublicStats']>>,
-  ) {
-    return {
-      id: user.id,
-      username: user.username,
-      bio: user.bio,
-      avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),
-      stats,
-      createdAt: user.createdAt,
     };
   }
 

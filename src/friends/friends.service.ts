@@ -12,6 +12,8 @@ import {
   FriendsRequestContext,
 } from './friends-rate-limit.service';
 import { FriendsRepository } from './friends.repository';
+import { DatabaseService } from '../infra/database/database.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class FriendsService {
@@ -19,6 +21,8 @@ export class FriendsService {
     private readonly friendsRepository: FriendsRepository,
     private readonly friendsRateLimitService: FriendsRateLimitService,
     private readonly observabilityService: ObservabilityService,
+    private readonly databaseService: DatabaseService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async sendRequest(
@@ -49,12 +53,35 @@ export class FriendsService {
     if (existing) {
       throw new ConflictException('Friendship already exists');
     }
+    const requester = await this.friendsRepository.findActiveUserById(
+      authUser.id,
+    );
+
+    if (!requester) {
+      throw new NotFoundException('User not found');
+    }
 
     try {
-      const friendship = await this.friendsRepository.createFriendRequest(
-        authUser.id,
-        addressee.id,
-      );
+      const friendship = await this.databaseService.transaction(async (tx) => {
+        const created = await this.friendsRepository.createFriendRequest(
+          authUser.id,
+          addressee.id,
+          tx,
+        );
+
+        await this.notificationsService.createFriendRequestNotification(
+          {
+            userId: addressee.id,
+            requesterId: requester.id,
+            requesterUsername: requester.username,
+            requesterAvatarObjectKey: requester.avatarObjectKey,
+            friendshipId: created.id,
+          },
+          tx,
+        );
+
+        return created;
+      });
 
       this.recordSecurityEvent('FriendRequestSent', {
         userId: authUser.id,
@@ -79,11 +106,38 @@ export class FriendsService {
     context: FriendsRequestContext,
   ) {
     await this.friendsRateLimitService.enforceFriendMutation(authUser, context);
-
-    const friendship = await this.friendsRepository.acceptFriendRequest(
-      friendshipId,
+    const accepter = await this.friendsRepository.findActiveUserById(
       authUser.id,
     );
+
+    if (!accepter) {
+      throw new NotFoundException('User not found');
+    }
+
+    const friendship = await this.databaseService.transaction(async (tx) => {
+      const accepted = await this.friendsRepository.acceptFriendRequest(
+        friendshipId,
+        authUser.id,
+        tx,
+      );
+
+      if (!accepted) {
+        return null;
+      }
+
+      await this.notificationsService.createFriendAcceptedNotification(
+        {
+          userId: accepted.requesterId,
+          friendId: accepter.id,
+          friendUsername: accepter.username,
+          friendAvatarObjectKey: accepter.avatarObjectKey,
+          friendshipId: accepted.id,
+        },
+        tx,
+      );
+
+      return accepted;
+    });
 
     if (!friendship) {
       throw new NotFoundException('Friend request not found');

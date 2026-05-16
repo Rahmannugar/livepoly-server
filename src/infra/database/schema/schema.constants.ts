@@ -15,4 +15,5 @@ export const TABLE_NAMES = {
   pushSubscriptions: 'push_subscriptions',
   jobs: 'jobs',
   userAvatarUploads: 'user_avatar_uploads',
+  outboxEvents: 'outbox_events',
 } as const;

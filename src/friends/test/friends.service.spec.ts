@@ -1,11 +1,14 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
+import type { NotificationsService } from '../../notifications/notifications.service';
 import type { FriendsRateLimitService } from '../friends-rate-limit.service';
 import type { FriendsRepository } from '../friends.repository';
 import { FriendsService } from '../friends.service';
 
 type FriendsRepositoryMock = {
+  findActiveUserById: jest.Mock;
   findActiveUserByUsername: jest.Mock;
   findFriendshipBetween: jest.Mock;
   createFriendRequest: jest.Mock;
@@ -27,6 +30,15 @@ type ObservabilityServiceMock = {
   recordSecurityEvent: jest.Mock;
 };
 
+type DatabaseServiceMock = {
+  transaction: jest.Mock;
+};
+
+type NotificationsServiceMock = {
+  createFriendRequestNotification: jest.Mock;
+  createFriendAcceptedNotification: jest.Mock;
+};
+
 const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
@@ -45,9 +57,13 @@ describe('FriendsService', () => {
   let friendsRepository: FriendsRepositoryMock;
   let friendsRateLimitService: FriendsRateLimitServiceMock;
   let observabilityService: ObservabilityServiceMock;
+  let databaseService: DatabaseServiceMock;
+  let notificationsService: NotificationsServiceMock;
+  const tx = { tx: true };
 
   beforeEach(() => {
     friendsRepository = {
+      findActiveUserById: jest.fn(),
       findActiveUserByUsername: jest.fn(),
       findFriendshipBetween: jest.fn(),
       createFriendRequest: jest.fn(),
@@ -69,10 +85,23 @@ describe('FriendsService', () => {
       recordSecurityEvent: jest.fn(),
     };
 
+    databaseService = {
+      transaction: jest.fn(
+        async (callback: (tx: unknown) => Promise<unknown>) => callback(tx),
+      ),
+    };
+
+    notificationsService = {
+      createFriendRequestNotification: jest.fn().mockResolvedValue(undefined),
+      createFriendAcceptedNotification: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new FriendsService(
       friendsRepository as unknown as FriendsRepository,
       friendsRateLimitService as unknown as FriendsRateLimitService,
       observabilityService as unknown as ObservabilityService,
+      databaseService as unknown as DatabaseService,
+      notificationsService as unknown as NotificationsService,
     );
   });
 
@@ -83,6 +112,9 @@ describe('FriendsService', () => {
 
     expect(friendsRepository.findActiveUserByUsername).not.toHaveBeenCalled();
     expect(friendsRepository.createFriendRequest).not.toHaveBeenCalled();
+    expect(
+      notificationsService.createFriendRequestNotification,
+    ).not.toHaveBeenCalled();
   });
 
   it('rejects duplicate existing friendship', async () => {
@@ -105,6 +137,96 @@ describe('FriendsService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(friendsRepository.createFriendRequest).not.toHaveBeenCalled();
+    expect(
+      notificationsService.createFriendRequestNotification,
+    ).not.toHaveBeenCalled();
+  });
+
+  it('creates a notification when sending a friend request', async () => {
+    friendsRepository.findActiveUserByUsername.mockResolvedValue({
+      id: 'user-2',
+      email: 'friend@example.com',
+      username: 'friendone',
+      avatarObjectKey: null,
+    });
+
+    friendsRepository.findFriendshipBetween.mockResolvedValue(null);
+
+    friendsRepository.findActiveUserById.mockResolvedValue({
+      id: authUser.id,
+      email: authUser.email,
+      username: authUser.username,
+      avatarObjectKey: 'avatars/user-1/avatar.webp',
+    });
+
+    friendsRepository.createFriendRequest.mockResolvedValue({
+      id: 'friendship-1',
+      requesterId: authUser.id,
+      addresseeId: 'user-2',
+      status: 'pending',
+      createdAt: new Date('2026-05-14T12:00:00.000Z'),
+      updatedAt: new Date('2026-05-14T12:00:00.000Z'),
+    });
+
+    await service.sendRequest(authUser, { username: 'friendone' }, context);
+
+    expect(friendsRepository.createFriendRequest).toHaveBeenCalledWith(
+      authUser.id,
+      'user-2',
+      tx,
+    );
+
+    expect(
+      notificationsService.createFriendRequestNotification,
+    ).toHaveBeenCalledWith(
+      {
+        userId: 'user-2',
+        requesterId: authUser.id,
+        requesterUsername: authUser.username,
+        requesterAvatarObjectKey: 'avatars/user-1/avatar.webp',
+        friendshipId: 'friendship-1',
+      },
+      tx,
+    );
+  });
+
+  it('creates a notification when accepting a friend request', async () => {
+    friendsRepository.findActiveUserById.mockResolvedValue({
+      id: authUser.id,
+      email: authUser.email,
+      username: authUser.username,
+      avatarObjectKey: 'avatars/user-1/avatar.webp',
+    });
+
+    friendsRepository.acceptFriendRequest.mockResolvedValue({
+      id: 'friendship-1',
+      requesterId: 'user-2',
+      addresseeId: authUser.id,
+      status: 'accepted',
+      createdAt: new Date('2026-05-14T12:00:00.000Z'),
+      updatedAt: new Date('2026-05-14T12:15:00.000Z'),
+    });
+
+    await service.acceptRequest(authUser, 'friendship-1', context);
+
+    expect(friendsRepository.acceptFriendRequest).toHaveBeenCalledWith(
+      'friendship-1',
+      authUser.id,
+      tx,
+    );
+
+    expect(
+      notificationsService.createFriendAcceptedNotification,
+    ).toHaveBeenCalledWith(
+      {
+        userId: 'user-2',
+        friendId: authUser.id,
+        friendUsername: authUser.username,
+        friendAvatarObjectKey: 'avatars/user-1/avatar.webp',
+        friendshipId: 'friendship-1',
+      },
+      tx,
+    );
   });
 
   it('uses separate ownership paths for rejecting and canceling friend requests', async () => {
@@ -129,6 +251,7 @@ describe('FriendsService', () => {
       'friendship-1',
       authUser.id,
     );
+
     expect(friendsRepository.cancelFriendRequest).toHaveBeenCalledWith(
       'friendship-2',
       authUser.id,

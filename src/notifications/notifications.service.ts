@@ -4,18 +4,30 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Buffer } from 'buffer';
 import type { AuthUser } from '../auth/types/auth-user.type';
+import type { DatabaseExecutor } from '../infra/database/database.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
+import { OUTBOX_TOPICS } from '../outbox/outbox.types';
+import { OutboxService } from '../outbox/outbox.service';
 import { ListNotificationsDto } from './dto/list-notifications.dto';
 import {
   NotificationsRateLimitService,
   NotificationsRequestContext,
 } from './notifications-rate-limit.service';
+import type { NotificationType } from './notifications.repository';
 import { NotificationsRepository } from './notifications.repository';
-import { Buffer } from 'buffer';
 
 const DEFAULT_NOTIFICATION_LIMIT = 50;
 const MAX_NOTIFICATION_LIMIT = 100;
+
+type CreateNotificationInput = {
+  userId: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  data?: unknown;
+};
 
 @Injectable()
 export class NotificationsService {
@@ -24,54 +36,67 @@ export class NotificationsService {
     private readonly notificationsRateLimitService: NotificationsRateLimitService,
     private readonly observabilityService: ObservabilityService,
     private readonly configService: ConfigService,
+    private readonly outboxService: OutboxService,
   ) {}
 
-  async createFriendRequestNotification(input: {
-    userId: string;
-    requesterId: string;
-    requesterUsername: string;
-    requesterAvatarObjectKey?: string | null;
-    friendshipId: string;
-  }) {
-    return this.notificationsRepository.createNotification({
-      userId: input.userId,
-      type: 'friend_request',
-      title: 'New friend request',
-      body: `${input.requesterUsername} sent you a friend request`,
-      data: {
-        friendshipId: input.friendshipId,
-        requesterId: input.requesterId,
-        requesterUsername: input.requesterUsername,
-        requesterAvatarObjectKey: input.requesterAvatarObjectKey ?? null,
-        requesterAvatarUrl: this.resolveAvatarUrl(
-          input.requesterAvatarObjectKey,
-        ),
-        link: `/users/${input.requesterUsername}`,
+  async createFriendRequestNotification(
+    input: {
+      userId: string;
+      requesterId: string;
+      requesterUsername: string;
+      requesterAvatarObjectKey?: string | null;
+      friendshipId: string;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    return this.createNotificationWithOutbox(
+      {
+        userId: input.userId,
+        type: 'friend_request',
+        title: 'New friend request',
+        body: `${input.requesterUsername} sent you a friend request`,
+        data: {
+          friendshipId: input.friendshipId,
+          requesterId: input.requesterId,
+          requesterUsername: input.requesterUsername,
+          requesterAvatarObjectKey: input.requesterAvatarObjectKey ?? null,
+          requesterAvatarUrl: this.resolveAvatarUrl(
+            input.requesterAvatarObjectKey,
+          ),
+          link: `/users/${input.requesterUsername}`,
+        },
       },
-    });
+      executor,
+    );
   }
 
-  async createFriendAcceptedNotification(input: {
-    userId: string;
-    friendId: string;
-    friendUsername: string;
-    friendAvatarObjectKey?: string | null;
-    friendshipId: string;
-  }) {
-    return this.notificationsRepository.createNotification({
-      userId: input.userId,
-      type: 'friend_accepted',
-      title: 'Friend request accepted',
-      body: `${input.friendUsername} accepted your friend request`,
-      data: {
-        friendshipId: input.friendshipId,
-        friendId: input.friendId,
-        friendUsername: input.friendUsername,
-        friendAvatarObjectKey: input.friendAvatarObjectKey ?? null,
-        friendAvatarUrl: this.resolveAvatarUrl(input.friendAvatarObjectKey),
-        link: `/users/${input.friendUsername}`,
+  async createFriendAcceptedNotification(
+    input: {
+      userId: string;
+      friendId: string;
+      friendUsername: string;
+      friendAvatarObjectKey?: string | null;
+      friendshipId: string;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    return this.createNotificationWithOutbox(
+      {
+        userId: input.userId,
+        type: 'friend_accepted',
+        title: 'Friend request accepted',
+        body: `${input.friendUsername} accepted your friend request`,
+        data: {
+          friendshipId: input.friendshipId,
+          friendId: input.friendId,
+          friendUsername: input.friendUsername,
+          friendAvatarObjectKey: input.friendAvatarObjectKey ?? null,
+          friendAvatarUrl: this.resolveAvatarUrl(input.friendAvatarObjectKey),
+          link: `/users/${input.friendUsername}`,
+        },
       },
-    });
+      executor,
+    );
   }
 
   async list(
@@ -142,6 +167,32 @@ export class NotificationsService {
     });
 
     return { message: 'Notifications marked as read' };
+  }
+
+  private async createNotificationWithOutbox(
+    input: CreateNotificationInput,
+    executor?: DatabaseExecutor,
+  ) {
+    const notification = await this.notificationsRepository.createNotification(
+      input,
+      executor,
+    );
+
+    await this.outboxService.createOrGet(
+      {
+        key: `notification.created:${notification.id}`,
+        topic: OUTBOX_TOPICS.notificationCreated,
+        payload: {
+          notificationId: notification.id,
+          userId: notification.userId,
+          type: notification.type,
+          createdAt: notification.createdAt.toISOString(),
+        },
+      },
+      executor,
+    );
+
+    return notification;
   }
 
   private encodeCursor(notification: { createdAt: Date; id: string }) {

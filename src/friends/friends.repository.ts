@@ -19,6 +19,21 @@ export class FriendsRepository {
     return executor ?? this.databaseService.db;
   }
 
+  async findActiveUserById(userId: string) {
+    const [user] = await this.databaseService.db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        avatarObjectKey: users.avatarObjectKey,
+      })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .limit(1);
+
+    return user ?? null;
+  }
+
   async findActiveUserByUsername(username: string) {
     const [user] = await this.databaseService.db
       .select({

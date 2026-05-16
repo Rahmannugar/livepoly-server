@@ -7,9 +7,16 @@ import { FriendsController } from './friends.controller';
 import { FriendsRateLimitService } from './friends-rate-limit.service';
 import { FriendsRepository } from './friends.repository';
 import { FriendsService } from './friends.service';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, DatabaseModule, ObservabilityModule, RateLimitModule],
+  imports: [
+    AuthModule,
+    DatabaseModule,
+    ObservabilityModule,
+    RateLimitModule,
+    NotificationsModule,
+  ],
   controllers: [FriendsController],
   providers: [FriendsService, FriendsRepository, FriendsRateLimitService],
   exports: [FriendsService],

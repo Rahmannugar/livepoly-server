@@ -5,3 +5,8 @@ export type DeletedUserCleanupJob = {
   avatarObjectKey: string | null;
   deletedAt: string;
 };
+
+export type DeleteAvatarJob = {
+  userId: string;
+  objectKey: string;
+};

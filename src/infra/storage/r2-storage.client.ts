@@ -34,6 +34,33 @@ export class R2StorageClient implements StorageClient {
     });
   }
 
+  async getObjectMetadata(objectKey: string) {
+    try {
+      const response = await this.client.send(
+        new HeadObjectCommand({
+          Bucket: this.bucketName,
+          Key: objectKey,
+        }),
+      );
+
+      return {
+        contentType: response.ContentType ?? null,
+        contentLength: response.ContentLength ?? null,
+      };
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        '$metadata' in error &&
+        (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 404
+      ) {
+        return null;
+      }
+
+      throw error;
+    }
+  }
+
   async createPresignedUploadUrl(input: CreatePresignedUploadInput) {
     return getSignedUrl(
       this.client,
@@ -45,30 +72,6 @@ export class R2StorageClient implements StorageClient {
       }),
       { expiresIn: 10 * 60 },
     );
-  }
-
-  async objectExists(objectKey: string) {
-    try {
-      await this.client.send(
-        new HeadObjectCommand({
-          Bucket: this.bucketName,
-          Key: objectKey,
-        }),
-      );
-
-      return true;
-    } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        '$metadata' in error &&
-        (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 404
-      ) {
-        return false;
-      }
-
-      throw error;
-    }
   }
 
   async deleteObject(objectKey: string) {

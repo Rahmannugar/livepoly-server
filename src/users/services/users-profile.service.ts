@@ -5,23 +5,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { DatabaseService } from '../infra/database/database.service';
-import { ObservabilityService } from '../infra/observability/observability.service';
-import { SessionCacheService } from '../session/session-cache.service';
-import { AuthRepository } from '../auth/auth.repository';
-import type { AuthUser } from '../auth/types/auth-user.type';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { UsersRepository } from './users.repository';
+import { AuthRepository } from '../../auth/auth.repository';
+import type { AuthUser } from '../../auth/types/auth-user.type';
+import { DatabaseService } from '../../infra/database/database.service';
+import { ObservabilityService } from '../../infra/observability/observability.service';
+import { SessionCacheService } from '../../session/session-cache.service';
+import { UpdateUserDto } from '../dto/update-user.dto';
+import { UsersQueueService } from '../jobs/users-queue.service';
+import { UsersProfileRepository } from '../repositories/users-profile.repository';
 import {
   UsersRateLimitService,
   UsersRequestContext,
 } from './users-rate-limit.service';
-import { UsersQueueService } from './jobs/users-queue.service';
+import { UsersStatsService } from './users-stats.service';
 
 @Injectable()
-export class UsersService {
+export class UsersProfileService {
   constructor(
-    private readonly usersRepository: UsersRepository,
+    private readonly usersProfileRepository: UsersProfileRepository,
+    private readonly usersStatsService: UsersStatsService,
     private readonly authRepository: AuthRepository,
     private readonly sessionCacheService: SessionCacheService,
     private readonly databaseService: DatabaseService,
@@ -31,10 +33,40 @@ export class UsersService {
     private readonly usersQueueService: UsersQueueService,
   ) {}
 
+  async getByUsername(username: string, context: UsersRequestContext) {
+    await this.usersRateLimitService.enforceGetPublicProfile(context);
+
+    const normalizedUsername = username.trim().toLowerCase();
+    const user =
+      await this.usersProfileRepository.findActiveUserByUsername(
+        normalizedUsername,
+      );
+
+    if (!user) {
+      this.recordSecurityEvent('PublicProfileViewFailed', {
+        targetUsername: normalizedUsername,
+        reason: 'user_not_found',
+      });
+
+      throw new NotFoundException('User not found');
+    }
+
+    const stats = await this.usersStatsService.getPublicStats(user.id);
+
+    this.recordSecurityEvent('PublicProfileViewed', {
+      targetUserId: user.id,
+      targetUsername: user.username,
+    });
+
+    return this.toPublicProfile(user, stats);
+  }
+
   async getMe(authUser: AuthUser, context: UsersRequestContext) {
     await this.usersRateLimitService.enforceGetMe(authUser, context);
 
-    const user = await this.usersRepository.findActiveUserById(authUser.id);
+    const user = await this.usersProfileRepository.findActiveUserById(
+      authUser.id,
+    );
 
     if (!user) {
       this.recordSecurityEvent('UserProfileViewFailed', {
@@ -46,12 +78,14 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    const stats = await this.usersStatsService.getPrivateStats(user.id);
+
     this.recordSecurityEvent('UserProfileViewed', {
       userId: user.id,
       username: user.username,
     });
 
-    return this.toPrivateProfile(user);
+    return this.toPrivateProfile(user, stats);
   }
 
   async updateMe(
@@ -81,7 +115,7 @@ export class UsersService {
 
     if (username && username !== authUser.username) {
       const existingUser =
-        await this.usersRepository.findUserByUsername(username);
+        await this.usersProfileRepository.findUserByUsername(username);
 
       if (existingUser) {
         this.recordSecurityEvent('UserProfileUpdateFailed', {
@@ -94,13 +128,30 @@ export class UsersService {
       }
     }
 
-    let user: Awaited<ReturnType<UsersRepository['updateUser']>> | null = null;
-
     try {
-      user = await this.usersRepository.updateUser(authUser.id, {
+      const user = await this.usersProfileRepository.updateUser(authUser.id, {
         ...(username ? { username } : {}),
         ...(bio !== undefined ? { bio } : {}),
       });
+
+      if (!user) {
+        this.recordSecurityEvent('UserProfileUpdateFailed', {
+          userId: authUser.id,
+          username: authUser.username,
+          reason: 'user_not_found',
+        });
+
+        throw new NotFoundException('User not found');
+      }
+
+      const stats = await this.usersStatsService.getPrivateStats(user.id);
+
+      this.recordSecurityEvent('UserProfileUpdated', {
+        userId: user.id,
+        username: user.username,
+      });
+
+      return this.toPrivateProfile(user, stats);
     } catch (error) {
       if (this.isUsernameUniqueViolation(error)) {
         this.recordSecurityEvent('UserProfileUpdateFailed', {
@@ -114,23 +165,6 @@ export class UsersService {
 
       throw error;
     }
-
-    if (!user) {
-      this.recordSecurityEvent('UserProfileUpdateFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        reason: 'user_not_found',
-      });
-
-      throw new NotFoundException('User not found');
-    }
-
-    this.recordSecurityEvent('UserProfileUpdated', {
-      userId: user.id,
-      username: user.username,
-    });
-
-    return this.toPrivateProfile(user);
   }
 
   async deleteMe(
@@ -146,7 +180,10 @@ export class UsersService {
 
     const { user, revokedSessions } = await this.databaseService.transaction(
       async (tx) => {
-        const user = await this.usersRepository.deleteUser(authUser.id, tx);
+        const user = await this.usersProfileRepository.deleteUser(
+          authUser.id,
+          tx,
+        );
 
         if (!user) {
           return { user: null, revokedSessions: [] };
@@ -176,7 +213,7 @@ export class UsersService {
         this.sessionCacheService.deleteSession(session.refreshTokenHash),
       ),
     );
-    
+
     await this.usersQueueService.enqueueDeletedUserCleanup({
       userId: user.id,
       email: user.email,
@@ -191,61 +228,46 @@ export class UsersService {
     });
   }
 
-  async getByUsername(username: string, context: UsersRequestContext) {
-    await this.usersRateLimitService.enforceGetPublicProfile(context);
-    const normalizedUsername = username.trim().toLowerCase();
-    const user =
-      await this.usersRepository.findActiveUserByUsername(normalizedUsername);
-
-    if (!user) {
-      this.recordSecurityEvent('PublicProfileViewFailed', {
-        targetUsername: normalizedUsername,
-        reason: 'user_not_found',
-      });
-
-      throw new NotFoundException('User not found');
-    }
-
-    this.recordSecurityEvent('PublicProfileViewed', {
-      targetUserId: user.id,
-      targetUsername: user.username,
-    });
-
-    return this.toPublicProfile(user);
-  }
-
-  private toPrivateProfile(user: {
-    id: string;
-    email: string;
-    username: string;
-    bio: string | null;
-    avatarObjectKey: string | null;
-    createdAt: Date;
-    updatedAt: Date;
-  }) {
+  private toPrivateProfile(
+    user: {
+      id: string;
+      email: string;
+      username: string;
+      bio: string | null;
+      avatarObjectKey: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    stats: Awaited<ReturnType<UsersStatsService['getPrivateStats']>>,
+  ) {
     return {
       id: user.id,
       email: user.email,
       username: user.username,
       bio: user.bio,
       avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),
+      stats,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
   }
 
-  private toPublicProfile(user: {
-    id: string;
-    username: string;
-    bio: string | null;
-    avatarObjectKey: string | null;
-    createdAt: Date;
-  }) {
+  private toPublicProfile(
+    user: {
+      id: string;
+      username: string;
+      bio: string | null;
+      avatarObjectKey: string | null;
+      createdAt: Date;
+    },
+    stats: Awaited<ReturnType<UsersStatsService['getPublicStats']>>,
+  ) {
     return {
       id: user.id,
       username: user.username,
       bio: user.bio,
       avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),
+      stats,
       createdAt: user.createdAt,
     };
   }

@@ -16,8 +16,8 @@ export class StorageService {
     return this.storageClient.createPresignedUploadUrl(input);
   }
 
-  objectExists(objectKey: string) {
-    return this.storageClient.objectExists(objectKey);
+  getObjectMetadata(objectKey: string) {
+    return this.storageClient.getObjectMetadata(objectKey);
   }
 
   deleteObject(objectKey: string) {

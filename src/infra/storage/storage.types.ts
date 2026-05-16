@@ -4,9 +4,14 @@ export type CreatePresignedUploadInput = {
   contentLength: number;
 };
 
+export type StorageObjectMetadata = {
+  contentType: string | null;
+  contentLength: number | null;
+};
+
 export type StorageClient = {
   createPresignedUploadUrl(input: CreatePresignedUploadInput): Promise<string>;
-  objectExists(objectKey: string): Promise<boolean>;
+  getObjectMetadata(objectKey: string): Promise<StorageObjectMetadata | null>;
   deleteObject(objectKey: string): Promise<void>;
 };
 

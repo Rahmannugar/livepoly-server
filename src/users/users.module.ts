@@ -1,16 +1,20 @@
-import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bullmq';
+import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../infra/database/database.module';
-import { QUEUES } from '../infra/queue/queue.constants';
 import { ObservabilityModule } from '../infra/observability/observability.module';
+import { QUEUES } from '../infra/queue/queue.constants';
+import { StorageModule } from '../infra/storage/storage.module';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { SessionModule } from '../session/session.module';
 import { UsersQueueService } from './jobs/users-queue.service';
+import { UsersProfileRepository } from './repositories/users-profile.repository';
+import { UsersStatsRepository } from './repositories/users-stats.repository';
+import { UsersMediaService } from './services/users-media.service';
+import { UsersProfileService } from './services/users-profile.service';
+import { UsersRateLimitService } from './services/users-rate-limit.service';
+import { UsersStatsService } from './services/users-stats.service';
 import { UsersController } from './users.controller';
-import { UsersRepository } from './users.repository';
-import { UsersService } from './users.service';
-import { UsersRateLimitService } from './users-rate-limit.service';
 
 @Module({
   imports: [
@@ -20,11 +24,15 @@ import { UsersRateLimitService } from './users-rate-limit.service';
     SessionModule,
     ObservabilityModule,
     RateLimitModule,
+    StorageModule,
   ],
   controllers: [UsersController],
   providers: [
-    UsersService,
-    UsersRepository,
+    UsersProfileService,
+    UsersMediaService,
+    UsersStatsService,
+    UsersProfileRepository,
+    UsersStatsRepository,
     UsersRateLimitService,
     UsersQueueService,
   ],

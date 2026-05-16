@@ -3,8 +3,8 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 import {
   DatabaseExecutor,
   DatabaseService,
-} from '../infra/database/database.service';
-import { users } from '../infra/database/schema';
+} from '../../infra/database/database.service';
+import { users } from '../../infra/database/schema';
 
 type UpdateUserInput = {
   username?: string;
@@ -12,7 +12,7 @@ type UpdateUserInput = {
 };
 
 @Injectable()
-export class UsersRepository {
+export class UsersProfileRepository {
   constructor(private readonly databaseService: DatabaseService) {}
 
   private executor(executor?: DatabaseExecutor): DatabaseExecutor {
@@ -74,6 +74,33 @@ export class UsersRepository {
       .update(users)
       .set({
         ...input,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .returning({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        bio: users.bio,
+        avatarObjectKey: users.avatarObjectKey,
+        createdAt: users.createdAt,
+        updatedAt: users.updatedAt,
+      });
+
+    return user ?? null;
+  }
+
+  async updateAvatarObjectKey(
+    userId: string,
+    avatarObjectKey: string,
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [user] = await db
+      .update(users)
+      .set({
+        avatarObjectKey,
         updatedAt: new Date(),
       })
       .where(and(eq(users.id, userId), isNull(users.deletedAt)))

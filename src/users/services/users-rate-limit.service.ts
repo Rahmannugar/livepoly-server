@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { RateLimitService } from '../rate-limit/rate-limit.service';
-import type { AuthUser } from '../auth/types/auth-user.type';
+import { RateLimitService } from '../../rate-limit/rate-limit.service';
+import type { AuthUser } from '../../auth/types/auth-user.type';
 
 export type UsersRequestContext = {
   ip?: string;

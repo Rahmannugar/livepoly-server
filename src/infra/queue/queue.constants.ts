@@ -11,4 +11,5 @@ export const MAIL_JOBS = {
 
 export const USER_JOBS = {
   cleanupDeletedUser: 'cleanup-deleted-user',
+  deleteAvatar: 'delete-avatar',
 } as const;

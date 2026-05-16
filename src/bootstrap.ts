@@ -1,5 +1,6 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { ApiResponseInterceptor } from './common/interceptors/api-response.interceptor';
@@ -9,7 +10,6 @@ import {
   CORS_ORIGINS,
   SWAGGER_PATH,
 } from './config/app.constants';
-import cookieParser from 'cookie-parser';
 
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix(API_PREFIX);
@@ -31,9 +31,17 @@ export function configureApp(app: INestApplication): void {
   app.useGlobalInterceptors(new ApiResponseInterceptor());
   app.useGlobalFilters(new AllExceptionsFilter());
 
-  const swaggerConfig = new DocumentBuilder()
+  const apiPublicUrl =
+    process.env.API_PUBLIC_URL ||
+    (process.env.NODE_ENV === 'production'
+      ? undefined
+      : 'http://localhost:3002');
+
+  const documentBuilder = new DocumentBuilder()
     .setTitle(API_DOCUMENTATION.title)
-    .setDescription(API_DOCUMENTATION.description)
+    .setDescription(
+      `${API_DOCUMENTATION.description}\n\n[Download OpenAPI JSON](/${API_PREFIX}/openapi.json)`,
+    )
     .setVersion(API_DOCUMENTATION.version)
     .addBearerAuth(
       {
@@ -49,10 +57,26 @@ export function configureApp(app: INestApplication): void {
       in: 'cookie',
       name: 'refreshToken',
       description: 'HTTP-only refresh token cookie set by login/oauth/refresh',
-    })
-    .build();
+    });
 
-  const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
+  if (apiPublicUrl) {
+    documentBuilder.addServer(
+      apiPublicUrl,
+      process.env.NODE_ENV === 'production' ? 'Production' : 'Development',
+    );
+  }
+
+  const swaggerDocument = SwaggerModule.createDocument(
+    app,
+    documentBuilder.build(),
+  );
+
+  app
+    .getHttpAdapter()
+    .getInstance()
+    .get(`/${API_PREFIX}/openapi.json`, (_request, response) => {
+      response.json(swaggerDocument);
+    });
 
   SwaggerModule.setup(SWAGGER_PATH, app, swaggerDocument, {
     swaggerOptions: {

@@ -1,33 +1,46 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
-import { MailQueueService } from '../../mail/jobs/mail-queue.service';
-import { QUEUES, USER_JOBS } from '../../infra/queue/queue.constants';
-import type { DeletedUserCleanupJob } from './users-jobs.types';
 import { CacheService } from '../../infra/cache/cache.service';
+import { QUEUES, USER_JOBS } from '../../infra/queue/queue.constants';
+import { StorageService } from '../../infra/storage/storage.service';
+import { MailQueueService } from '../../mail/jobs/mail-queue.service';
+import type {
+  DeleteAvatarJob,
+  DeletedUserCleanupJob,
+} from './users-jobs.types';
 
 @Processor(QUEUES.users)
 export class UsersProcessor extends WorkerHost {
+  private readonly logger = new Logger(UsersProcessor.name);
+
   constructor(
     private readonly mailQueueService: MailQueueService,
     private readonly cacheService: CacheService,
+    private readonly storageService: StorageService,
   ) {
     super();
   }
 
-  private readonly logger = new Logger(UsersProcessor.name);
-
-  async process(job: Job<DeletedUserCleanupJob>) {
-    if (job.name !== USER_JOBS.cleanupDeletedUser) {
-      this.logger.warn({
-        message: 'Unknown users job received',
-        jobId: job.id,
-        jobName: job.name,
-      });
-
+  async process(job: Job<DeletedUserCleanupJob | DeleteAvatarJob>) {
+    if (job.name === USER_JOBS.cleanupDeletedUser) {
+      await this.processDeletedUserCleanup(job as Job<DeletedUserCleanupJob>);
       return;
     }
 
+    if (job.name === USER_JOBS.deleteAvatar) {
+      await this.processDeleteAvatar(job as Job<DeleteAvatarJob>);
+      return;
+    }
+
+    this.logger.warn({
+      message: 'Unknown users job received',
+      jobId: job.id,
+      jobName: job.name,
+    });
+  }
+
+  private async processDeletedUserCleanup(job: Job<DeletedUserCleanupJob>) {
     this.logger.log({
       message: 'Deleted user cleanup started',
       jobId: job.id,
@@ -40,7 +53,13 @@ export class UsersProcessor extends WorkerHost {
       ttlSeconds: 5 * 60,
       waitTimeoutMs: 1000,
       callback: async () => {
-        await this.deleteAvatar(job);
+        await this.deleteAvatarObject({
+          jobId: job.id,
+          userId: job.data.userId,
+          objectKey: job.data.avatarObjectKey,
+          source: USER_JOBS.cleanupDeletedUser,
+        });
+
         await this.cleanupFriendships(job);
         await this.cleanupNotifications(job);
         await this.cleanupDevices(job);
@@ -57,26 +76,62 @@ export class UsersProcessor extends WorkerHost {
     });
   }
 
-  private async deleteAvatar(job: Job<DeletedUserCleanupJob>) {
-    if (!job.data.avatarObjectKey) {
+  private async processDeleteAvatar(job: Job<DeleteAvatarJob>) {
+    this.logger.log({
+      message: 'Avatar delete started',
+      jobId: job.id,
+      userId: job.data.userId,
+      objectKey: job.data.objectKey,
+    });
+
+    await this.cacheService.withLock({
+      key: `lock:users:delete-avatar:${job.data.objectKey}`,
+      ttlSeconds: 5 * 60,
+      waitTimeoutMs: 1000,
+      callback: async () => {
+        await this.deleteAvatarObject({
+          jobId: job.id,
+          userId: job.data.userId,
+          objectKey: job.data.objectKey,
+          source: USER_JOBS.deleteAvatar,
+        });
+      },
+    });
+
+    this.logger.log({
+      message: 'Avatar delete completed',
+      jobId: job.id,
+      userId: job.data.userId,
+      objectKey: job.data.objectKey,
+    });
+  }
+
+  private async deleteAvatarObject(input: {
+    jobId?: string;
+    userId: string;
+    objectKey: string | null;
+    source: string;
+  }) {
+    if (!input.objectKey) {
       this.logger.log({
-        message: 'Deleted user cleanup stage skipped',
-        stage: 'delete_avatar',
+        message: 'Avatar delete skipped',
         reason: 'no_avatar',
-        jobId: job.id,
-        userId: job.data.userId,
+        jobId: input.jobId,
+        userId: input.userId,
+        source: input.source,
       });
 
       return;
     }
 
+    await this.storageService.deleteObject(input.objectKey);
+
     this.logger.log({
-      message: 'Deleted user cleanup stage pending',
-      stage: 'delete_avatar',
-      reason: 'storage_client_not_connected',
-      jobId: job.id,
-      userId: job.data.userId,
-      avatarObjectKey: job.data.avatarObjectKey,
+      message: 'Avatar delete completed',
+      jobId: input.jobId,
+      userId: input.userId,
+      objectKey: input.objectKey,
+      source: input.source,
     });
   }
 

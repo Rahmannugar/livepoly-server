@@ -7,28 +7,37 @@ import {
   HttpStatus,
   Param,
   Patch,
-  UseGuards,
+  Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
-import { UpdateUserDto } from './dto/update-user.dto';
-import { UsersService } from './users.service';
 import { UsersDocs } from './docs/users.swagger';
+import {
+  ConfirmAvatarUploadDto,
+  CreateAvatarUploadUrlDto,
+} from './dto/avatar.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { UsersMediaService } from './services/users-media.service';
+import { UsersProfileService } from './services/users-profile.service';
 
 @UsersDocs.Controller()
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersProfileService: UsersProfileService,
+    private readonly usersMediaService: UsersMediaService,
+  ) {}
 
   @UsersDocs.GetMe()
   @UseGuards(AuthGuard)
   @Get('me')
   @HttpCode(HttpStatus.OK)
   getMe(@AuthUserDecorator() authUser: AuthUser, @Req() request: Request) {
-    return this.usersService.getMe(authUser, {
+    return this.usersProfileService.getMe(authUser, {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
@@ -43,7 +52,7 @@ export class UsersController {
     @Body() dto: UpdateUserDto,
     @Req() request: Request,
   ) {
-    return this.usersService.updateMe(authUser, dto, {
+    return this.usersProfileService.updateMe(authUser, dto, {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
@@ -57,7 +66,37 @@ export class UsersController {
     @AuthUserDecorator() authUser: AuthUser,
     @Req() request: Request,
   ) {
-    await this.usersService.deleteMe(authUser, {
+    await this.usersProfileService.deleteMe(authUser, {
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+  }
+
+  @UsersDocs.CreateAvatarUploadUrl()
+  @UseGuards(AuthGuard)
+  @Post('me/avatar/upload-url')
+  @HttpCode(HttpStatus.OK)
+  createAvatarUploadUrl(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Body() dto: CreateAvatarUploadUrlDto,
+    @Req() request: Request,
+  ) {
+    return this.usersMediaService.createAvatarUploadUrl(authUser, dto, {
+      ip: request.ip,
+      userAgent: request.headers['user-agent'],
+    });
+  }
+
+  @UsersDocs.ConfirmAvatarUpload()
+  @UseGuards(AuthGuard)
+  @Post('me/avatar/confirm')
+  @HttpCode(HttpStatus.OK)
+  confirmAvatarUpload(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Body() dto: ConfirmAvatarUploadDto,
+    @Req() request: Request,
+  ) {
+    return this.usersMediaService.confirmAvatarUpload(authUser, dto, {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });
@@ -67,7 +106,7 @@ export class UsersController {
   @Get(':username')
   @HttpCode(HttpStatus.OK)
   getByUsername(@Param('username') username: string, @Req() request: Request) {
-    return this.usersService.getByUsername(username, {
+    return this.usersProfileService.getByUsername(username, {
       ip: request.ip,
       userAgent: request.headers['user-agent'],
     });

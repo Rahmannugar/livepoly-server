@@ -92,33 +92,6 @@ export class UsersProfileRepository {
     return user ?? null;
   }
 
-  async updateAvatarObjectKey(
-    userId: string,
-    avatarObjectKey: string,
-    executor?: DatabaseExecutor,
-  ) {
-    const db = this.executor(executor);
-
-    const [user] = await db
-      .update(users)
-      .set({
-        avatarObjectKey,
-        updatedAt: new Date(),
-      })
-      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
-      .returning({
-        id: users.id,
-        email: users.email,
-        username: users.username,
-        bio: users.bio,
-        avatarObjectKey: users.avatarObjectKey,
-        createdAt: users.createdAt,
-        updatedAt: users.updatedAt,
-      });
-
-    return user ?? null;
-  }
-
   async deleteUser(userId: string, executor?: DatabaseExecutor) {
     const db = this.executor(executor);
 

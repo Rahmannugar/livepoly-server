@@ -15,6 +15,7 @@ import { UsersProfileService } from './services/users-profile.service';
 import { UsersRateLimitService } from './services/users-rate-limit.service';
 import { UsersStatsService } from './services/users-stats.service';
 import { UsersController } from './users.controller';
+import { UsersMediaRepository } from './repositories/users-media.repository';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { UsersController } from './users.controller';
     UsersMediaService,
     UsersStatsService,
     UsersProfileRepository,
+    UsersMediaRepository,
     UsersStatsRepository,
     UsersRateLimitService,
     UsersQueueService,

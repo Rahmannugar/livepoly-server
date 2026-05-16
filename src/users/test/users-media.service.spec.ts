@@ -4,6 +4,7 @@ import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { StorageService } from '../../infra/storage/storage.service';
 import type { UsersQueueService } from '../jobs/users-queue.service';
+import type { UsersMediaRepository } from '../repositories/users-media.repository';
 import type { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersMediaService } from '../services/users-media.service';
 import type { UsersRateLimitService } from '../services/users-rate-limit.service';
@@ -11,6 +12,9 @@ import type { UsersStatsService } from '../services/users-stats.service';
 
 type UsersProfileRepositoryMock = {
   findActiveUserById: jest.Mock;
+};
+
+type UsersMediaRepositoryMock = {
   updateAvatarObjectKey: jest.Mock;
 };
 
@@ -62,6 +66,7 @@ const stats = {
 describe('UsersMediaService', () => {
   let service: UsersMediaService;
   let usersProfileRepository: UsersProfileRepositoryMock;
+  let usersMediaRepository: UsersMediaRepositoryMock;
   let usersStatsService: UsersStatsServiceMock;
   let usersRateLimitService: UsersRateLimitServiceMock;
   let storageService: StorageServiceMock;
@@ -72,6 +77,9 @@ describe('UsersMediaService', () => {
   beforeEach(() => {
     usersProfileRepository = {
       findActiveUserById: jest.fn(),
+    };
+
+    usersMediaRepository = {
       updateAvatarObjectKey: jest.fn(),
     };
 
@@ -104,6 +112,7 @@ describe('UsersMediaService', () => {
 
     service = new UsersMediaService(
       usersProfileRepository as unknown as UsersProfileRepository,
+      usersMediaRepository as unknown as UsersMediaRepository,
       usersStatsService as unknown as UsersStatsService,
       usersRateLimitService as unknown as UsersRateLimitService,
       storageService as unknown as StorageService,
@@ -154,7 +163,7 @@ describe('UsersMediaService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(storageService.getObjectMetadata).not.toHaveBeenCalled();
-    expect(usersProfileRepository.updateAvatarObjectKey).not.toHaveBeenCalled();
+    expect(usersMediaRepository.updateAvatarObjectKey).not.toHaveBeenCalled();
   });
 
   it('confirms a real uploaded avatar, updates the profile, and queues old avatar deletion', async () => {
@@ -179,7 +188,7 @@ describe('UsersMediaService', () => {
       updatedAt,
     });
 
-    usersProfileRepository.updateAvatarObjectKey.mockResolvedValue({
+    usersMediaRepository.updateAvatarObjectKey.mockResolvedValue({
       id: authUser.id,
       email: authUser.email,
       username: authUser.username,
@@ -197,7 +206,7 @@ describe('UsersMediaService', () => {
 
     expect(storageService.getObjectMetadata).toHaveBeenCalledWith(objectKey);
 
-    expect(usersProfileRepository.updateAvatarObjectKey).toHaveBeenCalledWith(
+    expect(usersMediaRepository.updateAvatarObjectKey).toHaveBeenCalledWith(
       authUser.id,
       objectKey,
     );

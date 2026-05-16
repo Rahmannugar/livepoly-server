@@ -50,7 +50,7 @@ export class MailQueueService {
       },
     );
   }
-  
+
   async enqueueAccountDeletedEmail(input: {
     userId: string;
     email: string;

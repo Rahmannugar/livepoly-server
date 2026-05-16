@@ -21,11 +21,13 @@ import {
   UsersRequestContext,
 } from './users-rate-limit.service';
 import { UsersStatsService } from './users-stats.service';
+import { UsersMediaRepository } from '../repositories/users-media.repository';
 
 @Injectable()
 export class UsersMediaService {
   constructor(
     private readonly usersProfileRepository: UsersProfileRepository,
+    private readonly usersMediaRepository: UsersMediaRepository,
     private readonly usersStatsService: UsersStatsService,
     private readonly usersRateLimitService: UsersRateLimitService,
     private readonly storageService: StorageService,
@@ -139,7 +141,7 @@ export class UsersMediaService {
       throw new NotFoundException('User not found');
     }
 
-    const user = await this.usersProfileRepository.updateAvatarObjectKey(
+    const user = await this.usersMediaRepository.updateAvatarObjectKey(
       authUser.id,
       dto.objectKey,
     );

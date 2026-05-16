@@ -4,12 +4,16 @@ import { Job } from 'bullmq';
 import { MAIL_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import { MailService } from '../mail.service';
 import type { MailJob } from './mail-jobs.types';
+import { JobsService } from '../../jobs/jobs.service';
 
 @Processor(QUEUES.mail)
 export class MailProcessor extends WorkerHost {
   private readonly logger = new Logger(MailProcessor.name);
 
-  constructor(private readonly mailService: MailService) {
+  constructor(
+    private readonly mailService: MailService,
+    private readonly jobsService: JobsService,
+  ) {
     super();
   }
 
@@ -60,21 +64,41 @@ export class MailProcessor extends WorkerHost {
     }
 
     if (job.name === MAIL_JOBS.sendAccountDeletedEmail) {
-      if (!('username' in job.data)) {
+      if (!('username' in job.data) || !('jobId' in job.data)) {
         throw new Error('Invalid account deleted email job payload');
       }
 
-      await this.mailService.sendAccountDeletedEmail(
-        job.data.email,
-        job.data.username,
-      );
+      const startResult = await this.jobsService.start(job.data.jobId);
 
-      this.logger.log({
-        message: 'Account deleted email sent',
-        jobId: job.id,
-        jobName: job.name,
-      });
+      if (startResult.status !== 'started') {
+        this.logger.log({
+          message: 'Account deleted email skipped',
+          jobId: job.id,
+          trackedJobId: job.data.jobId,
+          reason: startResult.status,
+        });
 
+        return;
+      }
+
+      try {
+        await this.mailService.sendAccountDeletedEmail(
+          job.data.email,
+          job.data.username,
+        );
+
+        await this.jobsService.complete(job.data.jobId);
+
+        this.logger.log({
+          message: 'Account deleted email sent',
+          jobId: job.id,
+          trackedJobId: job.data.jobId,
+          jobName: job.name,
+        });
+      } catch (error) {
+        await this.jobsService.fail(job.data.jobId, error);
+        throw error;
+      }
       return;
     }
 

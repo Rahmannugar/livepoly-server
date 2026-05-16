@@ -10,12 +10,16 @@ export class UsersQueueService {
 
   async enqueueDeletedUserCleanup(data: DeletedUserCleanupJob) {
     await this.usersQueue.add(USER_JOBS.cleanupDeletedUser, data, {
+      jobId: `cleanup-deleted-user:${data.userId}`,
       attempts: 5,
       backoff: {
         type: 'exponential',
         delay: 10_000,
       },
-      removeOnComplete: true,
+      removeOnComplete: {
+        age: 24 * 60 * 60,
+        count: 1000,
+      },
       removeOnFail: 100,
     });
   }

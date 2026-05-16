@@ -4,10 +4,14 @@ import { Job } from 'bullmq';
 import { MailQueueService } from '../../mail/jobs/mail-queue.service';
 import { QUEUES, USER_JOBS } from '../../infra/queue/queue.constants';
 import type { DeletedUserCleanupJob } from './users-jobs.types';
+import { CacheService } from '../../infra/cache/cache.service';
 
 @Processor(QUEUES.users)
 export class UsersProcessor extends WorkerHost {
-  constructor(private readonly mailQueueService: MailQueueService) {
+  constructor(
+    private readonly mailQueueService: MailQueueService,
+    private readonly cacheService: CacheService,
+  ) {
     super();
   }
 
@@ -31,12 +35,19 @@ export class UsersProcessor extends WorkerHost {
       username: job.data.username,
     });
 
-    await this.deleteAvatar(job);
-    await this.cleanupFriendships(job);
-    await this.cleanupNotifications(job);
-    await this.cleanupDevices(job);
-    await this.archiveAnalytics(job);
-    await this.sendAccountDeletedEmail(job);
+    await this.cacheService.withLock({
+      key: `lock:users:cleanup-deleted-user:${job.data.userId}`,
+      ttlSeconds: 5 * 60,
+      waitTimeoutMs: 1000,
+      callback: async () => {
+        await this.deleteAvatar(job);
+        await this.cleanupFriendships(job);
+        await this.cleanupNotifications(job);
+        await this.cleanupDevices(job);
+        await this.archiveAnalytics(job);
+        await this.sendAccountDeletedEmail(job);
+      },
+    });
 
     this.logger.log({
       message: 'Deleted user cleanup completed',
@@ -111,6 +122,7 @@ export class UsersProcessor extends WorkerHost {
 
   private async sendAccountDeletedEmail(job: Job<DeletedUserCleanupJob>) {
     await this.mailQueueService.enqueueAccountDeletedEmail({
+      userId: job.data.userId,
       email: job.data.email,
       username: job.data.username,
     });

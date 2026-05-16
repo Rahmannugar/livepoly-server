@@ -4,6 +4,8 @@ export type SendOtpMailJob = {
 };
 
 export type SendAccountDeletedMailJob = {
+  jobId: string;
+  userId: string;
   email: string;
   username: string;
 };

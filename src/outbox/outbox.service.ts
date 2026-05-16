@@ -11,23 +11,12 @@ export class OutboxService {
     return this.outboxRepository.createOrGet(input, executor);
   }
 
-  claimById(eventId: string): Promise<OutboxEvent | null> {
-    return this.outboxRepository.start(eventId);
+  findAvailable(limit: number) {
+    return this.outboxRepository.findAvailable(limit);
   }
 
-  async claimAvailable(limit: number): Promise<OutboxEvent[]> {
-    const candidates = await this.outboxRepository.findAvailable(limit);
-    const events: OutboxEvent[] = [];
-
-    for (const candidate of candidates) {
-      const event = await this.outboxRepository.start(candidate.id);
-
-      if (event) {
-        events.push(event);
-      }
-    }
-
-    return events;
+  claimById(eventId: string): Promise<OutboxEvent | null> {
+    return this.outboxRepository.start(eventId);
   }
 
   markPublished(eventId: string) {

@@ -5,6 +5,7 @@ import { QUEUES } from '../../infra/queue/queue.constants';
 import { OutboxModule } from '../outbox.module';
 import { OutboxPublisher } from '../outbox.publisher';
 import { OutboxProcessor } from './outbox.processor';
+import { OutboxRecoveryService } from './outbox-recovery.service';
 
 @Module({
   imports: [
@@ -12,6 +13,6 @@ import { OutboxProcessor } from './outbox.processor';
     OutboxModule,
     PubSubModule,
   ],
-  providers: [OutboxPublisher, OutboxProcessor],
+  providers: [OutboxPublisher, OutboxProcessor, OutboxRecoveryService],
 })
 export class OutboxWorkerModule {}

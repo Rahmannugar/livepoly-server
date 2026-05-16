@@ -36,14 +36,6 @@ export class OutboxPublisher {
     await this.publishEvent(event);
   }
 
-  async publishAvailable(limit: number) {
-    const events = await this.outboxService.claimAvailable(limit);
-
-    for (const event of events) {
-      await this.publishEvent(event);
-    }
-  }
-
   private async publishEvent(event: OutboxEvent) {
     try {
       if (event.topic === OUTBOX_TOPICS.notificationCreated) {

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RedisPubSubClient } from './redis-pubsub.client';
-import type { PubSubPayload } from './pubsub.types';
+import type { PubSubMessageHandler, PubSubPayload } from './pubsub.types';
 
 @Injectable()
 export class PubSubService {
@@ -8,5 +8,9 @@ export class PubSubService {
 
   publish(channel: string, payload: PubSubPayload) {
     return this.pubSubClient.publish(channel, payload);
+  }
+
+  subscribe(channel: string, handler: PubSubMessageHandler) {
+    return this.pubSubClient.subscribe(channel, handler);
   }
 }

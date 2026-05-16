@@ -3,25 +3,38 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  MessageEvent,
   Param,
   Patch,
   Query,
   Req,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
+import type { Observable } from 'rxjs';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
 import { NotificationsDocs } from './docs/notifications.swagger';
 import { ListNotificationsDto } from './dto/list-notifications.dto';
+import { NotificationsStreamService } from './notifications-stream.service';
 import { NotificationsService } from './notifications.service';
 
 @NotificationsDocs.Controller()
 @UseGuards(AuthGuard)
 @Controller('notifications')
 export class NotificationsController {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly notificationsStreamService: NotificationsStreamService,
+  ) {}
+
+  @NotificationsDocs.Stream()
+  @Sse('stream')
+  stream(@AuthUserDecorator() authUser: AuthUser): Observable<MessageEvent> {
+    return this.notificationsStreamService.streamForUser(authUser.id);
+  }
 
   @NotificationsDocs.List()
   @Get()

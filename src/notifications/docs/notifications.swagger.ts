@@ -28,6 +28,27 @@ const messageResponseSchema = (message: string) => ({
 export const NotificationsDocs = {
   Controller: () => applyDecorators(ApiTags('Notifications')),
 
+  Stream: () =>
+    applyDecorators(
+      ApiOperation({
+        summary: 'Stream live notification events',
+        description:
+          'Server-sent events stream for live notification delivery. Use GET /notifications for history and recovery.',
+      }),
+      ApiOkResponse({
+        description: 'SSE stream of notification events',
+        content: {
+          'text/event-stream': {
+            schema: {
+              type: 'string',
+              example:
+                'event: notification.created\\ndata: {"notificationId":"...","type":"friend_request"}\\n\\n',
+            },
+          },
+        },
+      }),
+    ),
+
   List: () =>
     applyDecorators(
       ApiBearerAuth('accessToken'),

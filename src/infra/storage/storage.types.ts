@@ -12,6 +12,10 @@ export type StorageObjectMetadata = {
 export type StorageClient = {
   createPresignedUploadUrl(input: CreatePresignedUploadInput): Promise<string>;
   getObjectMetadata(objectKey: string): Promise<StorageObjectMetadata | null>;
+  getObjectBytes(
+    objectKey: string,
+    byteRange: string,
+  ): Promise<Uint8Array | null>;
   deleteObject(objectKey: string): Promise<void>;
 };
 

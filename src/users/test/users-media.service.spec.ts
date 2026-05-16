@@ -33,6 +33,7 @@ type UsersRateLimitServiceMock = {
 type StorageServiceMock = {
   createPresignedUploadUrl: jest.Mock;
   getObjectMetadata: jest.Mock;
+  getObjectBytes: jest.Mock;
 };
 
 type ConfigServiceMock = {
@@ -67,6 +68,10 @@ const stats = {
   averagePlacement: null,
   rating: null,
 };
+
+const webpHeader = Uint8Array.from([
+  0x52, 0x49, 0x46, 0x46, 0x00, 0x00, 0x00, 0x00, 0x57, 0x45, 0x42, 0x50,
+]);
 
 describe('UsersMediaService', () => {
   let service: UsersMediaService;
@@ -113,6 +118,7 @@ describe('UsersMediaService', () => {
         .fn()
         .mockResolvedValue('https://r2.example/upload-url'),
       getObjectMetadata: jest.fn(),
+      getObjectBytes: jest.fn(),
     };
 
     configService = {
@@ -210,6 +216,7 @@ describe('UsersMediaService', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(storageService.getObjectMetadata).not.toHaveBeenCalled();
+    expect(storageService.getObjectBytes).not.toHaveBeenCalled();
     expect(usersMediaRepository.updateAvatarObjectKey).not.toHaveBeenCalled();
   });
 
@@ -242,7 +249,49 @@ describe('UsersMediaService', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
+    expect(storageService.getObjectBytes).not.toHaveBeenCalled();
     expect(usersMediaRepository.updateAvatarObjectKey).not.toHaveBeenCalled();
+  });
+
+  it('rejects confirm when uploaded bytes do not match the declared image type', async () => {
+    const objectKey = `avatars/${authUser.id}/8d9a4e5a-90db-4c1d-95d8-9df8fc8f5b9e.webp`;
+
+    usersMediaRepository.findPendingAvatarUpload.mockResolvedValue({
+      id: 'upload-1',
+      userId: authUser.id,
+      objectKey,
+      contentType: 'image/webp',
+      contentLength: 1024 * 1024,
+      status: 'pending',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+
+    storageService.getObjectMetadata.mockResolvedValue({
+      contentType: 'image/webp',
+      contentLength: 1024 * 1024,
+    });
+
+    storageService.getObjectBytes.mockResolvedValue(
+      Uint8Array.from([0x68, 0x65, 0x6c, 0x6c, 0x6f]),
+    );
+
+    await expect(
+      service.confirmAvatarUpload(
+        authUser,
+        {
+          uploadId: 'upload-1',
+          objectKey,
+        },
+        context,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    expect(storageService.getObjectBytes).toHaveBeenCalledWith(
+      objectKey,
+      'bytes=0-15',
+    );
+    expect(usersMediaRepository.updateAvatarObjectKey).not.toHaveBeenCalled();
+    expect(usersMediaRepository.confirmAvatarUpload).not.toHaveBeenCalled();
   });
 
   it('confirms a valid uploaded avatar, updates the profile, marks upload confirmed, and queues old avatar deletion', async () => {
@@ -266,6 +315,8 @@ describe('UsersMediaService', () => {
       contentType: 'image/webp',
       contentLength: 1024 * 1024,
     });
+
+    storageService.getObjectBytes.mockResolvedValue(webpHeader);
 
     usersProfileRepository.findActiveUserById.mockResolvedValue({
       id: authUser.id,
@@ -304,6 +355,10 @@ describe('UsersMediaService', () => {
     );
 
     expect(storageService.getObjectMetadata).toHaveBeenCalledWith(objectKey);
+    expect(storageService.getObjectBytes).toHaveBeenCalledWith(
+      objectKey,
+      'bytes=0-15',
+    );
 
     expect(usersMediaRepository.updateAvatarObjectKey).toHaveBeenCalledWith(
       authUser.id,

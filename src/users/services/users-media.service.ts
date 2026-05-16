@@ -170,6 +170,8 @@ export class UsersMediaService {
       throw new BadRequestException('Avatar file type is not allowed');
     }
 
+    const contentType = metadata.contentType;
+
     if (metadata.contentLength !== upload.contentLength) {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
@@ -181,9 +183,7 @@ export class UsersMediaService {
       throw new BadRequestException('Avatar file size does not match upload');
     }
 
-    if (
-      !this.contentTypeMatchesObjectKey(dto.objectKey, metadata.contentType)
-    ) {
+    if (!this.contentTypeMatchesObjectKey(dto.objectKey, contentType)) {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
         username: authUser.username,
@@ -194,6 +194,22 @@ export class UsersMediaService {
       throw new BadRequestException(
         'Avatar file type does not match object key',
       );
+    }
+
+    const headerBytes = await this.storageService.getObjectBytes(
+      dto.objectKey,
+      'bytes=0-15',
+    );
+
+    if (!this.fileSignatureMatchesContentType(headerBytes, contentType)) {
+      this.recordSecurityEvent('UserAvatarConfirmFailed', {
+        userId: authUser.id,
+        username: authUser.username,
+        uploadId: upload.id,
+        reason: 'invalid_file_signature',
+      });
+
+      throw new BadRequestException('Avatar file content is not valid');
     }
 
     const currentUser = await this.usersProfileRepository.findActiveUserById(
@@ -291,6 +307,52 @@ export class UsersMediaService {
     if (contentType === 'image/png') return 'png';
 
     return 'webp';
+  }
+
+  private fileSignatureMatchesContentType(
+    bytes: Uint8Array | null,
+    contentType: UserAvatarContentType,
+  ) {
+    if (!bytes) return false;
+
+    if (contentType === 'image/jpeg') {
+      return (
+        bytes.length >= 3 &&
+        bytes[0] === 0xff &&
+        bytes[1] === 0xd8 &&
+        bytes[2] === 0xff
+      );
+    }
+
+    if (contentType === 'image/png') {
+      return (
+        bytes.length >= 8 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47 &&
+        bytes[4] === 0x0d &&
+        bytes[5] === 0x0a &&
+        bytes[6] === 0x1a &&
+        bytes[7] === 0x0a
+      );
+    }
+
+    if (contentType === 'image/webp') {
+      return (
+        bytes.length >= 12 &&
+        bytes[0] === 0x52 &&
+        bytes[1] === 0x49 &&
+        bytes[2] === 0x46 &&
+        bytes[3] === 0x46 &&
+        bytes[8] === 0x57 &&
+        bytes[9] === 0x45 &&
+        bytes[10] === 0x42 &&
+        bytes[11] === 0x50
+      );
+    }
+
+    return false;
   }
 
   private resolveAvatarUrl(avatarObjectKey: string | null) {

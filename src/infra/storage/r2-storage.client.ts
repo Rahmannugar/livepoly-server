@@ -1,5 +1,6 @@
 import {
   DeleteObjectCommand,
+  GetObjectCommand,
   HeadObjectCommand,
   PutObjectCommand,
   S3Client,
@@ -72,6 +73,35 @@ export class R2StorageClient implements StorageClient {
       }),
       { expiresIn: 10 * 60 },
     );
+  }
+
+  async getObjectBytes(objectKey: string, byteRange: string) {
+    try {
+      const response = await this.client.send(
+        new GetObjectCommand({
+          Bucket: this.bucketName,
+          Key: objectKey,
+          Range: byteRange,
+        }),
+      );
+
+      if (!response.Body) {
+        return null;
+      }
+
+      return response.Body.transformToByteArray();
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        '$metadata' in error &&
+        (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 404
+      ) {
+        return null;
+      }
+
+      throw error;
+    }
   }
 
   async deleteObject(objectKey: string) {

@@ -14,14 +14,17 @@ import type { Request } from 'express';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
+import { FriendsDocs } from './docs/friends.swagger';
 import { CreateFriendRequestDto } from './dto/create-friend-request.dto';
 import { FriendsService } from './friends.service';
 
+@FriendsDocs.Controller()
 @UseGuards(AuthGuard)
 @Controller('friends')
 export class FriendsController {
   constructor(private readonly friendsService: FriendsService) {}
 
+  @FriendsDocs.SendRequest()
   @Post('requests')
   @HttpCode(HttpStatus.CREATED)
   sendRequest(
@@ -35,6 +38,7 @@ export class FriendsController {
     });
   }
 
+  @FriendsDocs.ListFriends()
   @Get()
   @HttpCode(HttpStatus.OK)
   listFriends(
@@ -47,6 +51,7 @@ export class FriendsController {
     });
   }
 
+  @FriendsDocs.ListRequests()
   @Get('requests')
   @HttpCode(HttpStatus.OK)
   listRequests(
@@ -59,6 +64,7 @@ export class FriendsController {
     });
   }
 
+  @FriendsDocs.AcceptRequest()
   @Post('requests/:friendshipId/accept')
   @HttpCode(HttpStatus.OK)
   acceptRequest(
@@ -72,6 +78,7 @@ export class FriendsController {
     });
   }
 
+  @FriendsDocs.RejectRequest()
   @Post('requests/:friendshipId/reject')
   @HttpCode(HttpStatus.NO_CONTENT)
   async rejectRequest(
@@ -85,6 +92,7 @@ export class FriendsController {
     });
   }
 
+  @FriendsDocs.CancelRequest()
   @Post('requests/:friendshipId/cancel')
   @HttpCode(HttpStatus.NO_CONTENT)
   async cancelRequest(
@@ -98,6 +106,7 @@ export class FriendsController {
     });
   }
 
+  @FriendsDocs.RemoveFriend()
   @Delete(':friendshipId')
   @HttpCode(HttpStatus.NO_CONTENT)
   async removeFriend(

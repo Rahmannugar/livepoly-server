@@ -85,7 +85,7 @@ export const UsersDocs = {
       ApiOperation({
         summary: 'Create avatar upload URL',
         description:
-          'Returns a short-lived direct upload URL. The profile avatar is not updated until the uploaded object is confirmed.',
+          'Returns a short-lived direct upload URL backed by an upload intent. The profile avatar is not updated until the uploaded object is confirmed.',
       }),
       ApiBody({
         type: CreateAvatarUploadUrlDto,
@@ -116,7 +116,7 @@ export const UsersDocs = {
       ApiOperation({
         summary: 'Confirm avatar upload',
         description:
-          'Verifies the uploaded object belongs to the authenticated user, exists in storage, has an allowed type, and is within the size limit before updating the profile avatar.',
+          'Verifies the upload intent, object ownership, storage metadata, file signature, and size before updating the profile avatar.',
       }),
       ApiBody({
         type: ConfirmAvatarUploadDto,
@@ -124,6 +124,7 @@ export const UsersDocs = {
           confirmedAvatar: {
             summary: 'Confirm uploaded avatar',
             value: {
+              uploadId: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91',
               objectKey:
                 'avatars/7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91/8d9a4e5a-90db-4c1d-95d8-9df8fc8f5b9e.webp',
             },
@@ -133,7 +134,7 @@ export const UsersDocs = {
       ApiOkResponse({ type: UserProfileResponseDto }),
       ApiResponse({
         status: HttpStatus.BAD_REQUEST,
-        description: 'Avatar object is invalid or was not uploaded',
+        description: 'Avatar upload is invalid, expired, or was not uploaded',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,
@@ -143,7 +144,7 @@ export const UsersDocs = {
 
   GetByUsername: () =>
     applyDecorators(
-      ApiOperation({ summary: 'Get public user profile by username' }),
+      ApiOperation({ summary: 'Get user profile by username' }),
       ApiParam({
         name: 'username',
         example: 'rahmannugar',

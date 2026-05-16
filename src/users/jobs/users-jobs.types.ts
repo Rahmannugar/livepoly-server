@@ -10,3 +10,9 @@ export type DeleteAvatarJob = {
   userId: string;
   objectKey: string;
 };
+
+export type CleanupAvatarUploadJob = {
+  uploadId: string;
+  userId: string;
+  objectKey: string;
+};

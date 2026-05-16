@@ -13,6 +13,7 @@ import {
   CreateAvatarUploadUrlDto,
 } from '../dto/avatar.dto';
 import { UsersQueueService } from '../jobs/users-queue.service';
+import { UsersMediaRepository } from '../repositories/users-media.repository';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { USER_AVATAR } from '../users.constants';
 import type { UserAvatarContentType } from '../users.constants';
@@ -21,7 +22,6 @@ import {
   UsersRequestContext,
 } from './users-rate-limit.service';
 import { UsersStatsService } from './users-stats.service';
-import { UsersMediaRepository } from '../repositories/users-media.repository';
 
 @Injectable()
 export class UsersMediaService {
@@ -45,6 +45,17 @@ export class UsersMediaService {
 
     const extension = this.avatarExtensionForContentType(dto.contentType);
     const objectKey = `avatars/${authUser.id}/${randomUUID()}.${extension}`;
+    const expiresAt = new Date(
+      Date.now() + USER_AVATAR.uploadExpiresInSeconds * 1000,
+    );
+
+    const upload = await this.usersMediaRepository.createAvatarUpload({
+      userId: authUser.id,
+      objectKey,
+      contentType: dto.contentType,
+      contentLength: dto.contentLength,
+      expiresAt,
+    });
 
     const uploadUrl = await this.storageService.createPresignedUploadUrl({
       objectKey,
@@ -52,15 +63,23 @@ export class UsersMediaService {
       contentLength: dto.contentLength,
     });
 
+    await this.usersQueueService.enqueueAvatarUploadCleanup({
+      uploadId: upload.id,
+      userId: authUser.id,
+      objectKey,
+    });
+
     this.recordSecurityEvent('UserAvatarUploadUrlCreated', {
       userId: authUser.id,
       username: authUser.username,
+      uploadId: upload.id,
       objectKey,
       contentType: dto.contentType,
       contentLength: dto.contentLength,
     });
 
     return {
+      uploadId: upload.id,
       uploadUrl,
       objectKey,
       expiresInSeconds: USER_AVATAR.uploadExpiresInSeconds,
@@ -74,10 +93,50 @@ export class UsersMediaService {
   ) {
     await this.usersRateLimitService.enforceUpdateMe(authUser, context);
 
+    const upload = await this.usersMediaRepository.findPendingAvatarUpload(
+      dto.uploadId,
+    );
+
+    if (!upload) {
+      this.recordSecurityEvent('UserAvatarConfirmFailed', {
+        userId: authUser.id,
+        username: authUser.username,
+        uploadId: dto.uploadId,
+        reason: 'upload_not_found',
+      });
+
+      throw new BadRequestException('Avatar upload was not found');
+    }
+
+    if (upload.userId !== authUser.id || upload.objectKey !== dto.objectKey) {
+      this.recordSecurityEvent('UserAvatarConfirmFailed', {
+        userId: authUser.id,
+        username: authUser.username,
+        uploadId: dto.uploadId,
+        reason: 'upload_mismatch',
+      });
+
+      throw new BadRequestException('Invalid avatar upload');
+    }
+
+    if (upload.expiresAt.getTime() < Date.now()) {
+      await this.usersMediaRepository.markAvatarUploadExpired(upload.id);
+
+      this.recordSecurityEvent('UserAvatarConfirmFailed', {
+        userId: authUser.id,
+        username: authUser.username,
+        uploadId: upload.id,
+        reason: 'upload_expired',
+      });
+
+      throw new BadRequestException('Avatar upload has expired');
+    }
+
     if (!this.isValidAvatarObjectKey(authUser.id, dto.objectKey)) {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
         username: authUser.username,
+        uploadId: upload.id,
         reason: 'invalid_object_key',
       });
 
@@ -90,33 +149,36 @@ export class UsersMediaService {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
         username: authUser.username,
+        uploadId: upload.id,
         reason: 'object_not_found',
       });
 
       throw new BadRequestException('Avatar upload was not found');
     }
 
-    if (!this.isAllowedAvatarContentType(metadata.contentType)) {
+    if (
+      metadata.contentType !== upload.contentType ||
+      !this.isAllowedAvatarContentType(metadata.contentType)
+    ) {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
         username: authUser.username,
+        uploadId: upload.id,
         reason: 'invalid_content_type',
       });
 
       throw new BadRequestException('Avatar file type is not allowed');
     }
 
-    if (
-      !metadata.contentLength ||
-      metadata.contentLength > USER_AVATAR.maxBytes
-    ) {
+    if (metadata.contentLength !== upload.contentLength) {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
         username: authUser.username,
+        uploadId: upload.id,
         reason: 'invalid_content_length',
       });
 
-      throw new BadRequestException('Avatar file is too large');
+      throw new BadRequestException('Avatar file size does not match upload');
     }
 
     if (
@@ -125,6 +187,7 @@ export class UsersMediaService {
       this.recordSecurityEvent('UserAvatarConfirmFailed', {
         userId: authUser.id,
         username: authUser.username,
+        uploadId: upload.id,
         reason: 'content_type_key_mismatch',
       });
 
@@ -150,6 +213,21 @@ export class UsersMediaService {
       throw new NotFoundException('User not found');
     }
 
+    const confirmedUpload = await this.usersMediaRepository.confirmAvatarUpload(
+      upload.id,
+    );
+
+    if (!confirmedUpload) {
+      this.recordSecurityEvent('UserAvatarConfirmFailed', {
+        userId: authUser.id,
+        username: authUser.username,
+        uploadId: upload.id,
+        reason: 'upload_already_processed',
+      });
+
+      throw new BadRequestException('Avatar upload was already processed');
+    }
+
     if (
       currentUser.avatarObjectKey &&
       currentUser.avatarObjectKey !== dto.objectKey
@@ -165,6 +243,7 @@ export class UsersMediaService {
     this.recordSecurityEvent('UserAvatarUpdated', {
       userId: user.id,
       username: user.username,
+      uploadId: upload.id,
       objectKey: dto.objectKey,
     });
 

@@ -24,6 +24,12 @@ export class CreateAvatarUploadUrlDto {
 
 export class ConfirmAvatarUploadDto {
   @ApiProperty({
+    example: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91',
+  })
+  @IsString()
+  uploadId: string;
+
+  @ApiProperty({
     example:
       'avatars/7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91/8d9a4e5a-90db-4c1d-95d8-9df8fc8f5b9e.webp',
   })

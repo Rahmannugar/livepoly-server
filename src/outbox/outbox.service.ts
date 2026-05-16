@@ -11,7 +11,11 @@ export class OutboxService {
     return this.outboxRepository.createOrGet(input, executor);
   }
 
-  async claimPending(limit: number): Promise<OutboxEvent[]> {
+  claimById(eventId: string): Promise<OutboxEvent | null> {
+    return this.outboxRepository.start(eventId);
+  }
+
+  async claimAvailable(limit: number): Promise<OutboxEvent[]> {
     const candidates = await this.outboxRepository.findAvailable(limit);
     const events: OutboxEvent[] = [];
 

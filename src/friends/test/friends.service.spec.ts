@@ -3,6 +3,7 @@ import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
+import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import type { FriendsRateLimitService } from '../friends-rate-limit.service';
 import type { FriendsRepository } from '../friends.repository';
 import { FriendsService } from '../friends.service';
@@ -39,6 +40,10 @@ type NotificationsServiceMock = {
   createFriendAcceptedNotification: jest.Mock;
 };
 
+type OutboxQueueServiceMock = {
+  enqueuePublishEvent: jest.Mock;
+};
+
 const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
@@ -59,6 +64,8 @@ describe('FriendsService', () => {
   let observabilityService: ObservabilityServiceMock;
   let databaseService: DatabaseServiceMock;
   let notificationsService: NotificationsServiceMock;
+  let outboxQueueService: OutboxQueueServiceMock;
+
   const tx = { tx: true };
 
   beforeEach(() => {
@@ -92,8 +99,12 @@ describe('FriendsService', () => {
     };
 
     notificationsService = {
-      createFriendRequestNotification: jest.fn().mockResolvedValue(undefined),
-      createFriendAcceptedNotification: jest.fn().mockResolvedValue(undefined),
+      createFriendRequestNotification: jest.fn(),
+      createFriendAcceptedNotification: jest.fn(),
+    };
+
+    outboxQueueService = {
+      enqueuePublishEvent: jest.fn().mockResolvedValue(undefined),
     };
 
     service = new FriendsService(
@@ -102,6 +113,7 @@ describe('FriendsService', () => {
       observabilityService as unknown as ObservabilityService,
       databaseService as unknown as DatabaseService,
       notificationsService as unknown as NotificationsService,
+      outboxQueueService as unknown as OutboxQueueService,
     );
   });
 
@@ -115,6 +127,7 @@ describe('FriendsService', () => {
     expect(
       notificationsService.createFriendRequestNotification,
     ).not.toHaveBeenCalled();
+    expect(outboxQueueService.enqueuePublishEvent).not.toHaveBeenCalled();
   });
 
   it('rejects duplicate existing friendship', async () => {
@@ -140,9 +153,10 @@ describe('FriendsService', () => {
     expect(
       notificationsService.createFriendRequestNotification,
     ).not.toHaveBeenCalled();
+    expect(outboxQueueService.enqueuePublishEvent).not.toHaveBeenCalled();
   });
 
-  it('creates a notification when sending a friend request', async () => {
+  it('creates a notification and enqueues publish when sending a friend request', async () => {
     friendsRepository.findActiveUserByUsername.mockResolvedValue({
       id: 'user-2',
       email: 'friend@example.com',
@@ -168,6 +182,13 @@ describe('FriendsService', () => {
       updatedAt: new Date('2026-05-14T12:00:00.000Z'),
     });
 
+    notificationsService.createFriendRequestNotification.mockResolvedValue({
+      notification: {
+        id: 'notification-1',
+      },
+      outboxEventId: 'outbox-event-1',
+    });
+
     await service.sendRequest(authUser, { username: 'friendone' }, context);
 
     expect(friendsRepository.createFriendRequest).toHaveBeenCalledWith(
@@ -188,9 +209,13 @@ describe('FriendsService', () => {
       },
       tx,
     );
+
+    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
+      'outbox-event-1',
+    );
   });
 
-  it('creates a notification when accepting a friend request', async () => {
+  it('creates a notification and enqueues publish when accepting a friend request', async () => {
     friendsRepository.findActiveUserById.mockResolvedValue({
       id: authUser.id,
       email: authUser.email,
@@ -205,6 +230,13 @@ describe('FriendsService', () => {
       status: 'accepted',
       createdAt: new Date('2026-05-14T12:00:00.000Z'),
       updatedAt: new Date('2026-05-14T12:15:00.000Z'),
+    });
+
+    notificationsService.createFriendAcceptedNotification.mockResolvedValue({
+      notification: {
+        id: 'notification-2',
+      },
+      outboxEventId: 'outbox-event-2',
     });
 
     await service.acceptRequest(authUser, 'friendship-1', context);
@@ -226,6 +258,10 @@ describe('FriendsService', () => {
         friendshipId: 'friendship-1',
       },
       tx,
+    );
+
+    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
+      'outbox-event-2',
     );
   });
 

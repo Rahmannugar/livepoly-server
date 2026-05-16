@@ -49,7 +49,7 @@ export class NotificationsService {
     },
     executor?: DatabaseExecutor,
   ) {
-    return this.createNotificationWithOutbox(
+    return this.createNotificationOutbox(
       {
         userId: input.userId,
         type: 'friend_request',
@@ -80,7 +80,7 @@ export class NotificationsService {
     },
     executor?: DatabaseExecutor,
   ) {
-    return this.createNotificationWithOutbox(
+    return this.createNotificationOutbox(
       {
         userId: input.userId,
         type: 'friend_accepted',
@@ -169,7 +169,7 @@ export class NotificationsService {
     return { message: 'Notifications marked as read' };
   }
 
-  private async createNotificationWithOutbox(
+  private async createNotificationOutbox(
     input: CreateNotificationInput,
     executor?: DatabaseExecutor,
   ) {
@@ -178,7 +178,7 @@ export class NotificationsService {
       executor,
     );
 
-    await this.outboxService.createOrGet(
+    const outboxEvent = await this.outboxService.createOrGet(
       {
         key: `notification.created:${notification.id}`,
         topic: OUTBOX_TOPICS.notificationCreated,
@@ -192,7 +192,10 @@ export class NotificationsService {
       executor,
     );
 
-    return notification;
+    return {
+      notification,
+      outboxEventId: outboxEvent.id,
+    };
   }
 
   private encodeCursor(notification: { createdAt: Date; id: string }) {

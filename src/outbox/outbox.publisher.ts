@@ -1,16 +1,8 @@
-import {
-  Injectable,
-  Logger,
-  OnApplicationBootstrap,
-  OnModuleDestroy,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 import { PubSubService } from '../infra/pubsub/pubsub.service';
 import { OUTBOX_TOPICS, type OutboxEvent } from './outbox.types';
 import { OutboxService } from './outbox.service';
-
-const OUTBOX_BATCH_SIZE = 25;
-const OUTBOX_POLL_INTERVAL_MS = 1000;
 
 const notificationCreatedPayloadSchema = z.object({
   notificationId: z.string().min(1),
@@ -20,47 +12,35 @@ const notificationCreatedPayloadSchema = z.object({
 });
 
 @Injectable()
-export class OutboxPublisher
-  implements OnApplicationBootstrap, OnModuleDestroy
-{
+export class OutboxPublisher {
   private readonly logger = new Logger(OutboxPublisher.name);
-  private timer: NodeJS.Timeout | null = null;
-  private publishing = false;
 
   constructor(
     private readonly outboxService: OutboxService,
     private readonly pubSubService: PubSubService,
   ) {}
 
-  onApplicationBootstrap() {
-    void this.publishPending();
+  async publishById(eventId: string) {
+    const event = await this.outboxService.claimById(eventId);
 
-    this.timer = setInterval(() => {
-      void this.publishPending();
-    }, OUTBOX_POLL_INTERVAL_MS);
-  }
+    if (!event) {
+      this.logger.log({
+        message: 'Outbox event publish skipped',
+        eventId,
+        reason: 'not_claimable',
+      });
 
-  onModuleDestroy() {
-    if (this.timer) {
-      clearInterval(this.timer);
-    }
-  }
-
-  private async publishPending() {
-    if (this.publishing) {
       return;
     }
 
-    this.publishing = true;
+    await this.publishEvent(event);
+  }
 
-    try {
-      const events = await this.outboxService.claimPending(OUTBOX_BATCH_SIZE);
+  async publishAvailable(limit: number) {
+    const events = await this.outboxService.claimAvailable(limit);
 
-      for (const event of events) {
-        await this.publishEvent(event);
-      }
-    } finally {
-      this.publishing = false;
+    for (const event of events) {
+      await this.publishEvent(event);
     }
   }
 
@@ -83,6 +63,8 @@ export class OutboxPublisher
         topic: event.topic,
         error: error instanceof Error ? error.message : 'Unknown error',
       });
+
+      throw error;
     }
   }
 

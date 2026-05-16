@@ -2,8 +2,8 @@ import { ConfigService } from '@nestjs/config';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { DatabaseExecutor } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
-import { OUTBOX_TOPICS } from '../../outbox/outbox.types';
 import type { OutboxService } from '../../outbox/outbox.service';
+import { OUTBOX_TOPICS } from '../../outbox/outbox.types';
 import type { NotificationsRateLimitService } from '../notifications-rate-limit.service';
 import type { NotificationsRepository } from '../notifications.repository';
 import { NotificationsService } from '../notifications.service';
@@ -72,7 +72,9 @@ describe('NotificationsService', () => {
     };
 
     outboxService = {
-      createOrGet: jest.fn().mockResolvedValue(undefined),
+      createOrGet: jest.fn().mockResolvedValue({
+        id: 'outbox-event-1',
+      }),
     };
 
     service = new NotificationsService(
@@ -99,7 +101,7 @@ describe('NotificationsService', () => {
       readAt: null,
     });
 
-    await service.createFriendRequestNotification(
+    const result = await service.createFriendRequestNotification(
       {
         userId: 'user-2',
         requesterId: authUser.id,
@@ -109,6 +111,21 @@ describe('NotificationsService', () => {
       },
       tx,
     );
+
+    expect(result).toEqual({
+      notification: {
+        id: 'notification-1',
+        userId: 'user-2',
+        type: 'friend_request',
+        title: 'New friend request',
+        body: 'playerone sent you a friend request',
+        data: {},
+        read: false,
+        createdAt,
+        readAt: null,
+      },
+      outboxEventId: 'outbox-event-1',
+    });
 
     expect(notificationsRepository.createNotification).toHaveBeenCalledWith(
       {

@@ -5,15 +5,16 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../auth/types/auth-user.type';
+import { DatabaseService } from '../infra/database/database.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
+import { NotificationsService } from '../notifications/notifications.service';
+import { OutboxQueueService } from '../outbox/jobs/outbox-queue.service';
 import { CreateFriendRequestDto } from './dto/create-friend-request.dto';
 import {
   FriendsRateLimitService,
   FriendsRequestContext,
 } from './friends-rate-limit.service';
 import { FriendsRepository } from './friends.repository';
-import { DatabaseService } from '../infra/database/database.service';
-import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class FriendsService {
@@ -23,6 +24,7 @@ export class FriendsService {
     private readonly observabilityService: ObservabilityService,
     private readonly databaseService: DatabaseService,
     private readonly notificationsService: NotificationsService,
+    private readonly outboxQueueService: OutboxQueueService,
   ) {}
 
   async sendRequest(
@@ -53,6 +55,7 @@ export class FriendsService {
     if (existing) {
       throw new ConflictException('Friendship already exists');
     }
+
     const requester = await this.friendsRepository.findActiveUserById(
       authUser.id,
     );
@@ -62,26 +65,32 @@ export class FriendsService {
     }
 
     try {
-      const friendship = await this.databaseService.transaction(async (tx) => {
+      const result = await this.databaseService.transaction(async (tx) => {
         const created = await this.friendsRepository.createFriendRequest(
           authUser.id,
           addressee.id,
           tx,
         );
 
-        await this.notificationsService.createFriendRequestNotification(
-          {
-            userId: addressee.id,
-            requesterId: requester.id,
-            requesterUsername: requester.username,
-            requesterAvatarObjectKey: requester.avatarObjectKey,
-            friendshipId: created.id,
-          },
-          tx,
-        );
+        const notificationResult =
+          await this.notificationsService.createFriendRequestNotification(
+            {
+              userId: addressee.id,
+              requesterId: requester.id,
+              requesterUsername: requester.username,
+              requesterAvatarObjectKey: requester.avatarObjectKey,
+              friendshipId: created.id,
+            },
+            tx,
+          );
 
-        return created;
+        return {
+          friendship: created,
+          outboxEventId: notificationResult.outboxEventId,
+        };
       });
+
+      await this.outboxQueueService.enqueuePublishEvent(result.outboxEventId);
 
       this.recordSecurityEvent('FriendRequestSent', {
         userId: authUser.id,
@@ -90,7 +99,7 @@ export class FriendsService {
         targetUsername: addressee.username,
       });
 
-      return friendship;
+      return result.friendship;
     } catch (error) {
       if (this.friendsRepository.isUniquePairViolation(error)) {
         throw new ConflictException('Friendship already exists');
@@ -106,6 +115,7 @@ export class FriendsService {
     context: FriendsRequestContext,
   ) {
     await this.friendsRateLimitService.enforceFriendMutation(authUser, context);
+
     const accepter = await this.friendsRepository.findActiveUserById(
       authUser.id,
     );
@@ -114,7 +124,7 @@ export class FriendsService {
       throw new NotFoundException('User not found');
     }
 
-    const friendship = await this.databaseService.transaction(async (tx) => {
+    const result = await this.databaseService.transaction(async (tx) => {
       const accepted = await this.friendsRepository.acceptFriendRequest(
         friendshipId,
         authUser.id,
@@ -125,23 +135,29 @@ export class FriendsService {
         return null;
       }
 
-      await this.notificationsService.createFriendAcceptedNotification(
-        {
-          userId: accepted.requesterId,
-          friendId: accepter.id,
-          friendUsername: accepter.username,
-          friendAvatarObjectKey: accepter.avatarObjectKey,
-          friendshipId: accepted.id,
-        },
-        tx,
-      );
+      const notificationResult =
+        await this.notificationsService.createFriendAcceptedNotification(
+          {
+            userId: accepted.requesterId,
+            friendId: accepter.id,
+            friendUsername: accepter.username,
+            friendAvatarObjectKey: accepter.avatarObjectKey,
+            friendshipId: accepted.id,
+          },
+          tx,
+        );
 
-      return accepted;
+      return {
+        friendship: accepted,
+        outboxEventId: notificationResult.outboxEventId,
+      };
     });
 
-    if (!friendship) {
+    if (!result) {
       throw new NotFoundException('Friend request not found');
     }
+
+    await this.outboxQueueService.enqueuePublishEvent(result.outboxEventId);
 
     this.recordSecurityEvent('FriendRequestAccepted', {
       userId: authUser.id,
@@ -149,7 +165,7 @@ export class FriendsService {
       friendshipId,
     });
 
-    return friendship;
+    return result.friendship;
   }
 
   async rejectRequest(

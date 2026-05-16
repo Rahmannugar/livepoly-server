@@ -1,6 +1,7 @@
 export const QUEUES = {
   mail: 'mail',
   users: 'users',
+  outbox: 'outbox',
 } as const;
 
 export const MAIL_JOBS = {
@@ -13,4 +14,8 @@ export const USER_JOBS = {
   cleanupDeletedUser: 'cleanup-deleted-user',
   deleteAvatar: 'delete-avatar',
   cleanupAvatarUpload: 'cleanup-avatar-upload',
+} as const;
+
+export const OUTBOX_JOBS = {
+  publishEvent: 'publish-event',
 } as const;

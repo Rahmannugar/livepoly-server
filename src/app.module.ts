@@ -9,6 +9,7 @@ import { QueueModule } from './infra/queue/queue.module';
 import { UsersModule } from './users/users.module';
 import { FriendsModule } from './friends/friends.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { RoomsModule } from './rooms/rooms.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     UsersModule,
     FriendsModule,
     NotificationsModule,
+    RoomsModule,
   ],
 })
 export class AppModule {}

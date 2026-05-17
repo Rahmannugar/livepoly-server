@@ -7,3 +7,8 @@ export type OAuthProfile = {
   emailVerified: boolean;
   usernameSeed: string;
 };
+
+export type AuthRequestContext = {
+  ip?: string;
+  userAgent?: string;
+};

@@ -8,18 +8,22 @@ import {
   Query,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { RateLimit } from '../rate-limit/rate-limit.decorator';
+import { RateLimitGuard } from '../rate-limit/rate-limit.guard';
+import { AUTH } from './auth.constants';
 import { AuthService } from './auth.service';
+import { AuthDocs } from './docs/auth.swagger';
+import { LoginDto } from './dto/login.dto';
+import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
 import { SignupDto } from './dto/signup.dto';
 import {
   ResendEmailVerificationDto,
   VerifyEmailDto,
 } from './dto/verify-email.dto';
-import { AUTH } from './auth.constants';
-import { LoginDto } from './dto/login.dto';
-import { ForgotPasswordDto, ResetPasswordDto } from './dto/password-reset.dto';
-import { AuthDocs } from './docs/auth.swagger';
+import { AUTH_RATE_LIMIT_RULES } from './auth-rate-limit.rules';
 
 @AuthDocs.Controller()
 @Controller('auth')
@@ -50,6 +54,8 @@ export class AuthController {
   }
 
   @AuthDocs.Signup()
+  @UseGuards(RateLimitGuard)
+  @RateLimit(...AUTH_RATE_LIMIT_RULES.signup)
   @Post('signup')
   signup(@Body() dto: SignupDto, @Req() request: Request) {
     return this.authService.signup(dto, {
@@ -59,6 +65,8 @@ export class AuthController {
   }
 
   @AuthDocs.VerifyEmail()
+  @UseGuards(RateLimitGuard)
+  @RateLimit(...AUTH_RATE_LIMIT_RULES.verifyEmail)
   @Post('verify-email')
   @HttpCode(HttpStatus.OK)
   verifyEmail(@Body() dto: VerifyEmailDto, @Req() request: Request) {
@@ -69,6 +77,8 @@ export class AuthController {
   }
 
   @AuthDocs.ResendEmailVerification()
+  @UseGuards(RateLimitGuard)
+  @RateLimit(...AUTH_RATE_LIMIT_RULES.resendEmailVerification)
   @Post('verify-email/resend')
   @HttpCode(HttpStatus.OK)
   resendEmailVerification(
@@ -82,6 +92,8 @@ export class AuthController {
   }
 
   @AuthDocs.Login()
+  @UseGuards(RateLimitGuard)
+  @RateLimit(...AUTH_RATE_LIMIT_RULES.login)
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(
@@ -136,6 +148,8 @@ export class AuthController {
   }
 
   @AuthDocs.ForgotPassword()
+  @UseGuards(RateLimitGuard)
+  @RateLimit(...AUTH_RATE_LIMIT_RULES.forgotPassword)
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto, @Req() request: Request) {
@@ -146,6 +160,8 @@ export class AuthController {
   }
 
   @AuthDocs.ResetPassword()
+  @UseGuards(RateLimitGuard)
+  @RateLimit(...AUTH_RATE_LIMIT_RULES.resetPassword)
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   resetPassword(@Body() dto: ResetPasswordDto, @Req() request: Request) {

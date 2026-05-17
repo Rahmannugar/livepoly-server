@@ -8,7 +8,6 @@ import { AuthService } from './auth.service';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { OtpModule } from '../otp/otp.module';
 import { SessionModule } from '../session/session.module';
-import { AuthRateLimitService } from './auth-rate-limit.service';
 import { OAuthStateService } from './oauth-state.service';
 import { AuthTokenVersionCacheService } from './auth-token-version-cache.service';
 import { OAuthClientService } from './oauth-client.service';
@@ -31,7 +30,6 @@ import { AuthGuard } from './guards/auth.guard';
   providers: [
     AuthService,
     AuthRepository,
-    AuthRateLimitService,
     OAuthStateService,
     OAuthClientService,
     AuthTokenVersionCacheService,

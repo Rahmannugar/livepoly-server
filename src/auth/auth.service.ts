@@ -12,10 +12,7 @@ import { DatabaseService } from '../infra/database/database.service';
 import { MailQueueService } from '../mail/jobs/mail-queue.service';
 import { OtpService } from '../otp/otp.service';
 import { SessionCacheService } from '../session/session-cache.service';
-import {
-  AuthRateLimitService,
-  AuthRequestContext,
-} from './auth-rate-limit.service';
+import type { AuthRequestContext, OAuthProfile } from './auth.types';
 import { AUTH } from './auth.constants';
 import { AuthRepository } from './auth.repository';
 import { LoginDto } from './dto/login.dto';
@@ -36,7 +33,6 @@ import {
 import { AuthTokenVersionCacheService } from './auth-token-version-cache.service';
 import { randomInt } from 'crypto';
 import { OAuthClientService } from './oauth-client.service';
-import { OAuthProfile } from './auth.types';
 import { OAuthStateService } from './oauth-state.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
 
@@ -50,7 +46,6 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly sessionCacheService: SessionCacheService,
     private readonly databaseService: DatabaseService,
-    private readonly authRateLimitService: AuthRateLimitService,
     private readonly oauthClientService: OAuthClientService,
     private readonly oauthStateService: OAuthStateService,
     private readonly authTokenVersionCacheService: AuthTokenVersionCacheService,
@@ -249,8 +244,6 @@ export class AuthService {
       hasIp: Boolean(context.ip),
     });
 
-    await this.authRateLimitService.enforceSignup(context, email);
-
     const existingUser = await this.authRepository.findUserByEmailOrUsername(
       email,
       username,
@@ -297,8 +290,6 @@ export class AuthService {
 
   async verifyEmail(dto: VerifyEmailDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
-
-    await this.authRateLimitService.enforceVerifyEmail(context, email);
 
     const user = await this.authRepository.findUserByEmail(email);
 
@@ -358,11 +349,6 @@ export class AuthService {
   ) {
     const email = dto.email.trim().toLowerCase();
 
-    await this.authRateLimitService.enforceResendEmailVerification(
-      context,
-      email,
-    );
-
     const genericResponse = {
       message:
         'If the email belongs to a Livepoly account that requires verification, a code will be sent',
@@ -412,8 +398,6 @@ export class AuthService {
 
   async login(dto: LoginDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
-
-    await this.authRateLimitService.enforceLogin(context, email);
 
     const user = await this.authRepository.findUserByEmail(email);
 
@@ -632,8 +616,6 @@ export class AuthService {
   async forgotPassword(dto: ForgotPasswordDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
 
-    await this.authRateLimitService.enforceForgotPassword(context, email);
-
     const user = await this.authRepository.findUserByEmail(email);
 
     if (user) {
@@ -663,8 +645,6 @@ export class AuthService {
 
   async resetPassword(dto: ResetPasswordDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
-
-    await this.authRateLimitService.enforceResetPassword(context, email);
 
     const user = await this.authRepository.findUserByEmail(email);
 

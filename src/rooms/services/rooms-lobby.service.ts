@@ -9,10 +9,6 @@ import { DatabaseService } from '../../infra/database/database.service';
 import { CreateRoomDto } from '../dto/create-room.dto';
 import { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
 import {
-  RoomsRateLimitService,
-  RoomsRequestContext,
-} from './rooms-rate-limit.service';
-import {
   DEFAULT_ROOM_DURATION_MINUTES,
   LIVE_ROOMS_LIMIT,
   ROOM_BOARD_KEY,
@@ -25,24 +21,18 @@ import {
 export class RoomsLobbyService {
   constructor(
     private readonly roomsLobbyRepository: RoomsLobbyRepository,
-    private readonly roomsRateLimitService: RoomsRateLimitService,
     private readonly databaseService: DatabaseService,
   ) {}
 
-  async createRoom(
-    authUser: AuthUser,
-    dto: CreateRoomDto,
-    context: RoomsRequestContext,
-  ) {
-    await this.roomsRateLimitService.enforceRoomMutation(authUser, context);
+  async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
     await this.ensureUserHasNoActiveRoom(authUser.id);
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const code = this.generateRoomCode();
 
       try {
-        return await this.databaseService.transaction(async (tx) => {
-          const room = await this.roomsLobbyRepository.createRoom(
+        const room = await this.databaseService.transaction(async (tx) => {
+          const createdRoom = await this.roomsLobbyRepository.createRoom(
             {
               code,
               hostUserId: authUser.id,
@@ -55,15 +45,17 @@ export class RoomsLobbyService {
 
           await this.roomsLobbyRepository.addHumanPlayer(
             {
-              roomId: room.id,
+              roomId: createdRoom.id,
               userId: authUser.id,
               seatNumber: 1,
             },
             tx,
           );
 
-          return this.getRoomPayload(room.id, room);
+          return createdRoom;
         });
+
+        return this.getRoomPayload(room.id, room);
       } catch (error) {
         if (this.roomsLobbyRepository.isRoomCodeUniqueViolation(error)) {
           continue;
@@ -76,22 +68,14 @@ export class RoomsLobbyService {
     throw new ConflictException('Could not create room');
   }
 
-  async listLiveRooms(authUser: AuthUser, context: RoomsRequestContext) {
-    await this.roomsRateLimitService.enforceRoomRead(authUser, context);
-
+  async listLiveRooms() {
     const rooms =
       await this.roomsLobbyRepository.listLiveRooms(LIVE_ROOMS_LIMIT);
 
     return Promise.all(rooms.map((room) => this.getRoomPayload(room.id, room)));
   }
 
-  async getRoomByCode(
-    authUser: AuthUser,
-    code: string,
-    context: RoomsRequestContext,
-  ) {
-    await this.roomsRateLimitService.enforceRoomRead(authUser, context);
-
+  async getRoomByCode(code: string) {
     const room = await this.roomsLobbyRepository.findRoomByCode(code);
 
     if (!room) {
@@ -101,12 +85,7 @@ export class RoomsLobbyService {
     return this.getRoomPayload(room.id, room);
   }
 
-  async joinRoom(
-    authUser: AuthUser,
-    code: string,
-    context: RoomsRequestContext,
-  ) {
-    await this.roomsRateLimitService.enforceRoomMutation(authUser, context);
+  async joinRoom(authUser: AuthUser, code: string) {
     await this.ensureUserHasNoActiveRoom(authUser.id);
 
     const room = await this.roomsLobbyRepository.findRoomByCode(code);
@@ -147,13 +126,7 @@ export class RoomsLobbyService {
     return this.getRoomPayload(room.id, room);
   }
 
-  async leaveRoom(
-    authUser: AuthUser,
-    code: string,
-    context: RoomsRequestContext,
-  ) {
-    await this.roomsRateLimitService.enforceRoomMutation(authUser, context);
-
+  async leaveRoom(authUser: AuthUser, code: string) {
     const room = await this.roomsLobbyRepository.findRoomByCode(code);
 
     if (!room) {
@@ -228,7 +201,7 @@ export class RoomsLobbyService {
   private findFirstFreeSeat(occupiedSeats: number[]) {
     const occupied = new Set(occupiedSeats);
 
-    for (let seat = 1; seat <= 4; seat += 1) {
+    for (let seat = 1; seat <= ROOM_MAX_PLAYERS; seat += 1) {
       if (!occupied.has(seat)) {
         return seat;
       }

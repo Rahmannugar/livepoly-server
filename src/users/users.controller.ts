@@ -16,10 +16,7 @@ import type { AuthUser } from '../auth/types/auth-user.type';
 import { RateLimit } from '../rate-limit/rate-limit.decorator';
 import { RateLimitGuard } from '../rate-limit/rate-limit.guard';
 import { UsersDocs } from './docs/users.swagger';
-import {
-  ConfirmAvatarUploadDto,
-  CreateAvatarUploadUrlDto,
-} from './dto/avatar.dto';
+import { CreateAvatarUploadUrlDto } from './dto/avatar.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersMediaService } from './services/users-media.service';
 import { UsersProfileService } from './services/users-profile.service';
@@ -73,18 +70,6 @@ export class UsersController {
     @Body() dto: CreateAvatarUploadUrlDto,
   ) {
     return this.usersMediaService.createAvatarUploadUrl(authUser, dto);
-  }
-
-  @UsersDocs.ConfirmAvatarUpload()
-  @UseGuards(AuthGuard, RateLimitGuard)
-  @RateLimit(...USERS_RATE_LIMIT_RULES.updateMe)
-  @Post('me/avatar/confirm')
-  @HttpCode(HttpStatus.OK)
-  confirmAvatarUpload(
-    @AuthUserDecorator() authUser: AuthUser,
-    @Body() dto: ConfirmAvatarUploadDto,
-  ) {
-    return this.usersMediaService.confirmAvatarUpload(authUser, dto);
   }
 
   @UsersDocs.GetByUsername()

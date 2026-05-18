@@ -10,7 +10,6 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import {
-  ConfirmAvatarUploadDto,
   CreateAvatarUploadUrlDto,
 } from '../dto/avatar.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
@@ -85,7 +84,7 @@ export const UsersDocs = {
       ApiOperation({
         summary: 'Create avatar upload URL',
         description:
-          'Returns a short-lived direct upload URL backed by an upload intent. The profile avatar is not updated until the uploaded object is confirmed.',
+          'Returns a short-lived direct upload URL, updates the avatar pointer immediately, and schedules background verification after the URL expires.',
       }),
       ApiBody({
         type: CreateAvatarUploadUrlDto,
@@ -103,38 +102,6 @@ export const UsersDocs = {
       ApiResponse({
         status: HttpStatus.BAD_REQUEST,
         description: 'Invalid avatar upload request',
-      }),
-      ApiResponse({
-        status: HttpStatus.UNAUTHORIZED,
-        description: 'Authentication required',
-      }),
-    ),
-
-  ConfirmAvatarUpload: () =>
-    applyDecorators(
-      ApiBearerAuth('accessToken'),
-      ApiOperation({
-        summary: 'Confirm avatar upload',
-        description:
-          'Verifies the upload intent, object ownership, storage metadata, file signature, and size before updating the profile avatar.',
-      }),
-      ApiBody({
-        type: ConfirmAvatarUploadDto,
-        examples: {
-          confirmedAvatar: {
-            summary: 'Confirm uploaded avatar',
-            value: {
-              uploadId: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91',
-              objectKey:
-                'avatars/7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91/8d9a4e5a-90db-4c1d-95d8-9df8fc8f5b9e.webp',
-            },
-          },
-        },
-      }),
-      ApiOkResponse({ type: UserProfileResponseDto }),
-      ApiResponse({
-        status: HttpStatus.BAD_REQUEST,
-        description: 'Avatar upload is invalid, expired, or was not uploaded',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,

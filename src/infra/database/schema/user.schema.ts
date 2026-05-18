@@ -143,6 +143,7 @@ export const userAvatarUploads = pgTable(
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     objectKey: text('object_key').notNull(),
+    previousAvatarObjectKey: text('previous_avatar_object_key'),
     contentType: text('content_type').notNull(),
     contentLength: integer('content_length').notNull(),
     status: text('status').notNull().default('pending'),

@@ -1,52 +1,71 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { StorageService } from '../../infra/storage/storage.service';
-import {
-  ConfirmAvatarUploadDto,
-  CreateAvatarUploadUrlDto,
-} from '../dto/avatar.dto';
+import { CreateAvatarUploadUrlDto } from '../dto/avatar.dto';
 import { UsersQueueService } from '../jobs/users-queue.service';
 import { UsersMediaRepository } from '../repositories/users-media.repository';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { USER_AVATAR } from '../users.constants';
 import type { UserAvatarContentType } from '../users.constants';
-import { UsersStatsService } from './users-stats.service';
 
 @Injectable()
 export class UsersMediaService {
   constructor(
     private readonly usersProfileRepository: UsersProfileRepository,
     private readonly usersMediaRepository: UsersMediaRepository,
-    private readonly usersStatsService: UsersStatsService,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
     private readonly observabilityService: ObservabilityService,
     private readonly usersQueueService: UsersQueueService,
+    private readonly databaseService: DatabaseService,
   ) {}
 
   async createAvatarUploadUrl(
     authUser: AuthUser,
     dto: CreateAvatarUploadUrlDto,
   ) {
+    const currentUser = await this.usersProfileRepository.findActiveUserById(
+      authUser.id,
+    );
+
+    if (!currentUser) {
+      throw new NotFoundException('User not found');
+    }
+
     const extension = this.avatarExtensionForContentType(dto.contentType);
     const objectKey = `avatars/${authUser.id}/${randomUUID()}.${extension}`;
     const expiresAt = new Date(
       Date.now() + USER_AVATAR.uploadExpiresInSeconds * 1000,
     );
 
-    const upload = await this.usersMediaRepository.createAvatarUpload({
-      userId: authUser.id,
-      objectKey,
-      contentType: dto.contentType,
-      contentLength: dto.contentLength,
-      expiresAt,
+    const upload = await this.databaseService.transaction(async (tx) => {
+      const createdUpload = await this.usersMediaRepository.createAvatarUpload(
+        {
+          userId: authUser.id,
+          objectKey,
+          previousAvatarObjectKey: currentUser.avatarObjectKey,
+          contentType: dto.contentType,
+          contentLength: dto.contentLength,
+          expiresAt,
+        },
+        tx,
+      );
+
+      const user = await this.usersMediaRepository.updateAvatarObjectKey(
+        authUser.id,
+        objectKey,
+        tx,
+      );
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      return createdUpload;
     });
 
     const uploadUrl = await this.storageService.createPresignedUploadUrl({
@@ -55,7 +74,7 @@ export class UsersMediaService {
       contentLength: dto.contentLength,
     });
 
-    await this.usersQueueService.enqueueAvatarUploadCleanup({
+    await this.usersQueueService.enqueueVerifyAvatarUpload({
       uploadId: upload.id,
       userId: authUser.id,
       objectKey,
@@ -74,218 +93,9 @@ export class UsersMediaService {
       uploadId: upload.id,
       uploadUrl,
       objectKey,
+      avatarUrl: this.resolveAvatarUrl(objectKey),
       expiresInSeconds: USER_AVATAR.uploadExpiresInSeconds,
     };
-  }
-
-  async confirmAvatarUpload(authUser: AuthUser, dto: ConfirmAvatarUploadDto) {
-    const upload = await this.usersMediaRepository.findPendingAvatarUpload(
-      dto.uploadId,
-    );
-
-    if (!upload) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: dto.uploadId,
-        reason: 'upload_not_found',
-      });
-
-      throw new BadRequestException('Avatar upload was not found');
-    }
-
-    if (upload.userId !== authUser.id || upload.objectKey !== dto.objectKey) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: dto.uploadId,
-        reason: 'upload_mismatch',
-      });
-
-      throw new BadRequestException('Invalid avatar upload');
-    }
-
-    if (upload.expiresAt.getTime() < Date.now()) {
-      await this.usersMediaRepository.markAvatarUploadExpired(upload.id);
-
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'upload_expired',
-      });
-
-      throw new BadRequestException('Avatar upload has expired');
-    }
-
-    if (!this.isValidAvatarObjectKey(authUser.id, dto.objectKey)) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'invalid_object_key',
-      });
-
-      throw new BadRequestException('Invalid avatar object key');
-    }
-
-    const metadata = await this.storageService.getObjectMetadata(dto.objectKey);
-
-    if (!metadata) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'object_not_found',
-      });
-
-      throw new BadRequestException('Avatar upload was not found');
-    }
-
-    if (
-      metadata.contentType !== upload.contentType ||
-      !this.isAllowedAvatarContentType(metadata.contentType)
-    ) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'invalid_content_type',
-      });
-
-      throw new BadRequestException('Avatar file type is not allowed');
-    }
-
-    const contentType = metadata.contentType;
-
-    if (metadata.contentLength !== upload.contentLength) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'invalid_content_length',
-      });
-
-      throw new BadRequestException('Avatar file size does not match upload');
-    }
-
-    if (!this.contentTypeMatchesObjectKey(dto.objectKey, contentType)) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'content_type_key_mismatch',
-      });
-
-      throw new BadRequestException(
-        'Avatar file type does not match object key',
-      );
-    }
-
-    const headerBytes = await this.storageService.getObjectBytes(
-      dto.objectKey,
-      'bytes=0-15',
-    );
-
-    if (!this.fileSignatureMatchesContentType(headerBytes, contentType)) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'invalid_file_signature',
-      });
-
-      throw new BadRequestException('Avatar file content is not valid');
-    }
-
-    const currentUser = await this.usersProfileRepository.findActiveUserById(
-      authUser.id,
-    );
-
-    if (!currentUser) {
-      throw new NotFoundException('User not found');
-    }
-
-    const user = await this.usersMediaRepository.updateAvatarObjectKey(
-      authUser.id,
-      dto.objectKey,
-    );
-
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const confirmedUpload = await this.usersMediaRepository.confirmAvatarUpload(
-      upload.id,
-    );
-
-    if (!confirmedUpload) {
-      this.recordSecurityEvent('UserAvatarConfirmFailed', {
-        userId: authUser.id,
-        username: authUser.username,
-        uploadId: upload.id,
-        reason: 'upload_already_processed',
-      });
-
-      throw new BadRequestException('Avatar upload was already processed');
-    }
-
-    if (
-      currentUser.avatarObjectKey &&
-      currentUser.avatarObjectKey !== dto.objectKey
-    ) {
-      await this.usersQueueService.enqueueDeleteAvatar({
-        userId: authUser.id,
-        objectKey: currentUser.avatarObjectKey,
-      });
-    }
-
-    const stats = await this.usersStatsService.getStats(user.id);
-
-    this.recordSecurityEvent('UserAvatarUpdated', {
-      userId: user.id,
-      username: user.username,
-      uploadId: upload.id,
-      objectKey: dto.objectKey,
-    });
-
-    return {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      bio: user.bio,
-      avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),
-      stats,
-      createdAt: user.createdAt,
-      updatedAt: user.updatedAt,
-    };
-  }
-
-  private isValidAvatarObjectKey(userId: string, objectKey: string) {
-    const escapedUserId = userId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-
-    return new RegExp(
-      `^avatars/${escapedUserId}/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\.(jpg|png|webp)$`,
-    ).test(objectKey);
-  }
-
-  private isAllowedAvatarContentType(
-    contentType: string | null,
-  ): contentType is UserAvatarContentType {
-    return USER_AVATAR.allowedContentTypes.includes(
-      contentType as UserAvatarContentType,
-    );
-  }
-
-  private contentTypeMatchesObjectKey(
-    objectKey: string,
-    contentType: string | null,
-  ) {
-    if (contentType === 'image/jpeg') return objectKey.endsWith('.jpg');
-    if (contentType === 'image/png') return objectKey.endsWith('.png');
-    if (contentType === 'image/webp') return objectKey.endsWith('.webp');
-
-    return false;
   }
 
   private avatarExtensionForContentType(contentType: UserAvatarContentType) {
@@ -295,55 +105,7 @@ export class UsersMediaService {
     return 'webp';
   }
 
-  private fileSignatureMatchesContentType(
-    bytes: Uint8Array | null,
-    contentType: UserAvatarContentType,
-  ) {
-    if (!bytes) return false;
-
-    if (contentType === 'image/jpeg') {
-      return (
-        bytes.length >= 3 &&
-        bytes[0] === 0xff &&
-        bytes[1] === 0xd8 &&
-        bytes[2] === 0xff
-      );
-    }
-
-    if (contentType === 'image/png') {
-      return (
-        bytes.length >= 8 &&
-        bytes[0] === 0x89 &&
-        bytes[1] === 0x50 &&
-        bytes[2] === 0x4e &&
-        bytes[3] === 0x47 &&
-        bytes[4] === 0x0d &&
-        bytes[5] === 0x0a &&
-        bytes[6] === 0x1a &&
-        bytes[7] === 0x0a
-      );
-    }
-
-    if (contentType === 'image/webp') {
-      return (
-        bytes.length >= 12 &&
-        bytes[0] === 0x52 &&
-        bytes[1] === 0x49 &&
-        bytes[2] === 0x46 &&
-        bytes[3] === 0x46 &&
-        bytes[8] === 0x57 &&
-        bytes[9] === 0x45 &&
-        bytes[10] === 0x42 &&
-        bytes[11] === 0x50
-      );
-    }
-
-    return false;
-  }
-
-  private resolveAvatarUrl(avatarObjectKey: string | null) {
-    if (!avatarObjectKey) return null;
-
+  private resolveAvatarUrl(avatarObjectKey: string) {
     const baseUrl = this.configService.getOrThrow<string>('R2_PUBLIC_BASE_URL');
     return `${baseUrl.replace(/\/$/, '')}/${avatarObjectKey}`;
   }

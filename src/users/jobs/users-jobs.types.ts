@@ -11,7 +11,7 @@ export type DeleteAvatarJob = {
   objectKey: string;
 };
 
-export type CleanupAvatarUploadJob = {
+export type VerifyAvatarUploadJob = {
   uploadId: string;
   userId: string;
   objectKey: string;

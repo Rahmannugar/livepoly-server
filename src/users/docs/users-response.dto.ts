@@ -59,10 +59,15 @@ export class AvatarUploadUrlResponseDto {
   uploadId: string;
 
   @ApiProperty({
-    example:
-      'avatars/7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91/8d9a4e5a-90db-4c1d-95d8-9df8fc8f5b9e.webp',
+    example: 'avatars/7c6e0f4e-7f8d-4c18-a0cf-906f4c8f5b9e.webp',
   })
   objectKey: string;
+
+  @ApiProperty({
+    example:
+      'https://pub-example.r2.dev/avatars/user-id/8d9a4e5a-90db-4c1d-95d8-9df8fc8f5b9e.webp',
+  })
+  avatarUrl: string;
 
   @ApiProperty({ example: 600 })
   expiresInSeconds: number;

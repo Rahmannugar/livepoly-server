@@ -6,12 +6,15 @@ import { QUEUES, USER_JOBS } from '../../infra/queue/queue.constants';
 import { StorageService } from '../../infra/storage/storage.service';
 import { MailQueueService } from '../../mail/jobs/mail-queue.service';
 import { UsersMediaRepository } from '../repositories/users-media.repository';
-import { USER_AVATAR_UPLOAD_STATUS } from '../users.constants';
+import { USER_AVATAR, USER_AVATAR_UPLOAD_STATUS } from '../users.constants';
+import type { UserAvatarContentType } from '../users.constants';
 import type {
-  CleanupAvatarUploadJob,
   DeleteAvatarJob,
   DeletedUserCleanupJob,
+  VerifyAvatarUploadJob,
 } from './users-jobs.types';
+
+type UsersJob = DeletedUserCleanupJob | DeleteAvatarJob | VerifyAvatarUploadJob;
 
 @Processor(QUEUES.users)
 export class UsersProcessor extends WorkerHost {
@@ -26,9 +29,7 @@ export class UsersProcessor extends WorkerHost {
     super();
   }
 
-  async process(
-    job: Job<DeletedUserCleanupJob | DeleteAvatarJob | CleanupAvatarUploadJob>,
-  ) {
+  async process(job: Job<UsersJob>) {
     if (job.name === USER_JOBS.cleanupDeletedUser) {
       await this.processDeletedUserCleanup(job as Job<DeletedUserCleanupJob>);
       return;
@@ -39,8 +40,8 @@ export class UsersProcessor extends WorkerHost {
       return;
     }
 
-    if (job.name === USER_JOBS.cleanupAvatarUpload) {
-      await this.processCleanupAvatarUpload(job as Job<CleanupAvatarUploadJob>);
+    if (job.name === USER_JOBS.verifyAvatarUpload) {
+      await this.processVerifyAvatarUpload(job as Job<VerifyAvatarUploadJob>);
       return;
     }
 
@@ -117,6 +118,210 @@ export class UsersProcessor extends WorkerHost {
     });
   }
 
+  private async processVerifyAvatarUpload(job: Job<VerifyAvatarUploadJob>) {
+    this.logger.log({
+      message: 'Avatar upload verification started',
+      jobId: job.id,
+      uploadId: job.data.uploadId,
+      userId: job.data.userId,
+      objectKey: job.data.objectKey,
+    });
+
+    await this.cacheService.withLock({
+      key: `lock:users:verify-avatar-upload:${job.data.uploadId}`,
+      ttlSeconds: 5 * 60,
+      waitTimeoutMs: 1000,
+      callback: async () => {
+        const upload = await this.usersMediaRepository.findAvatarUploadById(
+          job.data.uploadId,
+        );
+
+        if (!upload) {
+          this.logger.log({
+            message: 'Avatar upload verification skipped',
+            reason: 'upload_not_found',
+            jobId: job.id,
+            uploadId: job.data.uploadId,
+            userId: job.data.userId,
+            objectKey: job.data.objectKey,
+          });
+
+          return;
+        }
+
+        if (upload.status === USER_AVATAR_UPLOAD_STATUS.confirmed) {
+          this.logger.log({
+            message: 'Avatar upload verification skipped',
+            reason: 'upload_already_confirmed',
+            jobId: job.id,
+            uploadId: upload.id,
+            userId: upload.userId,
+            objectKey: upload.objectKey,
+          });
+
+          return;
+        }
+
+        if (
+          upload.status === USER_AVATAR_UPLOAD_STATUS.cleanedUp ||
+          upload.status === USER_AVATAR_UPLOAD_STATUS.expired
+        ) {
+          this.logger.log({
+            message: 'Avatar upload verification skipped',
+            reason: 'upload_already_processed',
+            jobId: job.id,
+            uploadId: upload.id,
+            userId: upload.userId,
+            objectKey: upload.objectKey,
+            status: upload.status,
+          });
+
+          return;
+        }
+
+        if (
+          upload.userId !== job.data.userId ||
+          upload.objectKey !== job.data.objectKey
+        ) {
+          this.logger.warn({
+            message: 'Avatar upload verification skipped',
+            reason: 'job_upload_mismatch',
+            jobId: job.id,
+            uploadId: upload.id,
+            jobUserId: job.data.userId,
+            uploadUserId: upload.userId,
+            jobObjectKey: job.data.objectKey,
+            uploadObjectKey: upload.objectKey,
+          });
+
+          return;
+        }
+
+        const metadata = await this.storageService.getObjectMetadata(
+          upload.objectKey,
+        );
+
+        if (!metadata) {
+          await this.usersMediaRepository.restoreAvatarObjectKey(
+            upload.userId,
+            upload.objectKey,
+            upload.previousAvatarObjectKey,
+          );
+
+          await this.usersMediaRepository.markAvatarUploadExpired(upload.id);
+
+          this.logger.warn({
+            message: 'Avatar upload verification failed',
+            reason: 'object_not_found',
+            jobId: job.id,
+            uploadId: upload.id,
+            userId: upload.userId,
+            objectKey: upload.objectKey,
+          });
+
+          return;
+        }
+
+        const contentType = metadata.contentType;
+
+        if (
+          metadata.contentLength !== upload.contentLength ||
+          contentType !== upload.contentType ||
+          !this.isAllowedAvatarContentType(contentType) ||
+          !this.contentTypeMatchesObjectKey(upload.objectKey, contentType)
+        ) {
+          await this.deleteInvalidAvatarUpload(upload, job, 'invalid_metadata');
+          return;
+        }
+
+        const headerBytes = await this.storageService.getObjectBytes(
+          upload.objectKey,
+          'bytes=0-15',
+        );
+
+        if (!this.fileSignatureMatchesContentType(headerBytes, contentType)) {
+          await this.deleteInvalidAvatarUpload(
+            upload,
+            job,
+            'invalid_signature',
+          );
+          return;
+        }
+
+        const confirmedUpload =
+          await this.usersMediaRepository.confirmAvatarUpload(upload.id);
+
+        if (!confirmedUpload) {
+          this.logger.log({
+            message: 'Avatar upload verification skipped',
+            reason: 'upload_status_changed',
+            jobId: job.id,
+            uploadId: upload.id,
+            userId: upload.userId,
+            objectKey: upload.objectKey,
+          });
+
+          return;
+        }
+
+        if (
+          upload.previousAvatarObjectKey &&
+          upload.previousAvatarObjectKey !== upload.objectKey
+        ) {
+          await this.deleteAvatarObject({
+            jobId: job.id,
+            userId: upload.userId,
+            objectKey: upload.previousAvatarObjectKey,
+            source: USER_JOBS.verifyAvatarUpload,
+          });
+        }
+
+        this.logger.log({
+          message: 'Avatar upload verification completed',
+          jobId: job.id,
+          uploadId: upload.id,
+          userId: upload.userId,
+          objectKey: upload.objectKey,
+        });
+      },
+    });
+  }
+
+  private async deleteInvalidAvatarUpload(
+    upload: {
+      id: string;
+      userId: string;
+      objectKey: string;
+      previousAvatarObjectKey: string | null;
+    },
+    job: Job<VerifyAvatarUploadJob>,
+    reason: string,
+  ) {
+    await this.deleteAvatarObject({
+      jobId: job.id,
+      userId: upload.userId,
+      objectKey: upload.objectKey,
+      source: USER_JOBS.verifyAvatarUpload,
+    });
+
+    await this.usersMediaRepository.restoreAvatarObjectKey(
+      upload.userId,
+      upload.objectKey,
+      upload.previousAvatarObjectKey,
+    );
+
+    await this.usersMediaRepository.markAvatarUploadCleanedUp(upload.id);
+
+    this.logger.warn({
+      message: 'Avatar upload verification failed',
+      reason,
+      jobId: job.id,
+      uploadId: upload.id,
+      userId: upload.userId,
+      objectKey: upload.objectKey,
+    });
+  }
+
   private async deleteAvatarObject(input: {
     jobId?: string;
     userId: string;
@@ -146,103 +351,69 @@ export class UsersProcessor extends WorkerHost {
     });
   }
 
-  private async processCleanupAvatarUpload(job: Job<CleanupAvatarUploadJob>) {
-    this.logger.log({
-      message: 'Avatar upload cleanup started',
-      jobId: job.id,
-      uploadId: job.data.uploadId,
-      userId: job.data.userId,
-      objectKey: job.data.objectKey,
-    });
+  private isAllowedAvatarContentType(
+    contentType: string | null,
+  ): contentType is UserAvatarContentType {
+    return USER_AVATAR.allowedContentTypes.includes(
+      contentType as UserAvatarContentType,
+    );
+  }
 
-    await this.cacheService.withLock({
-      key: `lock:users:cleanup-avatar-upload:${job.data.uploadId}`,
-      ttlSeconds: 5 * 60,
-      waitTimeoutMs: 1000,
-      callback: async () => {
-        const upload = await this.usersMediaRepository.findAvatarUploadById(
-          job.data.uploadId,
-        );
+  private contentTypeMatchesObjectKey(
+    objectKey: string,
+    contentType: string | null,
+  ) {
+    if (contentType === 'image/jpeg') return objectKey.endsWith('.jpg');
+    if (contentType === 'image/png') return objectKey.endsWith('.png');
+    if (contentType === 'image/webp') return objectKey.endsWith('.webp');
 
-        if (!upload) {
-          this.logger.log({
-            message: 'Avatar upload cleanup skipped',
-            reason: 'upload_not_found',
-            jobId: job.id,
-            uploadId: job.data.uploadId,
-            userId: job.data.userId,
-            objectKey: job.data.objectKey,
-          });
+    return false;
+  }
 
-          return;
-        }
+  private fileSignatureMatchesContentType(
+    bytes: Uint8Array | null,
+    contentType: UserAvatarContentType,
+  ) {
+    if (!bytes) return false;
 
-        if (upload.status === USER_AVATAR_UPLOAD_STATUS.confirmed) {
-          this.logger.log({
-            message: 'Avatar upload cleanup skipped',
-            reason: 'upload_confirmed',
-            jobId: job.id,
-            uploadId: upload.id,
-            userId: upload.userId,
-            objectKey: upload.objectKey,
-          });
+    if (contentType === 'image/jpeg') {
+      return (
+        bytes.length >= 3 &&
+        bytes[0] === 0xff &&
+        bytes[1] === 0xd8 &&
+        bytes[2] === 0xff
+      );
+    }
 
-          return;
-        }
+    if (contentType === 'image/png') {
+      return (
+        bytes.length >= 8 &&
+        bytes[0] === 0x89 &&
+        bytes[1] === 0x50 &&
+        bytes[2] === 0x4e &&
+        bytes[3] === 0x47 &&
+        bytes[4] === 0x0d &&
+        bytes[5] === 0x0a &&
+        bytes[6] === 0x1a &&
+        bytes[7] === 0x0a
+      );
+    }
 
-        if (
-          upload.status === USER_AVATAR_UPLOAD_STATUS.cleanedUp ||
-          upload.status === USER_AVATAR_UPLOAD_STATUS.expired
-        ) {
-          this.logger.log({
-            message: 'Avatar upload cleanup skipped',
-            reason: 'upload_already_processed',
-            jobId: job.id,
-            uploadId: upload.id,
-            userId: upload.userId,
-            objectKey: upload.objectKey,
-            status: upload.status,
-          });
+    if (contentType === 'image/webp') {
+      return (
+        bytes.length >= 12 &&
+        bytes[0] === 0x52 &&
+        bytes[1] === 0x49 &&
+        bytes[2] === 0x46 &&
+        bytes[3] === 0x46 &&
+        bytes[8] === 0x57 &&
+        bytes[9] === 0x45 &&
+        bytes[10] === 0x42 &&
+        bytes[11] === 0x50
+      );
+    }
 
-          return;
-        }
-
-        if (
-          upload.userId !== job.data.userId ||
-          upload.objectKey !== job.data.objectKey
-        ) {
-          this.logger.warn({
-            message: 'Avatar upload cleanup skipped',
-            reason: 'job_upload_mismatch',
-            jobId: job.id,
-            uploadId: upload.id,
-            jobUserId: job.data.userId,
-            uploadUserId: upload.userId,
-            jobObjectKey: job.data.objectKey,
-            uploadObjectKey: upload.objectKey,
-          });
-
-          return;
-        }
-
-        await this.deleteAvatarObject({
-          jobId: job.id,
-          userId: upload.userId,
-          objectKey: upload.objectKey,
-          source: USER_JOBS.cleanupAvatarUpload,
-        });
-
-        await this.usersMediaRepository.markAvatarUploadCleanedUp(upload.id);
-
-        this.logger.log({
-          message: 'Avatar upload cleanup completed',
-          jobId: job.id,
-          uploadId: upload.id,
-          userId: upload.userId,
-          objectKey: upload.objectKey,
-        });
-      },
-    });
+    return false;
   }
 
   private async cleanupFriendships(job: Job<DeletedUserCleanupJob>) {

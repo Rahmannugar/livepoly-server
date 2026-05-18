@@ -6,7 +6,6 @@ import { NotificationsModule } from '../notifications/notifications.module';
 import { OutboxModule } from '../outbox/outbox.module';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { FriendsController } from './friends.controller';
-import { FriendsRateLimitService } from './friends-rate-limit.service';
 import { FriendsRepository } from './friends.repository';
 import { FriendsService } from './friends.service';
 
@@ -20,7 +19,7 @@ import { FriendsService } from './friends.service';
     OutboxModule,
   ],
   controllers: [FriendsController],
-  providers: [FriendsService, FriendsRepository, FriendsRateLimitService],
+  providers: [FriendsService, FriendsRepository],
   exports: [FriendsService],
 })
 export class FriendsModule {}

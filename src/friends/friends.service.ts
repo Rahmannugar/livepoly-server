@@ -10,30 +10,19 @@ import { ObservabilityService } from '../infra/observability/observability.servi
 import { NotificationsService } from '../notifications/notifications.service';
 import { OutboxQueueService } from '../outbox/jobs/outbox-queue.service';
 import { CreateFriendRequestDto } from './dto/create-friend-request.dto';
-import {
-  FriendsRateLimitService,
-  FriendsRequestContext,
-} from './friends-rate-limit.service';
 import { FriendsRepository } from './friends.repository';
 
 @Injectable()
 export class FriendsService {
   constructor(
     private readonly friendsRepository: FriendsRepository,
-    private readonly friendsRateLimitService: FriendsRateLimitService,
     private readonly observabilityService: ObservabilityService,
     private readonly databaseService: DatabaseService,
     private readonly notificationsService: NotificationsService,
     private readonly outboxQueueService: OutboxQueueService,
   ) {}
 
-  async sendRequest(
-    authUser: AuthUser,
-    dto: CreateFriendRequestDto,
-    context: FriendsRequestContext,
-  ) {
-    await this.friendsRateLimitService.enforceFriendMutation(authUser, context);
-
+  async sendRequest(authUser: AuthUser, dto: CreateFriendRequestDto) {
     const username = dto.username.trim().toLowerCase();
 
     if (username === authUser.username) {
@@ -109,13 +98,7 @@ export class FriendsService {
     }
   }
 
-  async acceptRequest(
-    authUser: AuthUser,
-    friendshipId: string,
-    context: FriendsRequestContext,
-  ) {
-    await this.friendsRateLimitService.enforceFriendMutation(authUser, context);
-
+  async acceptRequest(authUser: AuthUser, friendshipId: string) {
     const accepter = await this.friendsRepository.findActiveUserById(
       authUser.id,
     );
@@ -168,13 +151,7 @@ export class FriendsService {
     return result.friendship;
   }
 
-  async rejectRequest(
-    authUser: AuthUser,
-    friendshipId: string,
-    context: FriendsRequestContext,
-  ) {
-    await this.friendsRateLimitService.enforceFriendMutation(authUser, context);
-
+  async rejectRequest(authUser: AuthUser, friendshipId: string) {
     const friendship = await this.friendsRepository.rejectFriendRequest(
       friendshipId,
       authUser.id,
@@ -191,13 +168,7 @@ export class FriendsService {
     });
   }
 
-  async cancelRequest(
-    authUser: AuthUser,
-    friendshipId: string,
-    context: FriendsRequestContext,
-  ) {
-    await this.friendsRateLimitService.enforceFriendMutation(authUser, context);
-
+  async cancelRequest(authUser: AuthUser, friendshipId: string) {
     const friendship = await this.friendsRepository.cancelFriendRequest(
       friendshipId,
       authUser.id,
@@ -214,13 +185,7 @@ export class FriendsService {
     });
   }
 
-  async removeFriend(
-    authUser: AuthUser,
-    friendshipId: string,
-    context: FriendsRequestContext,
-  ) {
-    await this.friendsRateLimitService.enforceFriendMutation(authUser, context);
-
+  async removeFriend(authUser: AuthUser, friendshipId: string) {
     const friendship = await this.friendsRepository.removeFriend(
       friendshipId,
       authUser.id,
@@ -237,15 +202,11 @@ export class FriendsService {
     });
   }
 
-  async listFriends(authUser: AuthUser, context: FriendsRequestContext) {
-    await this.friendsRateLimitService.enforceFriendRead(authUser, context);
-
+  async listFriends(authUser: AuthUser) {
     return this.friendsRepository.listFriends(authUser.id);
   }
 
-  async listRequests(authUser: AuthUser, context: FriendsRequestContext) {
-    await this.friendsRateLimitService.enforceFriendRead(authUser, context);
-
+  async listRequests(authUser: AuthUser) {
     const requests = await this.friendsRepository.listFriendRequests(
       authUser.id,
     );

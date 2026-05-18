@@ -6,7 +6,6 @@ import { ObservabilityService } from '../../infra/observability/observability.se
 import { MailQueueService } from '../../mail/jobs/mail-queue.service';
 import { OtpService } from '../../otp/otp.service';
 import { SessionCacheService } from '../../session/session-cache.service';
-import { AuthRateLimitService } from '../auth-rate-limit.service';
 import { AuthRepository } from '../auth.repository';
 import { AuthService } from '../auth.service';
 import { AuthTokenVersionCacheService } from '../auth-token-version-cache.service';
@@ -440,15 +439,6 @@ describe('AuthService', () => {
         callback(tx),
     };
 
-    const authRateLimitService = {
-      enforceSignup: jest.fn(async () => undefined),
-      enforceLogin: jest.fn(async () => undefined),
-      enforceVerifyEmail: jest.fn(async () => undefined),
-      enforceResendEmailVerification: jest.fn(async () => undefined),
-      enforceForgotPassword: jest.fn(async () => undefined),
-      enforceResetPassword: jest.fn(async () => undefined),
-    };
-
     observabilityService = {
       recordSecurityEvent: jest.fn<
         void,
@@ -464,7 +454,6 @@ describe('AuthService', () => {
       configService as unknown as ConfigService,
       sessionCacheService as unknown as SessionCacheService,
       databaseService as unknown as DatabaseService,
-      authRateLimitService as unknown as AuthRateLimitService,
       oauthClientService as unknown as OAuthClientService,
       oauthStateService as unknown as OAuthStateService,
       authTokenVersionCacheService as unknown as AuthTokenVersionCacheService,

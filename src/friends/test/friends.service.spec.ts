@@ -4,7 +4,6 @@ import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
-import type { FriendsRateLimitService } from '../friends-rate-limit.service';
 import type { FriendsRepository } from '../friends.repository';
 import { FriendsService } from '../friends.service';
 
@@ -20,11 +19,6 @@ type FriendsRepositoryMock = {
   listFriends: jest.Mock;
   listFriendRequests: jest.Mock;
   isUniquePairViolation: jest.Mock;
-};
-
-type FriendsRateLimitServiceMock = {
-  enforceFriendMutation: jest.Mock;
-  enforceFriendRead: jest.Mock;
 };
 
 type ObservabilityServiceMock = {
@@ -52,15 +46,9 @@ const authUser: AuthUser = {
   tokenVersion: 0,
 };
 
-const context = {
-  ip: '127.0.0.1',
-  userAgent: 'jest',
-};
-
 describe('FriendsService', () => {
   let service: FriendsService;
   let friendsRepository: FriendsRepositoryMock;
-  let friendsRateLimitService: FriendsRateLimitServiceMock;
   let observabilityService: ObservabilityServiceMock;
   let databaseService: DatabaseServiceMock;
   let notificationsService: NotificationsServiceMock;
@@ -81,11 +69,6 @@ describe('FriendsService', () => {
       listFriends: jest.fn(),
       listFriendRequests: jest.fn(),
       isUniquePairViolation: jest.fn().mockReturnValue(false),
-    };
-
-    friendsRateLimitService = {
-      enforceFriendMutation: jest.fn().mockResolvedValue(undefined),
-      enforceFriendRead: jest.fn().mockResolvedValue(undefined),
     };
 
     observabilityService = {
@@ -109,7 +92,6 @@ describe('FriendsService', () => {
 
     service = new FriendsService(
       friendsRepository as unknown as FriendsRepository,
-      friendsRateLimitService as unknown as FriendsRateLimitService,
       observabilityService as unknown as ObservabilityService,
       databaseService as unknown as DatabaseService,
       notificationsService as unknown as NotificationsService,
@@ -119,7 +101,7 @@ describe('FriendsService', () => {
 
   it('rejects sending a friend request to yourself', async () => {
     await expect(
-      service.sendRequest(authUser, { username: ' PlayerOne ' }, context),
+      service.sendRequest(authUser, { username: ' PlayerOne ' }),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     expect(friendsRepository.findActiveUserByUsername).not.toHaveBeenCalled();
@@ -146,7 +128,7 @@ describe('FriendsService', () => {
     });
 
     await expect(
-      service.sendRequest(authUser, { username: 'friendone' }, context),
+      service.sendRequest(authUser, { username: 'friendone' }),
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(friendsRepository.createFriendRequest).not.toHaveBeenCalled();
@@ -189,7 +171,7 @@ describe('FriendsService', () => {
       outboxEventId: 'outbox-event-1',
     });
 
-    await service.sendRequest(authUser, { username: 'friendone' }, context);
+    await service.sendRequest(authUser, { username: 'friendone' });
 
     expect(friendsRepository.createFriendRequest).toHaveBeenCalledWith(
       authUser.id,
@@ -239,7 +221,7 @@ describe('FriendsService', () => {
       outboxEventId: 'outbox-event-2',
     });
 
-    await service.acceptRequest(authUser, 'friendship-1', context);
+    await service.acceptRequest(authUser, 'friendship-1');
 
     expect(friendsRepository.acceptFriendRequest).toHaveBeenCalledWith(
       'friendship-1',
@@ -280,8 +262,8 @@ describe('FriendsService', () => {
       status: 'pending',
     });
 
-    await service.rejectRequest(authUser, 'friendship-1', context);
-    await service.cancelRequest(authUser, 'friendship-2', context);
+    await service.rejectRequest(authUser, 'friendship-1');
+    await service.cancelRequest(authUser, 'friendship-2');
 
     expect(friendsRepository.rejectFriendRequest).toHaveBeenCalledWith(
       'friendship-1',

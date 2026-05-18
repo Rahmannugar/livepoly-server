@@ -8,7 +8,6 @@ import type { SessionCacheService } from '../../session/session-cache.service';
 import type { UsersQueueService } from '../jobs/users-queue.service';
 import type { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersProfileService } from '../services/users-profile.service';
-import type { UsersRateLimitService } from '../services/users-rate-limit.service';
 import type { UsersStatsService } from '../services/users-stats.service';
 
 type UsersProfileRepositoryMock = {
@@ -39,13 +38,6 @@ type ObservabilityServiceMock = {
   recordSecurityEvent: jest.Mock;
 };
 
-type UsersRateLimitServiceMock = {
-  enforceGetMe: jest.Mock;
-  enforceUpdateMe: jest.Mock;
-  enforceDeleteMe: jest.Mock;
-  enforceGetPublicProfile: jest.Mock;
-};
-
 type UsersQueueServiceMock = {
   enqueueDeletedUserCleanup: jest.Mock;
 };
@@ -60,11 +52,6 @@ const authUser: AuthUser = {
   username: 'playerone',
   sessionId: 'session-1',
   tokenVersion: 0,
-};
-
-const context = {
-  ip: '127.0.0.1',
-  userAgent: 'jest',
 };
 
 const stats = {
@@ -82,7 +69,6 @@ describe('UsersProfileService', () => {
   let databaseService: DatabaseServiceMock;
   let configService: ConfigServiceMock;
   let observabilityService: ObservabilityServiceMock;
-  let usersRateLimitService: UsersRateLimitServiceMock;
   let usersQueueService: UsersQueueServiceMock;
   let usersStatsService: UsersStatsServiceMock;
 
@@ -119,13 +105,6 @@ describe('UsersProfileService', () => {
       recordSecurityEvent: jest.fn(),
     };
 
-    usersRateLimitService = {
-      enforceGetMe: jest.fn().mockResolvedValue(undefined),
-      enforceUpdateMe: jest.fn().mockResolvedValue(undefined),
-      enforceDeleteMe: jest.fn().mockResolvedValue(undefined),
-      enforceGetPublicProfile: jest.fn().mockResolvedValue(undefined),
-    };
-
     usersQueueService = {
       enqueueDeletedUserCleanup: jest.fn().mockResolvedValue(undefined),
     };
@@ -138,7 +117,6 @@ describe('UsersProfileService', () => {
       databaseService as unknown as DatabaseService,
       configService as unknown as ConfigService,
       observabilityService as unknown as ObservabilityService,
-      usersRateLimitService as unknown as UsersRateLimitService,
       usersQueueService as unknown as UsersQueueService,
     );
   });
@@ -149,7 +127,7 @@ describe('UsersProfileService', () => {
     });
 
     await expect(
-      service.updateMe(authUser, { username: 'takenname' }, context),
+      service.updateMe(authUser, { username: 'takenname' }),
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(usersProfileRepository.updateUser).not.toHaveBeenCalled();
@@ -168,7 +146,7 @@ describe('UsersProfileService', () => {
       { refreshTokenHash: 'hash-2' },
     ]);
 
-    await service.deleteMe(authUser, context);
+    await service.deleteMe(authUser);
 
     expect(usersProfileRepository.deleteUser).toHaveBeenCalledWith(
       authUser.id,
@@ -196,9 +174,9 @@ describe('UsersProfileService', () => {
   it('does not return deleted users in profile lookup', async () => {
     usersProfileRepository.findActiveUserByUsername.mockResolvedValue(null);
 
-    await expect(
-      service.getByUsername('playerone', context),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(service.getByUsername('playerone')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
 
     expect(
       usersProfileRepository.findActiveUserByUsername,

@@ -7,7 +7,6 @@ import type { UsersQueueService } from '../jobs/users-queue.service';
 import type { UsersMediaRepository } from '../repositories/users-media.repository';
 import type { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersMediaService } from '../services/users-media.service';
-import type { UsersRateLimitService } from '../services/users-rate-limit.service';
 import type { UsersStatsService } from '../services/users-stats.service';
 
 type UsersProfileRepositoryMock = {
@@ -24,10 +23,6 @@ type UsersMediaRepositoryMock = {
 
 type UsersStatsServiceMock = {
   getStats: jest.Mock;
-};
-
-type UsersRateLimitServiceMock = {
-  enforceUpdateMe: jest.Mock;
 };
 
 type StorageServiceMock = {
@@ -57,11 +52,6 @@ const authUser: AuthUser = {
   tokenVersion: 0,
 };
 
-const context = {
-  ip: '127.0.0.1',
-  userAgent: 'jest',
-};
-
 const stats = {
   gamesPlayed: 0,
   gamesWon: 0,
@@ -78,7 +68,6 @@ describe('UsersMediaService', () => {
   let usersProfileRepository: UsersProfileRepositoryMock;
   let usersMediaRepository: UsersMediaRepositoryMock;
   let usersStatsService: UsersStatsServiceMock;
-  let usersRateLimitService: UsersRateLimitServiceMock;
   let storageService: StorageServiceMock;
   let configService: ConfigServiceMock;
   let observabilityService: ObservabilityServiceMock;
@@ -109,10 +98,6 @@ describe('UsersMediaService', () => {
       getStats: jest.fn().mockResolvedValue(stats),
     };
 
-    usersRateLimitService = {
-      enforceUpdateMe: jest.fn().mockResolvedValue(undefined),
-    };
-
     storageService = {
       createPresignedUploadUrl: jest
         .fn()
@@ -138,7 +123,6 @@ describe('UsersMediaService', () => {
       usersProfileRepository as unknown as UsersProfileRepository,
       usersMediaRepository as unknown as UsersMediaRepository,
       usersStatsService as unknown as UsersStatsService,
-      usersRateLimitService as unknown as UsersRateLimitService,
       storageService as unknown as StorageService,
       configService as unknown as ConfigService,
       observabilityService as unknown as ObservabilityService,
@@ -153,12 +137,6 @@ describe('UsersMediaService', () => {
         contentType: 'image/webp',
         contentLength: 5 * 1024 * 1024,
       },
-      context,
-    );
-
-    expect(usersRateLimitService.enforceUpdateMe).toHaveBeenCalledWith(
-      authUser,
-      context,
     );
 
     expect(usersMediaRepository.createAvatarUpload).toHaveBeenCalledWith(
@@ -211,7 +189,6 @@ describe('UsersMediaService', () => {
           uploadId: 'upload-1',
           objectKey,
         },
-        context,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -245,7 +222,6 @@ describe('UsersMediaService', () => {
           uploadId: 'upload-1',
           objectKey,
         },
-        context,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -282,7 +258,6 @@ describe('UsersMediaService', () => {
           uploadId: 'upload-1',
           objectKey,
         },
-        context,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
@@ -351,7 +326,6 @@ describe('UsersMediaService', () => {
         uploadId: 'upload-1',
         objectKey,
       },
-      context,
     );
 
     expect(storageService.getObjectMetadata).toHaveBeenCalledWith(objectKey);

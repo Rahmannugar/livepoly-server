@@ -19,16 +19,16 @@ export class RoomPlayerDto {
   @ApiProperty({ example: 'human', enum: ['human', 'bot'] })
   playerType: string;
 
-  @ApiPropertyOptional({ example: 'medium', nullable: true })
+  @ApiPropertyOptional({ example: 'normal', nullable: true })
   botDifficulty: string | null;
 
-  @ApiPropertyOptional({ example: 'Banker Bot', nullable: true })
+  @ApiPropertyOptional({ example: 'Atlas', nullable: true })
   botName: string | null;
 
   @ApiProperty({ example: 1 })
   seatNumber: number;
 
-  @ApiProperty({ example: 'joined', enum: ['joined', 'left'] })
+  @ApiProperty({ example: 'joined', enum: ['joined', 'left', 'kicked'] })
   status: string;
 
   @ApiProperty({ example: '2026-05-14T12:00:00.000Z' })
@@ -50,7 +50,7 @@ export class RoomResponseDto {
 
   @ApiProperty({
     example: 'waiting',
-    enum: ['waiting', 'active', 'completed', 'cancelled'],
+    enum: ['waiting', 'active', 'finished', 'cancelled'],
   })
   status: string;
 
@@ -74,6 +74,60 @@ export class RoomResponseDto {
 
   @ApiProperty({ type: [RoomPlayerDto] })
   players: RoomPlayerDto[];
+}
+
+export class GameResponseDto {
+  @ApiProperty({ example: '2d53f23e-7c6e-4d8a-a9d8-0f429dbd3734' })
+  id: string;
+
+  @ApiProperty({ example: '9b4f0ea4-0e76-4dd5-8606-b61dc38b813d' })
+  roomId: string;
+
+  @ApiProperty({ example: 'ranked', enum: ['ranked', 'casual'] })
+  mode: string;
+
+  @ApiProperty({ example: 'active', enum: ['active', 'finished', 'cancelled'] })
+  status: string;
+
+  @ApiProperty({ example: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91' })
+  currentTurnRoomPlayerId: string;
+
+  @ApiProperty({ example: 1 })
+  turnNumber: number;
+
+  @ApiProperty({
+    example: {
+      version: 1,
+      roomId: '9b4f0ea4-0e76-4dd5-8606-b61dc38b813d',
+      roomCode: 'AbC23xYz',
+      mode: 'ranked',
+      phase: 'awaiting_first_turn',
+      turnNumber: 1,
+      currentTurnRoomPlayerId: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91',
+      players: [],
+    },
+  })
+  state: Record<string, unknown>;
+
+  @ApiProperty({ example: '2026-05-14T12:00:00.000Z' })
+  startedAt: Date;
+
+  @ApiPropertyOptional({ example: null, nullable: true })
+  finishedAt: Date | null;
+
+  @ApiProperty({ example: '2026-05-14T12:00:00.000Z' })
+  createdAt: Date;
+
+  @ApiProperty({ example: '2026-05-14T12:00:00.000Z' })
+  updatedAt: Date;
+}
+
+export class StartRoomResponseDto {
+  @ApiProperty({ type: RoomResponseDto })
+  room: RoomResponseDto;
+
+  @ApiProperty({ type: GameResponseDto })
+  game: GameResponseDto;
 }
 
 export class RoomMessageResponseDto {

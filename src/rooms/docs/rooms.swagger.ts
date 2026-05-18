@@ -15,6 +15,7 @@ import {
   RoomInviteResponseDto,
   RoomMessageResponseDto,
   RoomResponseDto,
+  StartRoomResponseDto,
 } from './rooms-response.dto';
 
 export const RoomsDocs = {
@@ -142,6 +143,34 @@ export const RoomsDocs = {
       ApiResponse({
         status: HttpStatus.NOT_FOUND,
         description: 'Room, inviter room player, or invitee not found',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
+
+  StartRoom: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({
+        summary: 'Start room',
+        description:
+          'Starts a waiting room. Three or more human players start ranked. Fewer than three human players are filled with bots and start casual.',
+      }),
+      ApiParam({ name: 'code', example: 'AbC23xYz' }),
+      ApiOkResponse({ type: StartRoomResponseDto }),
+      ApiResponse({
+        status: HttpStatus.FORBIDDEN,
+        description: 'Only the host can start the room',
+      }),
+      ApiResponse({
+        status: HttpStatus.CONFLICT,
+        description: 'Room is not open or could not be started',
+      }),
+      ApiResponse({
+        status: HttpStatus.NOT_FOUND,
+        description: 'Room or host room player not found',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,

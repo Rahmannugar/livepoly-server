@@ -34,4 +34,34 @@ export const ROOMS_RATE_LIMIT_RULES = {
       burstLimit: 20,
     },
   ],
+
+  start: [
+    {
+      scope: 'rooms:start:user',
+      identifier: { type: 'user' },
+      limit: 10,
+      windowSeconds: 60,
+      burstLimit: 3,
+    },
+    {
+      scope: 'rooms:start:room',
+      identifier: {
+        type: 'compound',
+        parts: [
+          { type: 'user' },
+          { type: 'param', field: 'code', normalize: 'trim' },
+        ],
+      },
+      limit: 5,
+      windowSeconds: 60,
+      burstLimit: 2,
+    },
+    {
+      scope: 'rooms:start:ip',
+      identifier: { type: 'ip' },
+      limit: 30,
+      windowSeconds: 60,
+      burstLimit: 8,
+    },
+  ],
 } satisfies Record<string, RateLimitRule[]>;

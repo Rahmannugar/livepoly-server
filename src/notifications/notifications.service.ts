@@ -125,6 +125,32 @@ export class NotificationsService {
     );
   }
 
+  async createGameStartedNotification(
+    input: {
+      userId: string;
+      roomId: string;
+      roomCode: string;
+      gameId: string;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    return this.createNotificationOutbox(
+      {
+        userId: input.userId,
+        type: 'game_started',
+        title: 'Game started',
+        body: `Room ${input.roomCode} has started`,
+        data: {
+          roomId: input.roomId,
+          roomCode: input.roomCode,
+          gameId: input.gameId,
+          link: `/rooms/${input.roomCode}`,
+        },
+      },
+      executor,
+    );
+  }
+
   async list(authUser: AuthUser, dto: ListNotificationsDto) {
     const limit = Math.min(
       dto.limit ?? DEFAULT_NOTIFICATION_LIMIT,

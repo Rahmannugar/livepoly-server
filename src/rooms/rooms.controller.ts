@@ -17,13 +17,17 @@ import { RoomsDocs } from './docs/rooms.swagger';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { InviteRoomDto } from './dto/invite-room.dto';
 import { ROOMS_RATE_LIMIT_RULES } from './rooms-rate-limit.rules';
+import { RoomsGameService } from './services/rooms-game.service';
 import { RoomsLobbyService } from './services/rooms-lobby.service';
 
 @RoomsDocs.Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
 @Controller('rooms')
 export class RoomsController {
-  constructor(private readonly roomsLobbyService: RoomsLobbyService) {}
+  constructor(
+    private readonly roomsLobbyService: RoomsLobbyService,
+    private readonly roomsGameService: RoomsGameService,
+  ) {}
 
   @RoomsDocs.CreateRoom()
   @RateLimit(...ROOMS_RATE_LIMIT_RULES.mutation)
@@ -84,5 +88,16 @@ export class RoomsController {
     @Body() dto: InviteRoomDto,
   ) {
     return this.roomsLobbyService.inviteToRoom(authUser, code, dto);
+  }
+
+  @RoomsDocs.StartRoom()
+  @RateLimit(...ROOMS_RATE_LIMIT_RULES.start)
+  @Post(':code/start')
+  @HttpCode(HttpStatus.OK)
+  startRoom(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Param('code') code: string,
+  ) {
+    return this.roomsGameService.startRoom(authUser, code);
   }
 }

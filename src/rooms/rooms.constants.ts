@@ -13,6 +13,25 @@ export const ROOM_BOARD_KEY = 'classic';
 
 export const ROOM_MAX_PLAYERS = 4;
 
+export const ROOM_MIN_RANKED_HUMANS = 3;
+
 export const LIVE_ROOMS_LIMIT = 50;
 
 export const ACTIVE_ROOM_STATUSES = ['waiting', 'active'] as const;
+
+export const BOT_NAMES = [
+  'Atlas',
+  'Nova',
+  'Midas',
+  'Echo',
+  'Rook',
+  'Pixel',
+] as const;
+
+export const BOT_DIFFICULTIES = ['easy', 'normal', 'hard'] as const;
+
+export type BotDifficulty = (typeof BOT_DIFFICULTIES)[number];
+
+export const DEFAULT_BOT_DIFFICULTY: BotDifficulty = 'normal';
+
+export const STARTING_CASH = 1500;

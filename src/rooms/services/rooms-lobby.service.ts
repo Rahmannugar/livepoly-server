@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
@@ -6,7 +7,10 @@ import {
 import { randomInt } from 'crypto';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { DatabaseService } from '../../infra/database/database.service';
+import { NotificationsService } from '../../notifications/notifications.service';
+import { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import { CreateRoomDto } from '../dto/create-room.dto';
+import { InviteRoomDto } from '../dto/invite-room.dto';
 import { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
 import {
   DEFAULT_ROOM_DURATION_MINUTES,
@@ -22,6 +26,8 @@ export class RoomsLobbyService {
   constructor(
     private readonly roomsLobbyRepository: RoomsLobbyRepository,
     private readonly databaseService: DatabaseService,
+    private readonly notificationsService: NotificationsService,
+    private readonly outboxQueueService: OutboxQueueService,
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
@@ -72,7 +78,14 @@ export class RoomsLobbyService {
     const rooms =
       await this.roomsLobbyRepository.listLiveRooms(LIVE_ROOMS_LIMIT);
 
-    return Promise.all(rooms.map((room) => this.getRoomPayload(room.id, room)));
+    const players = await this.roomsLobbyRepository.listPlayersForRooms(
+      rooms.map((room) => room.id),
+    );
+
+    return rooms.map((room) => ({
+      ...room,
+      players: players.filter((player) => player.roomId === room.id),
+    }));
   }
 
   async getRoomByCode(code: string) {
@@ -164,6 +177,91 @@ export class RoomsLobbyService {
     });
 
     return { message: 'Room left' };
+  }
+
+  async inviteToRoom(authUser: AuthUser, code: string, dto: InviteRoomDto) {
+    const username = dto.username.trim().toLowerCase();
+
+    if (username === authUser.username) {
+      throw new BadRequestException('You cannot invite yourself');
+    }
+
+    const room = await this.roomsLobbyRepository.findRoomByCode(code);
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    if (room.status !== 'waiting') {
+      throw new ConflictException('Room is not open');
+    }
+
+    const inviterPlayer = await this.roomsLobbyRepository.findJoinedPlayer(
+      room.id,
+      authUser.id,
+    );
+
+    if (!inviterPlayer) {
+      throw new NotFoundException('Room player not found');
+    }
+
+    const invitee =
+      await this.roomsLobbyRepository.findActiveUserByUsername(username);
+
+    if (!invitee) {
+      throw new NotFoundException('User not found');
+    }
+
+    const friendship = await this.roomsLobbyRepository.findAcceptedFriendship(
+      authUser.id,
+      invitee.id,
+    );
+
+    if (!friendship) {
+      throw new ConflictException('You can only invite friends');
+    }
+
+    const activeRoom = await this.roomsLobbyRepository.findActiveRoomForUser(
+      invitee.id,
+    );
+
+    if (activeRoom) {
+      throw new ConflictException('User is already in an active room');
+    }
+
+    const inviter = await this.roomsLobbyRepository.findActiveUserById(
+      authUser.id,
+    );
+
+    if (!inviter) {
+      throw new NotFoundException('User not found');
+    }
+
+    const result = await this.databaseService.transaction(async (tx) => {
+      const notificationResult =
+        await this.notificationsService.createRoomInviteNotification(
+          {
+            userId: invitee.id,
+            roomId: room.id,
+            roomCode: room.code,
+            inviterId: inviter.id,
+            inviterUsername: inviter.username,
+            inviterAvatarObjectKey: inviter.avatarObjectKey,
+          },
+          tx,
+        );
+
+      return {
+        outboxEventId: notificationResult.outboxEventId,
+      };
+    });
+
+    await this.outboxQueueService.enqueuePublishEvent(result.outboxEventId);
+
+    return {
+      message: 'Room invite sent',
+      roomCode: room.code,
+    };
   }
 
   private async ensureUserHasNoActiveRoom(userId: string) {

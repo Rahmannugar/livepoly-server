@@ -15,6 +15,7 @@ import { RateLimit } from '../rate-limit/rate-limit.decorator';
 import { RateLimitGuard } from '../rate-limit/rate-limit.guard';
 import { RoomsDocs } from './docs/rooms.swagger';
 import { CreateRoomDto } from './dto/create-room.dto';
+import { InviteRoomDto } from './dto/invite-room.dto';
 import { ROOMS_RATE_LIMIT_RULES } from './rooms-rate-limit.rules';
 import { RoomsLobbyService } from './services/rooms-lobby.service';
 
@@ -71,5 +72,17 @@ export class RoomsController {
     @Param('code') code: string,
   ) {
     return this.roomsLobbyService.leaveRoom(authUser, code);
+  }
+
+  @RoomsDocs.InviteToRoom()
+  @RateLimit(...ROOMS_RATE_LIMIT_RULES.mutation)
+  @Post(':code/invites')
+  @HttpCode(HttpStatus.OK)
+  inviteToRoom(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Param('code') code: string,
+    @Body() dto: InviteRoomDto,
+  ) {
+    return this.roomsLobbyService.inviteToRoom(authUser, code, dto);
   }
 }

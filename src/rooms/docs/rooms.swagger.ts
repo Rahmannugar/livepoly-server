@@ -10,7 +10,12 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateRoomDto } from '../dto/create-room.dto';
-import { RoomMessageResponseDto, RoomResponseDto } from './rooms-response.dto';
+import { InviteRoomDto } from '../dto/invite-room.dto';
+import {
+  RoomInviteResponseDto,
+  RoomMessageResponseDto,
+  RoomResponseDto,
+} from './rooms-response.dto';
 
 export const RoomsDocs = {
   Controller: () => applyDecorators(ApiTags('Rooms')),
@@ -99,6 +104,44 @@ export const RoomsDocs = {
       ApiResponse({
         status: HttpStatus.NOT_FOUND,
         description: 'Room or room player not found',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
+
+  InviteToRoom: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({
+        summary: 'Invite friend to room',
+        description:
+          'Creates a room invite notification for a friend. The invitee joins through the normal join-room endpoint.',
+      }),
+      ApiParam({ name: 'code', example: 'AbC23xYz' }),
+      ApiBody({
+        type: InviteRoomDto,
+        examples: {
+          inviteFriend: {
+            summary: 'Invite friend',
+            value: { username: 'player_two' },
+          },
+        },
+      }),
+      ApiOkResponse({ type: RoomInviteResponseDto }),
+      ApiResponse({
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Cannot invite yourself',
+      }),
+      ApiResponse({
+        status: HttpStatus.CONFLICT,
+        description:
+          'Room is closed, invitee is not a friend, or invitee is already in a room',
+      }),
+      ApiResponse({
+        status: HttpStatus.NOT_FOUND,
+        description: 'Room, inviter room player, or invitee not found',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,

@@ -1,6 +1,8 @@
 import { ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { DatabaseService } from '../../infra/database/database.service';
+import type { NotificationsService } from '../../notifications/notifications.service';
+import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import type { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
 import { RoomsLobbyService } from '../services/rooms-lobby.service';
 
@@ -11,16 +13,28 @@ type RoomsLobbyRepositoryMock = {
   findRoomByCode: jest.Mock;
   listLiveRooms: jest.Mock;
   listPlayers: jest.Mock;
+  listPlayersForRooms: jest.Mock;
   listJoinedPlayers: jest.Mock;
   findJoinedPlayer: jest.Mock;
   leaveRoom: jest.Mock;
   cancelRoom: jest.Mock;
+  findActiveUserByUsername: jest.Mock;
+  findActiveUserById: jest.Mock;
+  findAcceptedFriendship: jest.Mock;
   isRoomCodeUniqueViolation: jest.Mock;
   isSeatUniqueViolation: jest.Mock;
 };
 
 type DatabaseServiceMock = {
   transaction: jest.Mock;
+};
+
+type NotificationsServiceMock = {
+  createRoomInviteNotification: jest.Mock;
+};
+
+type OutboxQueueServiceMock = {
+  enqueuePublishEvent: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -50,6 +64,8 @@ describe('RoomsLobbyService', () => {
   let service: RoomsLobbyService;
   let roomsLobbyRepository: RoomsLobbyRepositoryMock;
   let databaseService: DatabaseServiceMock;
+  let notificationsService: NotificationsServiceMock;
+  let outboxQueueService: OutboxQueueServiceMock;
 
   const tx = { tx: true };
 
@@ -61,10 +77,14 @@ describe('RoomsLobbyService', () => {
       findRoomByCode: jest.fn(),
       listLiveRooms: jest.fn(),
       listPlayers: jest.fn().mockResolvedValue([]),
+      listPlayersForRooms: jest.fn().mockResolvedValue([]),
       listJoinedPlayers: jest.fn(),
       findJoinedPlayer: jest.fn(),
       leaveRoom: jest.fn(),
       cancelRoom: jest.fn(),
+      findActiveUserByUsername: jest.fn(),
+      findActiveUserById: jest.fn(),
+      findAcceptedFriendship: jest.fn(),
       isRoomCodeUniqueViolation: jest.fn().mockReturnValue(false),
       isSeatUniqueViolation: jest.fn().mockReturnValue(false),
     };
@@ -75,9 +95,19 @@ describe('RoomsLobbyService', () => {
       ),
     };
 
+    notificationsService = {
+      createRoomInviteNotification: jest.fn(),
+    };
+
+    outboxQueueService = {
+      enqueuePublishEvent: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsLobbyService(
       roomsLobbyRepository as unknown as RoomsLobbyRepository,
       databaseService as unknown as DatabaseService,
+      notificationsService as unknown as NotificationsService,
+      outboxQueueService as unknown as OutboxQueueService,
     );
   });
 
@@ -183,47 +213,7 @@ describe('RoomsLobbyService', () => {
       { id: 'player-3', userId: 'user-3', seatNumber: 4 },
     ]);
 
-    roomsLobbyRepository.listPlayers.mockResolvedValue([
-      {
-        id: 'player-1',
-        roomId: waitingRoom.id,
-        userId: 'user-1',
-        username: 'playerone',
-        playerType: 'human',
-        botDifficulty: null,
-        botName: null,
-        seatNumber: 1,
-        status: 'joined',
-        joinedAt: createdAt,
-        leftAt: null,
-      },
-      {
-        id: 'player-2',
-        roomId: waitingRoom.id,
-        userId: 'user-2',
-        username: 'playertwo',
-        playerType: 'human',
-        botDifficulty: null,
-        botName: null,
-        seatNumber: 2,
-        status: 'joined',
-        joinedAt: createdAt,
-        leftAt: null,
-      },
-      {
-        id: 'player-4',
-        roomId: waitingRoom.id,
-        userId: joiningUser.id,
-        username: joiningUser.username,
-        playerType: 'human',
-        botDifficulty: null,
-        botName: null,
-        seatNumber: 3,
-        status: 'joined',
-        joinedAt: createdAt,
-        leftAt: null,
-      },
-    ]);
+    roomsLobbyRepository.listPlayers.mockResolvedValue([]);
 
     await service.joinRoom(joiningUser, waitingRoom.code);
 
@@ -300,5 +290,98 @@ describe('RoomsLobbyService', () => {
     );
 
     expect(result).toEqual({ message: 'Room cancelled' });
+  });
+
+  it('invites a friend to a waiting room through notification outbox', async () => {
+    const invitee = {
+      id: 'user-2',
+      email: 'friend@example.com',
+      username: 'playertwo',
+      avatarObjectKey: 'avatars/user-2/avatar.webp',
+    };
+
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: waitingRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined',
+    });
+    roomsLobbyRepository.findActiveUserByUsername.mockResolvedValue(invitee);
+    roomsLobbyRepository.findAcceptedFriendship.mockResolvedValue({
+      id: 'friendship-1',
+      requesterId: authUser.id,
+      addresseeId: invitee.id,
+      status: 'accepted',
+    });
+    roomsLobbyRepository.findActiveRoomForUser.mockResolvedValue(null);
+    roomsLobbyRepository.findActiveUserById.mockResolvedValue({
+      id: authUser.id,
+      email: authUser.email,
+      username: authUser.username,
+      avatarObjectKey: 'avatars/user-1/avatar.webp',
+    });
+
+    notificationsService.createRoomInviteNotification.mockResolvedValue({
+      notification: { id: 'notification-1' },
+      outboxEventId: 'outbox-1',
+    });
+
+    const result = await service.inviteToRoom(authUser, waitingRoom.code, {
+      username: ' PlayerTwo ',
+    });
+
+    expect(
+      notificationsService.createRoomInviteNotification,
+    ).toHaveBeenCalledWith(
+      {
+        userId: invitee.id,
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        inviterId: authUser.id,
+        inviterUsername: authUser.username,
+        inviterAvatarObjectKey: 'avatars/user-1/avatar.webp',
+      },
+      tx,
+    );
+
+    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
+      'outbox-1',
+    );
+
+    expect(result).toEqual({
+      message: 'Room invite sent',
+      roomCode: waitingRoom.code,
+    });
+  });
+
+  it('blocks inviting users who are not accepted friends', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: waitingRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined',
+    });
+    roomsLobbyRepository.findActiveUserByUsername.mockResolvedValue({
+      id: 'user-2',
+      email: 'friend@example.com',
+      username: 'playertwo',
+      avatarObjectKey: null,
+    });
+    roomsLobbyRepository.findAcceptedFriendship.mockResolvedValue(null);
+
+    await expect(
+      service.inviteToRoom(authUser, waitingRoom.code, {
+        username: 'playertwo',
+      }),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(
+      notificationsService.createRoomInviteNotification,
+    ).not.toHaveBeenCalled();
+    expect(outboxQueueService.enqueuePublishEvent).not.toHaveBeenCalled();
   });
 });

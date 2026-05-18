@@ -94,6 +94,37 @@ export class NotificationsService {
     );
   }
 
+  async createRoomInviteNotification(
+    input: {
+      userId: string;
+      roomId: string;
+      roomCode: string;
+      inviterId: string;
+      inviterUsername: string;
+      inviterAvatarObjectKey?: string | null;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    return this.createNotificationOutbox(
+      {
+        userId: input.userId,
+        type: 'room_invite',
+        title: 'Room invite',
+        body: `${input.inviterUsername} invited you to a room`,
+        data: {
+          roomId: input.roomId,
+          roomCode: input.roomCode,
+          inviterId: input.inviterId,
+          inviterUsername: input.inviterUsername,
+          inviterAvatarObjectKey: input.inviterAvatarObjectKey ?? null,
+          inviterAvatarUrl: this.resolveAvatarUrl(input.inviterAvatarObjectKey),
+          link: `/rooms/${input.roomCode}`,
+        },
+      },
+      executor,
+    );
+  }
+
   async list(authUser: AuthUser, dto: ListNotificationsDto) {
     const limit = Math.min(
       dto.limit ?? DEFAULT_NOTIFICATION_LIMIT,

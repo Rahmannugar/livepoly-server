@@ -9,9 +9,7 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
-import {
-  CreateAvatarUploadUrlDto,
-} from '../dto/avatar.dto';
+import { CreateAvatarUploadUrlDto } from '../dto/avatar.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import {
   AvatarUploadUrlResponseDto,

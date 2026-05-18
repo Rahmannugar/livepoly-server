@@ -80,3 +80,11 @@ export class RoomMessageResponseDto {
   @ApiProperty({ example: 'Room left' })
   message: string;
 }
+
+export class RoomInviteResponseDto {
+  @ApiProperty({ example: 'Room invite sent' })
+  message: string;
+
+  @ApiProperty({ example: 'AbC23xYz' })
+  roomCode: string;
+}

@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { DatabaseService } from '../../infra/database/database.service';
 import type { DatabaseExecutor } from '../../infra/database/database.service';
-import { roomPlayers, rooms, users } from '../../infra/database/schema';
+import {
+  friendships,
+  roomPlayers,
+  rooms,
+  users,
+} from '../../infra/database/schema';
 import { ACTIVE_ROOM_STATUSES, ROOM_MAX_PLAYERS } from '../rooms.constants';
 
 @Injectable()
@@ -124,6 +129,65 @@ export class RoomsLobbyRepository {
     return room ?? null;
   }
 
+  async findActiveUserByUsername(username: string) {
+    const [user] = await this.databaseService.db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        avatarObjectKey: users.avatarObjectKey,
+      })
+      .from(users)
+      .where(and(eq(users.username, username), isNull(users.deletedAt)))
+      .limit(1);
+
+    return user ?? null;
+  }
+
+  async findActiveUserById(userId: string) {
+    const [user] = await this.databaseService.db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        avatarObjectKey: users.avatarObjectKey,
+      })
+      .from(users)
+      .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+      .limit(1);
+
+    return user ?? null;
+  }
+
+  async findAcceptedFriendship(userAId: string, userBId: string) {
+    const [friendship] = await this.databaseService.db
+      .select({
+        id: friendships.id,
+        requesterId: friendships.requesterId,
+        addresseeId: friendships.addresseeId,
+        status: friendships.status,
+      })
+      .from(friendships)
+      .where(
+        and(
+          eq(friendships.status, 'accepted'),
+          or(
+            and(
+              eq(friendships.requesterId, userAId),
+              eq(friendships.addresseeId, userBId),
+            ),
+            and(
+              eq(friendships.requesterId, userBId),
+              eq(friendships.addresseeId, userAId),
+            ),
+          ),
+        ),
+      )
+      .limit(1);
+
+    return friendship ?? null;
+  }
+
   async listLiveRooms(limit: number) {
     return this.databaseService.db
       .select({
@@ -163,6 +227,29 @@ export class RoomsLobbyRepository {
       .leftJoin(users, eq(users.id, roomPlayers.userId))
       .where(eq(roomPlayers.roomId, roomId))
       .orderBy(roomPlayers.seatNumber);
+  }
+
+  async listPlayersForRooms(roomIds: string[]) {
+    if (roomIds.length === 0) return [];
+
+    return this.databaseService.db
+      .select({
+        id: roomPlayers.id,
+        roomId: roomPlayers.roomId,
+        userId: roomPlayers.userId,
+        username: users.username,
+        playerType: roomPlayers.playerType,
+        botDifficulty: roomPlayers.botDifficulty,
+        botName: roomPlayers.botName,
+        seatNumber: roomPlayers.seatNumber,
+        status: roomPlayers.status,
+        joinedAt: roomPlayers.joinedAt,
+        leftAt: roomPlayers.leftAt,
+      })
+      .from(roomPlayers)
+      .leftJoin(users, eq(users.id, roomPlayers.userId))
+      .where(inArray(roomPlayers.roomId, roomIds))
+      .orderBy(roomPlayers.roomId, roomPlayers.seatNumber);
   }
 
   async listJoinedPlayers(roomId: string) {

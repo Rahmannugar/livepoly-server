@@ -124,7 +124,7 @@ describe('FriendsService', () => {
       id: 'friendship-1',
       requesterId: authUser.id,
       addresseeId: 'user-2',
-      status: 'pending',
+      status: 'pending' as const,
     });
 
     await expect(
@@ -159,7 +159,7 @@ describe('FriendsService', () => {
       id: 'friendship-1',
       requesterId: authUser.id,
       addresseeId: 'user-2',
-      status: 'pending',
+      status: 'pending' as const,
       createdAt: new Date('2026-05-14T12:00:00.000Z'),
       updatedAt: new Date('2026-05-14T12:00:00.000Z'),
     });
@@ -209,7 +209,7 @@ describe('FriendsService', () => {
       id: 'friendship-1',
       requesterId: 'user-2',
       addresseeId: authUser.id,
-      status: 'accepted',
+      status: 'accepted' as const,
       createdAt: new Date('2026-05-14T12:00:00.000Z'),
       updatedAt: new Date('2026-05-14T12:15:00.000Z'),
     });
@@ -252,14 +252,14 @@ describe('FriendsService', () => {
       id: 'friendship-1',
       requesterId: 'user-2',
       addresseeId: authUser.id,
-      status: 'pending',
+      status: 'pending' as const,
     });
 
     friendsRepository.cancelFriendRequest.mockResolvedValue({
       id: 'friendship-2',
       requesterId: authUser.id,
       addresseeId: 'user-2',
-      status: 'pending',
+      status: 'pending' as const,
     });
 
     await service.rejectRequest(authUser, 'friendship-1');

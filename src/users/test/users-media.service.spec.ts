@@ -77,7 +77,7 @@ describe('UsersMediaService', () => {
         previousAvatarObjectKey: `avatars/${authUser.id}/old-avatar.webp`,
         contentType: 'image/webp',
         contentLength: 5 * 1024 * 1024,
-        status: 'pending',
+        status: 'pending' as const,
         expiresAt: new Date(Date.now() + 600_000),
       }),
       updateAvatarObjectKey: jest.fn().mockResolvedValue({

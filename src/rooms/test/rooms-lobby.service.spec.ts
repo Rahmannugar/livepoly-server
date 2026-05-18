@@ -51,7 +51,7 @@ const waitingRoom = {
   id: 'room-1',
   code: 'AbC23xYz',
   hostUserId: authUser.id,
-  status: 'waiting',
+  status: 'waiting' as const,
   maxPlayers: 4,
   durationMinutes: 60,
   boardKey: 'classic',
@@ -115,7 +115,7 @@ describe('RoomsLobbyService', () => {
     roomsLobbyRepository.findActiveRoomForUser.mockResolvedValue({
       id: 'room-existing',
       code: 'Live1234',
-      status: 'waiting',
+      status: 'waiting' as const,
     });
 
     await expect(service.createRoom(authUser, {})).rejects.toBeInstanceOf(
@@ -132,9 +132,9 @@ describe('RoomsLobbyService', () => {
       id: 'player-1',
       roomId: waitingRoom.id,
       userId: authUser.id,
-      playerType: 'human',
+      playerType: 'human' as const,
       seatNumber: 1,
-      status: 'joined',
+      status: 'joined' as const,
       joinedAt: createdAt,
       leftAt: null,
     });
@@ -145,11 +145,11 @@ describe('RoomsLobbyService', () => {
         roomId: waitingRoom.id,
         userId: authUser.id,
         username: authUser.username,
-        playerType: 'human',
+        playerType: 'human' as const,
         botDifficulty: null,
         botName: null,
         seatNumber: 1,
-        status: 'joined',
+        status: 'joined' as const,
         joinedAt: createdAt,
         leftAt: null,
       },
@@ -185,11 +185,11 @@ describe('RoomsLobbyService', () => {
           roomId: waitingRoom.id,
           userId: authUser.id,
           username: authUser.username,
-          playerType: 'human',
+          playerType: 'human' as const,
           botDifficulty: null,
           botName: null,
           seatNumber: 1,
-          status: 'joined',
+          status: 'joined' as const,
           joinedAt: createdAt,
           leftAt: null,
         },
@@ -255,7 +255,7 @@ describe('RoomsLobbyService', () => {
       roomId: waitingRoom.id,
       userId: authUser.id,
       seatNumber: 1,
-      status: 'joined',
+      status: 'joined' as const,
     });
 
     roomsLobbyRepository.leaveRoom.mockResolvedValue({
@@ -263,12 +263,12 @@ describe('RoomsLobbyService', () => {
       roomId: waitingRoom.id,
       userId: authUser.id,
       seatNumber: 1,
-      status: 'left',
+      status: 'left' as const,
     });
 
     roomsLobbyRepository.cancelRoom.mockResolvedValue({
       ...waitingRoom,
-      status: 'cancelled',
+      status: 'cancelled' as const,
       endedAt: new Date('2026-05-14T12:05:00.000Z'),
     });
 
@@ -306,14 +306,14 @@ describe('RoomsLobbyService', () => {
       roomId: waitingRoom.id,
       userId: authUser.id,
       seatNumber: 1,
-      status: 'joined',
+      status: 'joined' as const,
     });
     roomsLobbyRepository.findActiveUserByUsername.mockResolvedValue(invitee);
     roomsLobbyRepository.findAcceptedFriendship.mockResolvedValue({
       id: 'friendship-1',
       requesterId: authUser.id,
       addresseeId: invitee.id,
-      status: 'accepted',
+      status: 'accepted' as const,
     });
     roomsLobbyRepository.findActiveRoomForUser.mockResolvedValue(null);
     roomsLobbyRepository.findActiveUserById.mockResolvedValue({
@@ -363,7 +363,7 @@ describe('RoomsLobbyService', () => {
       roomId: waitingRoom.id,
       userId: authUser.id,
       seatNumber: 1,
-      status: 'joined',
+      status: 'joined' as const,
     });
     roomsLobbyRepository.findActiveUserByUsername.mockResolvedValue({
       id: 'user-2',

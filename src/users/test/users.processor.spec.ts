@@ -56,7 +56,7 @@ const createPendingUpload = () => ({
   previousAvatarObjectKey,
   contentType: 'image/webp',
   contentLength: 1024,
-  status: 'pending',
+  status: 'pending' as const,
   expiresAt: new Date('2026-05-14T12:10:00.000Z'),
   confirmedAt: null,
   cleanedUpAt: null,
@@ -114,7 +114,7 @@ describe('UsersProcessor', () => {
       id: uploadId,
       userId,
       objectKey,
-      status: 'confirmed',
+      status: 'confirmed' as const,
     });
 
     await processor.process(createVerifyAvatarUploadJob());

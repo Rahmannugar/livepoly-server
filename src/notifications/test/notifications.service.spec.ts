@@ -79,7 +79,7 @@ describe('NotificationsService', () => {
     notificationsRepository.createNotification.mockResolvedValue({
       id: 'notification-1',
       userId: 'user-2',
-      type: 'friend_request',
+      type: 'friend_request' as const,
       title: 'New friend request',
       body: 'playerone sent you a friend request',
       data: {},
@@ -103,7 +103,7 @@ describe('NotificationsService', () => {
       notification: {
         id: 'notification-1',
         userId: 'user-2',
-        type: 'friend_request',
+        type: 'friend_request' as const,
         title: 'New friend request',
         body: 'playerone sent you a friend request',
         data: {},
@@ -117,7 +117,7 @@ describe('NotificationsService', () => {
     expect(notificationsRepository.createNotification).toHaveBeenCalledWith(
       {
         userId: 'user-2',
-        type: 'friend_request',
+        type: 'friend_request' as const,
         title: 'New friend request',
         body: 'playerone sent you a friend request',
         data: {
@@ -140,7 +140,7 @@ describe('NotificationsService', () => {
         payload: {
           notificationId: 'notification-1',
           userId: 'user-2',
-          type: 'friend_request',
+          type: 'friend_request' as const,
           createdAt: createdAt.toISOString(),
         },
       },

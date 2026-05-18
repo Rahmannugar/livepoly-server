@@ -12,7 +12,6 @@ import { UsersProfileRepository } from './repositories/users-profile.repository'
 import { UsersStatsRepository } from './repositories/users-stats.repository';
 import { UsersMediaService } from './services/users-media.service';
 import { UsersProfileService } from './services/users-profile.service';
-import { UsersRateLimitService } from './services/users-rate-limit.service';
 import { UsersStatsService } from './services/users-stats.service';
 import { UsersController } from './users.controller';
 import { UsersMediaRepository } from './repositories/users-media.repository';
@@ -35,7 +34,6 @@ import { UsersMediaRepository } from './repositories/users-media.repository';
     UsersProfileRepository,
     UsersMediaRepository,
     UsersStatsRepository,
-    UsersRateLimitService,
     UsersQueueService,
   ],
   exports: [UsersQueueService],

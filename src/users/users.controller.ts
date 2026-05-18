@@ -8,13 +8,13 @@ import {
   Param,
   Patch,
   Post,
-  Req,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
+import { RateLimit } from '../rate-limit/rate-limit.decorator';
+import { RateLimitGuard } from '../rate-limit/rate-limit.guard';
 import { UsersDocs } from './docs/users.swagger';
 import {
   ConfirmAvatarUploadDto,
@@ -23,6 +23,7 @@ import {
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersMediaService } from './services/users-media.service';
 import { UsersProfileService } from './services/users-profile.service';
+import { USERS_RATE_LIMIT_RULES } from './users-rate-limit.rules';
 
 @UsersDocs.Controller()
 @Controller('users')
@@ -33,82 +34,65 @@ export class UsersController {
   ) {}
 
   @UsersDocs.GetMe()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RateLimitGuard)
+  @RateLimit(...USERS_RATE_LIMIT_RULES.getMe)
   @Get('me')
   @HttpCode(HttpStatus.OK)
-  getMe(@AuthUserDecorator() authUser: AuthUser, @Req() request: Request) {
-    return this.usersProfileService.getMe(authUser, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+  getMe(@AuthUserDecorator() authUser: AuthUser) {
+    return this.usersProfileService.getMe(authUser);
   }
 
   @UsersDocs.UpdateMe()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RateLimitGuard)
+  @RateLimit(...USERS_RATE_LIMIT_RULES.updateMe)
   @Patch('me')
   @HttpCode(HttpStatus.OK)
   updateMe(
     @AuthUserDecorator() authUser: AuthUser,
     @Body() dto: UpdateUserDto,
-    @Req() request: Request,
   ) {
-    return this.usersProfileService.updateMe(authUser, dto, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+    return this.usersProfileService.updateMe(authUser, dto);
   }
 
   @UsersDocs.DeleteMe()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RateLimitGuard)
+  @RateLimit(...USERS_RATE_LIMIT_RULES.deleteMe)
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async deleteMe(
-    @AuthUserDecorator() authUser: AuthUser,
-    @Req() request: Request,
-  ) {
-    await this.usersProfileService.deleteMe(authUser, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+  async deleteMe(@AuthUserDecorator() authUser: AuthUser) {
+    await this.usersProfileService.deleteMe(authUser);
   }
 
   @UsersDocs.CreateAvatarUploadUrl()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RateLimitGuard)
+  @RateLimit(...USERS_RATE_LIMIT_RULES.updateMe)
   @Post('me/avatar/upload-url')
   @HttpCode(HttpStatus.OK)
   createAvatarUploadUrl(
     @AuthUserDecorator() authUser: AuthUser,
     @Body() dto: CreateAvatarUploadUrlDto,
-    @Req() request: Request,
   ) {
-    return this.usersMediaService.createAvatarUploadUrl(authUser, dto, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+    return this.usersMediaService.createAvatarUploadUrl(authUser, dto);
   }
 
   @UsersDocs.ConfirmAvatarUpload()
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RateLimitGuard)
+  @RateLimit(...USERS_RATE_LIMIT_RULES.updateMe)
   @Post('me/avatar/confirm')
   @HttpCode(HttpStatus.OK)
   confirmAvatarUpload(
     @AuthUserDecorator() authUser: AuthUser,
     @Body() dto: ConfirmAvatarUploadDto,
-    @Req() request: Request,
   ) {
-    return this.usersMediaService.confirmAvatarUpload(authUser, dto, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+    return this.usersMediaService.confirmAvatarUpload(authUser, dto);
   }
 
   @UsersDocs.GetByUsername()
+  @UseGuards(RateLimitGuard)
+  @RateLimit(...USERS_RATE_LIMIT_RULES.getByUsername)
   @Get(':username')
   @HttpCode(HttpStatus.OK)
-  getByUsername(@Param('username') username: string, @Req() request: Request) {
-    return this.usersProfileService.getByUsername(username, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+  getByUsername(@Param('username') username: string) {
+    return this.usersProfileService.getByUsername(username);
   }
 }

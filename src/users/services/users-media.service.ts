@@ -17,10 +17,6 @@ import { UsersMediaRepository } from '../repositories/users-media.repository';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { USER_AVATAR } from '../users.constants';
 import type { UserAvatarContentType } from '../users.constants';
-import {
-  UsersRateLimitService,
-  UsersRequestContext,
-} from './users-rate-limit.service';
 import { UsersStatsService } from './users-stats.service';
 
 @Injectable()
@@ -29,7 +25,6 @@ export class UsersMediaService {
     private readonly usersProfileRepository: UsersProfileRepository,
     private readonly usersMediaRepository: UsersMediaRepository,
     private readonly usersStatsService: UsersStatsService,
-    private readonly usersRateLimitService: UsersRateLimitService,
     private readonly storageService: StorageService,
     private readonly configService: ConfigService,
     private readonly observabilityService: ObservabilityService,
@@ -39,10 +34,7 @@ export class UsersMediaService {
   async createAvatarUploadUrl(
     authUser: AuthUser,
     dto: CreateAvatarUploadUrlDto,
-    context: UsersRequestContext,
   ) {
-    await this.usersRateLimitService.enforceUpdateMe(authUser, context);
-
     const extension = this.avatarExtensionForContentType(dto.contentType);
     const objectKey = `avatars/${authUser.id}/${randomUUID()}.${extension}`;
     const expiresAt = new Date(
@@ -86,13 +78,7 @@ export class UsersMediaService {
     };
   }
 
-  async confirmAvatarUpload(
-    authUser: AuthUser,
-    dto: ConfirmAvatarUploadDto,
-    context: UsersRequestContext,
-  ) {
-    await this.usersRateLimitService.enforceUpdateMe(authUser, context);
-
+  async confirmAvatarUpload(authUser: AuthUser, dto: ConfirmAvatarUploadDto) {
     const upload = await this.usersMediaRepository.findPendingAvatarUpload(
       dto.uploadId,
     );

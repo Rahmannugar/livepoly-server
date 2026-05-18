@@ -13,10 +13,6 @@ import { SessionCacheService } from '../../session/session-cache.service';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import { UsersQueueService } from '../jobs/users-queue.service';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
-import {
-  UsersRateLimitService,
-  UsersRequestContext,
-} from './users-rate-limit.service';
 import { UsersStatsService } from './users-stats.service';
 
 @Injectable()
@@ -29,13 +25,10 @@ export class UsersProfileService {
     private readonly databaseService: DatabaseService,
     private readonly configService: ConfigService,
     private readonly observabilityService: ObservabilityService,
-    private readonly usersRateLimitService: UsersRateLimitService,
     private readonly usersQueueService: UsersQueueService,
   ) {}
 
-  async getByUsername(username: string, context: UsersRequestContext) {
-    await this.usersRateLimitService.enforceGetPublicProfile(context);
-
+  async getByUsername(username: string) {
     const normalizedUsername = username.trim().toLowerCase();
     const user =
       await this.usersProfileRepository.findActiveUserByUsername(
@@ -57,12 +50,11 @@ export class UsersProfileService {
       targetUserId: user.id,
       targetUsername: user.username,
     });
+
     return this.profile(user, stats);
   }
 
-  async getMe(authUser: AuthUser, context: UsersRequestContext) {
-    await this.usersRateLimitService.enforceGetMe(authUser, context);
-
+  async getMe(authUser: AuthUser) {
     const user = await this.usersProfileRepository.findActiveUserById(
       authUser.id,
     );
@@ -87,13 +79,7 @@ export class UsersProfileService {
     return this.profile(user, stats);
   }
 
-  async updateMe(
-    authUser: AuthUser,
-    dto: UpdateUserDto,
-    context: UsersRequestContext,
-  ) {
-    await this.usersRateLimitService.enforceUpdateMe(authUser, context);
-
+  async updateMe(authUser: AuthUser, dto: UpdateUserDto) {
     const username = dto.username?.trim().toLowerCase();
     const bio = dto.bio === undefined ? undefined : dto.bio.trim() || null;
 
@@ -166,12 +152,7 @@ export class UsersProfileService {
     }
   }
 
-  async deleteMe(
-    authUser: AuthUser,
-    context: UsersRequestContext,
-  ): Promise<void> {
-    await this.usersRateLimitService.enforceDeleteMe(authUser, context);
-
+  async deleteMe(authUser: AuthUser): Promise<void> {
     this.recordSecurityEvent('UserDeleteRequested', {
       userId: authUser.id,
       username: authUser.username,

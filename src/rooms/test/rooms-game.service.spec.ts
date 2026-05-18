@@ -3,8 +3,9 @@ import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
-import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
 import { RoomsGameService } from '../services/rooms-game.service';
+import type { GameStateService } from '../../game/state/game-state.service';
+import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
 
 type RoomsGameRepositoryMock = {
   findRoomByCode: jest.Mock;
@@ -25,6 +26,10 @@ type NotificationsServiceMock = {
 
 type OutboxQueueServiceMock = {
   enqueuePublishEvent: jest.Mock;
+};
+
+type GameStateServiceMock = {
+  set: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -98,6 +103,8 @@ const humanPlayerThree = {
   leftAt: null,
 };
 
+let gameStateService: GameStateServiceMock;
+
 describe('RoomsGameService', () => {
   let service: RoomsGameService;
   let roomsGameRepository: RoomsGameRepositoryMock;
@@ -144,11 +151,16 @@ describe('RoomsGameService', () => {
       enqueuePublishEvent: jest.fn().mockResolvedValue(undefined),
     };
 
+    gameStateService = {
+      set: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsGameService(
       roomsGameRepository as unknown as RoomsGameRepository,
       databaseService as unknown as DatabaseService,
       notificationsService as unknown as NotificationsService,
       outboxQueueService as unknown as OutboxQueueService,
+      gameStateService as unknown as GameStateService,
     );
   });
 
@@ -194,10 +206,12 @@ describe('RoomsGameService', () => {
           version: 1,
           roomId: waitingRoom.id,
           roomCode: waitingRoom.code,
+          boardKey: 'classic',
           mode: 'ranked',
           phase: 'awaiting_first_turn',
           turnNumber: 1,
           currentTurnRoomPlayerId: humanPlayerOne.id,
+          lastDiceRoll: null,
           players: expect.arrayContaining([
             expect.objectContaining({
               roomPlayerId: humanPlayerOne.id,
@@ -223,6 +237,21 @@ describe('RoomsGameService', () => {
     );
     expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
       'outbox-3',
+    );
+
+    expect(gameStateService.set).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        version: 1,
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        boardKey: 'classic',
+        mode: 'ranked',
+        phase: 'awaiting_first_turn',
+        turnNumber: 1,
+        currentTurnRoomPlayerId: humanPlayerOne.id,
+        lastDiceRoll: null,
+      }),
     );
 
     expect(result.room).toEqual({
@@ -312,24 +341,45 @@ describe('RoomsGameService', () => {
         mode: 'casual',
         currentTurnRoomPlayerId: humanPlayerOne.id,
         state: expect.objectContaining({
+          version: 1,
+          roomId: waitingRoom.id,
+          roomCode: waitingRoom.code,
+          boardKey: 'classic',
           mode: 'casual',
+          phase: 'awaiting_first_turn',
+          turnNumber: 1,
+          currentTurnRoomPlayerId: humanPlayerOne.id,
+          lastDiceRoll: null,
           players: expect.arrayContaining([
+            expect.objectContaining({
+              roomPlayerId: humanPlayerOne.id,
+              playerType: 'human',
+              seatNumber: 1,
+              cash: 1500,
+              position: 0,
+            }),
             expect.objectContaining({
               roomPlayerId: botTwo.id,
               playerType: 'bot',
               botName: 'Nova',
+              botDifficulty: 'normal',
+              seatNumber: 2,
               cash: 1500,
             }),
             expect.objectContaining({
               roomPlayerId: botThree.id,
               playerType: 'bot',
               botName: 'Midas',
+              botDifficulty: 'normal',
+              seatNumber: 3,
               cash: 1500,
             }),
             expect.objectContaining({
               roomPlayerId: botFour.id,
               playerType: 'bot',
               botName: 'Echo',
+              botDifficulty: 'normal',
+              seatNumber: 4,
               cash: 1500,
             }),
           ]),
@@ -343,6 +393,21 @@ describe('RoomsGameService', () => {
     ).toHaveBeenCalledTimes(1);
     expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
       'outbox-1',
+    );
+
+    expect(gameStateService.set).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        version: 1,
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        boardKey: 'classic',
+        mode: 'casual',
+        phase: 'awaiting_first_turn',
+        turnNumber: 1,
+        currentTurnRoomPlayerId: humanPlayerOne.id,
+        lastDiceRoll: null,
+      }),
     );
 
     expect(result.room.players).toHaveLength(4);

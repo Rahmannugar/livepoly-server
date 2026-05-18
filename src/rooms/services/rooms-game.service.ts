@@ -12,10 +12,13 @@ import { RoomsGameRepository } from '../repositories/rooms-game.repository';
 import {
   BOT_NAMES,
   DEFAULT_BOT_DIFFICULTY,
+  ROOM_BOARD_KEY,
   ROOM_MAX_PLAYERS,
   ROOM_MIN_RANKED_HUMANS,
   STARTING_CASH,
 } from '../rooms.constants';
+import { GameStateService } from '../../game/state/game-state.service';
+import type { GameEngineState } from '../../game/engine/game-engine.types';
 
 type JoinedRoomPlayer = Awaited<
   ReturnType<RoomsGameRepository['listJoinedPlayers']>
@@ -37,6 +40,7 @@ export class RoomsGameService {
     private readonly databaseService: DatabaseService,
     private readonly notificationsService: NotificationsService,
     private readonly outboxQueueService: OutboxQueueService,
+    private readonly gameStateService: GameStateService,
   ) {}
 
   async startRoom(authUser: AuthUser, code: string) {
@@ -99,17 +103,19 @@ export class RoomsGameService {
         throw new ConflictException('Room is not open');
       }
 
+      const initialState = this.createInitialGameState({
+        roomId: room.id,
+        roomCode: room.code,
+        mode,
+        players: allPlayers,
+      });
+
       const game = await this.roomsGameRepository.createGame(
         {
           roomId: room.id,
           mode,
           currentTurnRoomPlayerId: allPlayers[0].id,
-          state: this.createInitialGameState({
-            roomId: room.id,
-            roomCode: room.code,
-            mode,
-            players: allPlayers,
-          }),
+          state: initialState,
         },
         tx,
       );
@@ -138,8 +144,11 @@ export class RoomsGameService {
         game,
         players: allPlayers,
         outboxEventIds,
+        initialState,
       };
     });
+
+    await this.gameStateService.set(result.game.id, result.initialState);
 
     for (const outboxEventId of result.outboxEventIds) {
       await this.outboxQueueService.enqueuePublishEvent(outboxEventId);
@@ -182,15 +191,17 @@ export class RoomsGameService {
     roomCode: string;
     mode: GameMode;
     players: JoinedRoomPlayer[];
-  }) {
+  }): GameEngineState {
     return {
       version: 1,
       roomId: input.roomId,
       roomCode: input.roomCode,
+      boardKey: ROOM_BOARD_KEY,
       mode: input.mode,
       phase: 'awaiting_first_turn',
       turnNumber: 1,
       currentTurnRoomPlayerId: input.players[0].id,
+      lastDiceRoll: null,
       players: input.players.map((player) => ({
         roomPlayerId: player.id,
         userId: player.userId,

@@ -38,6 +38,10 @@ export class CacheService implements OnModuleDestroy {
     });
   }
 
+  getClient(): Redis {
+    return this.redis;
+  }
+
   async get<T>(key: string): Promise<T | null> {
     const value = await this.redis.get(key);
     return value ? (JSON.parse(value) as T) : null;

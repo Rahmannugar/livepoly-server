@@ -4,6 +4,7 @@ import { DatabaseModule } from '../infra/database/database.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { OutboxModule } from '../outbox/outbox.module';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
+import { GameModule } from '../game/game.module';
 import { RoomsGameRepository } from './repositories/rooms-game.repository';
 import { RoomsLobbyRepository } from './repositories/rooms-lobby.repository';
 import { RoomsController } from './rooms.controller';
@@ -17,6 +18,7 @@ import { RoomsLobbyService } from './services/rooms-lobby.service';
     RateLimitModule,
     NotificationsModule,
     OutboxModule,
+    GameModule,
   ],
   controllers: [RoomsController],
   providers: [

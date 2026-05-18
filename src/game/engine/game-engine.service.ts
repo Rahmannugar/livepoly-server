@@ -16,30 +16,30 @@ export class GameEngineService {
     this.assertCurrentTurn(state, input.roomPlayerId);
     this.assertValidDice(input.dice);
 
-    const board = getGameBoard(state.boardKey);
+    const nextState = this.cloneState(state);
+    const board = getGameBoard(nextState.boardKey);
     const steps = input.dice[0] + input.dice[1];
     const boardSize = board.tiles.length;
 
-    const players = state.players.map((player) => {
+    const players = nextState.players.map((player) => {
       if (player.roomPlayerId !== input.roomPlayerId) {
-        return this.clonePlayer(player);
+        return player;
       }
 
       const nextAbsolutePosition = player.position + steps;
       const passedGo = nextAbsolutePosition >= boardSize;
-      const position = nextAbsolutePosition % boardSize;
 
       return {
-        ...this.clonePlayer(player),
-        position,
+        ...player,
+        position: nextAbsolutePosition % boardSize,
         cash: passedGo ? player.cash + board.passGoCash : player.cash,
       };
     });
 
     return {
-      ...state,
+      ...nextState,
       phase: 'awaiting_turn_end',
-      lastDiceRoll: input.dice,
+      lastDiceRoll: [...input.dice],
       players,
     };
   }
@@ -48,15 +48,15 @@ export class GameEngineService {
     this.assertCanEndTurn(state);
     this.assertCurrentTurn(state, input.roomPlayerId);
 
-    const nextPlayer = this.findNextActivePlayer(state);
+    const nextState = this.cloneState(state);
+    const nextPlayer = this.findNextActivePlayer(nextState);
 
     return {
-      ...state,
+      ...nextState,
       phase: 'awaiting_roll',
-      turnNumber: state.turnNumber + 1,
+      turnNumber: nextState.turnNumber + 1,
       currentTurnRoomPlayerId: nextPlayer.roomPlayerId,
       lastDiceRoll: null,
-      players: state.players.map((player) => this.clonePlayer(player)),
     };
   }
 
@@ -154,6 +154,14 @@ export class GameEngineService {
     }
 
     return activePlayers[(currentIndex + 1) % activePlayers.length];
+  }
+
+  private cloneState(state: GameEngineState): GameEngineState {
+    return {
+      ...state,
+      lastDiceRoll: state.lastDiceRoll ? [...state.lastDiceRoll] : null,
+      players: state.players.map((player) => this.clonePlayer(player)),
+    };
   }
 
   private clonePlayer(player: GameEnginePlayer): GameEnginePlayer {

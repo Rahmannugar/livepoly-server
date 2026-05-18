@@ -9,6 +9,15 @@ export const GAME_COMMANDS = {
   endTurn: 'endTurn',
 } as const;
 
+export const GAME_SOCKET_EVENTS = {
+  join: 'game:join',
+  joined: 'game:joined',
+  rollAndMove: 'game:roll-and-move',
+  endTurn: 'game:end-turn',
+  state: 'game:state',
+  error: 'game:error',
+} as const;
+
 export const GAME_EVENTS = {
   stateMissing: 'GameStateMissing',
   stateSaved: 'GameStateSaved',
@@ -19,6 +28,9 @@ export const GAME_EVENTS = {
   stateCasConflict: 'GameStateCasConflict',
   commandSucceeded: 'GameCommandSucceeded',
   commandFailed: 'GameCommandFailed',
+  socketConnected: 'GameSocketConnected',
+  socketJoined: 'GameSocketJoined',
+  socketAccessDenied: 'GameSocketAccessDenied',
 } as const;
 
 export const GAME_METRICS = {

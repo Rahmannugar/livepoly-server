@@ -13,18 +13,25 @@ export class OutboxRecoveryService implements OnApplicationBootstrap {
     private readonly outboxQueueService: OutboxQueueService,
   ) {}
 
-  async onApplicationBootstrap() {
-    const candidates = await this.outboxService.findAvailable(
-      OUTBOX_RECOVERY_BATCH_SIZE,
-    );
+  async onApplicationBootstrap(): Promise<void> {
+    try {
+      const candidates = await this.outboxService.findAvailable(
+        OUTBOX_RECOVERY_BATCH_SIZE,
+      );
 
-    for (const candidate of candidates) {
-      await this.outboxQueueService.enqueuePublishEvent(candidate.id);
+      for (const candidate of candidates) {
+        await this.outboxQueueService.enqueuePublishEvent(candidate.id);
+      }
+
+      this.logger.log({
+        message: 'Outbox recovery completed',
+        recoveredCount: candidates.length,
+      });
+    } catch (error) {
+      this.logger.error({
+        message: 'Outbox recovery failed during bootstrap',
+        reason: error instanceof Error ? error.message : 'unknown_error',
+      });
     }
-
-    this.logger.log({
-      message: 'Outbox recovery completed',
-      recoveredCount: candidates.length,
-    });
   }
 }

@@ -4,7 +4,6 @@ import type { DatabaseExecutor } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { OutboxService } from '../../outbox/outbox.service';
 import { OUTBOX_TOPICS } from '../../outbox/outbox.types';
-import type { NotificationsRateLimitService } from '../notifications-rate-limit.service';
 import type { NotificationsRepository } from '../notifications.repository';
 import { NotificationsService } from '../notifications.service';
 
@@ -13,11 +12,6 @@ type NotificationsRepositoryMock = {
   listNotifications: jest.Mock;
   markAsRead: jest.Mock;
   markAllAsRead: jest.Mock;
-};
-
-type NotificationsRateLimitServiceMock = {
-  enforceRead: jest.Mock;
-  enforceMutation: jest.Mock;
 };
 
 type ObservabilityServiceMock = {
@@ -43,7 +37,6 @@ const authUser: AuthUser = {
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let notificationsRepository: NotificationsRepositoryMock;
-  let notificationsRateLimitService: NotificationsRateLimitServiceMock;
   let observabilityService: ObservabilityServiceMock;
   let configService: ConfigServiceMock;
   let outboxService: OutboxServiceMock;
@@ -56,11 +49,6 @@ describe('NotificationsService', () => {
       listNotifications: jest.fn(),
       markAsRead: jest.fn(),
       markAllAsRead: jest.fn(),
-    };
-
-    notificationsRateLimitService = {
-      enforceRead: jest.fn().mockResolvedValue(undefined),
-      enforceMutation: jest.fn().mockResolvedValue(undefined),
     };
 
     observabilityService = {
@@ -79,7 +67,6 @@ describe('NotificationsService', () => {
 
     service = new NotificationsService(
       notificationsRepository as unknown as NotificationsRepository,
-      notificationsRateLimitService as unknown as NotificationsRateLimitService,
       observabilityService as unknown as ObservabilityService,
       configService as unknown as ConfigService,
       outboxService as unknown as OutboxService,

@@ -11,10 +11,6 @@ import { ObservabilityService } from '../infra/observability/observability.servi
 import { OUTBOX_TOPICS } from '../outbox/outbox.types';
 import { OutboxService } from '../outbox/outbox.service';
 import { ListNotificationsDto } from './dto/list-notifications.dto';
-import {
-  NotificationsRateLimitService,
-  NotificationsRequestContext,
-} from './notifications-rate-limit.service';
 import type { NotificationType } from './notifications.repository';
 import { NotificationsRepository } from './notifications.repository';
 
@@ -33,7 +29,6 @@ type CreateNotificationInput = {
 export class NotificationsService {
   constructor(
     private readonly notificationsRepository: NotificationsRepository,
-    private readonly notificationsRateLimitService: NotificationsRateLimitService,
     private readonly observabilityService: ObservabilityService,
     private readonly configService: ConfigService,
     private readonly outboxService: OutboxService,
@@ -99,13 +94,7 @@ export class NotificationsService {
     );
   }
 
-  async list(
-    authUser: AuthUser,
-    dto: ListNotificationsDto,
-    context: NotificationsRequestContext,
-  ) {
-    await this.notificationsRateLimitService.enforceRead(authUser, context);
-
+  async list(authUser: AuthUser, dto: ListNotificationsDto) {
     const limit = Math.min(
       dto.limit ?? DEFAULT_NOTIFICATION_LIMIT,
       MAX_NOTIFICATION_LIMIT,
@@ -128,13 +117,7 @@ export class NotificationsService {
     };
   }
 
-  async markAsRead(
-    authUser: AuthUser,
-    notificationId: string,
-    context: NotificationsRequestContext,
-  ) {
-    await this.notificationsRateLimitService.enforceMutation(authUser, context);
-
+  async markAsRead(authUser: AuthUser, notificationId: string) {
     const notification = await this.notificationsRepository.markAsRead(
       notificationId,
       authUser.id,
@@ -153,12 +136,7 @@ export class NotificationsService {
     return notification;
   }
 
-  async markAllAsRead(
-    authUser: AuthUser,
-    context: NotificationsRequestContext,
-  ) {
-    await this.notificationsRateLimitService.enforceMutation(authUser, context);
-
+  async markAllAsRead(authUser: AuthUser) {
     await this.notificationsRepository.markAllAsRead(authUser.id);
 
     this.recordSecurityEvent('NotificationsMarkedRead', {

@@ -7,22 +7,23 @@ import {
   Param,
   Patch,
   Query,
-  Req,
   Sse,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
 import type { Observable } from 'rxjs';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
+import { RateLimit } from '../rate-limit/rate-limit.decorator';
+import { RateLimitGuard } from '../rate-limit/rate-limit.guard';
 import { NotificationsDocs } from './docs/notifications.swagger';
 import { ListNotificationsDto } from './dto/list-notifications.dto';
+import { NOTIFICATIONS_RATE_LIMIT_RULES } from './notifications.rate-limit.rules';
 import { NotificationsStreamService } from './notifications-stream.service';
 import { NotificationsService } from './notifications.service';
 
 @NotificationsDocs.Controller()
-@UseGuards(AuthGuard)
+@UseGuards(AuthGuard, RateLimitGuard)
 @Controller('notifications')
 export class NotificationsController {
   constructor(
@@ -31,49 +32,39 @@ export class NotificationsController {
   ) {}
 
   @NotificationsDocs.Stream()
+  @RateLimit(...NOTIFICATIONS_RATE_LIMIT_RULES.read)
   @Sse('stream')
   stream(@AuthUserDecorator() authUser: AuthUser): Observable<MessageEvent> {
     return this.notificationsStreamService.streamForUser(authUser.id);
   }
 
   @NotificationsDocs.List()
+  @RateLimit(...NOTIFICATIONS_RATE_LIMIT_RULES.read)
   @Get()
   @HttpCode(HttpStatus.OK)
   list(
     @AuthUserDecorator() authUser: AuthUser,
     @Query() dto: ListNotificationsDto,
-    @Req() request: Request,
   ) {
-    return this.notificationsService.list(authUser, dto, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+    return this.notificationsService.list(authUser, dto);
   }
 
   @NotificationsDocs.MarkAllAsRead()
+  @RateLimit(...NOTIFICATIONS_RATE_LIMIT_RULES.mutation)
   @Patch('read-all')
   @HttpCode(HttpStatus.OK)
-  markAllAsRead(
-    @AuthUserDecorator() authUser: AuthUser,
-    @Req() request: Request,
-  ) {
-    return this.notificationsService.markAllAsRead(authUser, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+  markAllAsRead(@AuthUserDecorator() authUser: AuthUser) {
+    return this.notificationsService.markAllAsRead(authUser);
   }
 
   @NotificationsDocs.MarkAsRead()
+  @RateLimit(...NOTIFICATIONS_RATE_LIMIT_RULES.mutation)
   @Patch(':notificationId/read')
   @HttpCode(HttpStatus.OK)
   markAsRead(
     @AuthUserDecorator() authUser: AuthUser,
     @Param('notificationId') notificationId: string,
-    @Req() request: Request,
   ) {
-    return this.notificationsService.markAsRead(authUser, notificationId, {
-      ip: request.ip,
-      userAgent: request.headers['user-agent'],
-    });
+    return this.notificationsService.markAsRead(authUser, notificationId);
   }
 }

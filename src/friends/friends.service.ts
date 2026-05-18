@@ -10,6 +10,7 @@ import { ObservabilityService } from '../infra/observability/observability.servi
 import { NotificationsService } from '../notifications/notifications.service';
 import { OutboxQueueService } from '../outbox/jobs/outbox-queue.service';
 import { CreateFriendRequestDto } from './dto/create-friend-request.dto';
+import { FRIEND_EVENTS } from './friends.constants';
 import { FriendsRepository } from './friends.repository';
 
 @Injectable()
@@ -81,7 +82,7 @@ export class FriendsService {
 
       await this.outboxQueueService.enqueuePublishEvent(result.outboxEventId);
 
-      this.recordSecurityEvent('FriendRequestSent', {
+      this.recordSecurityEvent(FRIEND_EVENTS.requestSent, {
         userId: authUser.id,
         username: authUser.username,
         targetUserId: addressee.id,
@@ -142,7 +143,7 @@ export class FriendsService {
 
     await this.outboxQueueService.enqueuePublishEvent(result.outboxEventId);
 
-    this.recordSecurityEvent('FriendRequestAccepted', {
+    this.recordSecurityEvent(FRIEND_EVENTS.requestAccepted, {
       userId: authUser.id,
       username: authUser.username,
       friendshipId,
@@ -161,7 +162,7 @@ export class FriendsService {
       throw new NotFoundException('Friend request not found');
     }
 
-    this.recordSecurityEvent('FriendRequestRejected', {
+    this.recordSecurityEvent(FRIEND_EVENTS.requestRejected, {
       userId: authUser.id,
       username: authUser.username,
       friendshipId,
@@ -178,7 +179,7 @@ export class FriendsService {
       throw new NotFoundException('Friend request not found');
     }
 
-    this.recordSecurityEvent('FriendRequestCanceled', {
+    this.recordSecurityEvent(FRIEND_EVENTS.requestCanceled, {
       userId: authUser.id,
       username: authUser.username,
       friendshipId,
@@ -195,7 +196,7 @@ export class FriendsService {
       throw new NotFoundException('Friendship not found');
     }
 
-    this.recordSecurityEvent('FriendRemoved', {
+    this.recordSecurityEvent(FRIEND_EVENTS.removed, {
       userId: authUser.id,
       username: authUser.username,
       friendshipId,

@@ -16,3 +16,17 @@ export const USER_AVATAR_UPLOAD_STATUS = {
 
 export type UserAvatarUploadStatus =
   (typeof USER_AVATAR_UPLOAD_STATUS)[keyof typeof USER_AVATAR_UPLOAD_STATUS];
+
+export const USER_EVENTS = {
+  avatarUploadUrlCreated: 'UserAvatarUploadUrlCreated',
+  publicProfileViewFailed: 'PublicProfileViewFailed',
+  publicProfileViewed: 'PublicProfileViewed',
+  profileViewFailed: 'UserProfileViewFailed',
+  profileViewed: 'UserProfileViewed',
+  profileUpdateRequested: 'UserProfileUpdateRequested',
+  profileUpdateFailed: 'UserProfileUpdateFailed',
+  profileUpdated: 'UserProfileUpdated',
+  deleteRequested: 'UserDeleteRequested',
+  deleteFailed: 'UserDeleteFailed',
+  deleted: 'UserDeleted',
+} as const;

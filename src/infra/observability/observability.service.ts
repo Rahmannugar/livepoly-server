@@ -1,5 +1,17 @@
 import { Injectable } from '@nestjs/common';
 
+type ObservabilityAttributeValue = string | number | boolean | null | undefined;
+
+type ObservabilityAttributes = Record<string, ObservabilityAttributeValue>;
+
+type NewRelicAgent = {
+  recordCustomEvent: (
+    eventName: string,
+    attributes: Record<string, string | number | boolean | null>,
+  ) => void;
+  incrementMetric: (metricName: string, value?: number) => void;
+};
+
 type RateLimitExceededInput = {
   scope: string;
   count: number;
@@ -7,49 +19,65 @@ type RateLimitExceededInput = {
   retryAfterSeconds: number;
 };
 
-type SecurityEventAttributes = Record<
-  string,
-  string | number | boolean | null | undefined
->;
+const OBSERVABILITY_EVENTS = {
+  rateLimitExceeded: 'RateLimitExceeded',
+} as const;
+
+const OBSERVABILITY_METRICS = {
+  rateLimitExceeded: (scope: string) => `Custom/RateLimit/Exceeded/${scope}`,
+} as const;
 
 @Injectable()
 export class ObservabilityService {
   private readonly enabled = process.env.NEW_RELIC_ENABLED === 'true';
 
-  recordSecurityEvent(
+  private readonly newrelic: NewRelicAgent | null = this.enabled
+    ? (require('newrelic') as NewRelicAgent)
+    : null;
+
+  recordEvent(
     eventName: string,
-    attributes: SecurityEventAttributes = {},
+    attributes: ObservabilityAttributes = {},
   ): void {
-    if (!this.enabled) {
+    if (!this.newrelic) {
       return;
     }
 
-    const newrelic = require('newrelic');
+    this.newrelic.recordCustomEvent(eventName, this.clean(attributes));
+  }
 
-    newrelic.recordCustomEvent(
-      eventName,
-      Object.fromEntries(
-        Object.entries(attributes).filter(([, value]) => value !== undefined),
-      ),
-    );
+  recordMetric(metricName: string, value?: number): void {
+    if (!this.newrelic) {
+      return;
+    }
 
-    newrelic.incrementMetric(`Custom/Security/${eventName}`);
+    this.newrelic.incrementMetric(metricName, value);
+  }
+
+  recordSecurityEvent(
+    eventName: string,
+    attributes: ObservabilityAttributes = {},
+  ): void {
+    this.recordEvent(eventName, attributes);
+    this.recordMetric(`Custom/Security/${eventName}`);
   }
 
   recordRateLimitExceeded(input: RateLimitExceededInput): void {
-    if (!this.enabled) {
-      return;
-    }
-
-    const newrelic = require('newrelic');
-
-    newrelic.recordCustomEvent('RateLimitExceeded', {
+    this.recordEvent(OBSERVABILITY_EVENTS.rateLimitExceeded, {
       scope: input.scope,
       count: input.count,
       limit: input.limit,
       retryAfterSeconds: input.retryAfterSeconds,
     });
 
-    newrelic.incrementMetric(`Custom/RateLimit/Exceeded/${input.scope}`);
+    this.recordMetric(OBSERVABILITY_METRICS.rateLimitExceeded(input.scope));
+  }
+
+  private clean(
+    attributes: ObservabilityAttributes,
+  ): Record<string, string | number | boolean | null> {
+    return Object.fromEntries(
+      Object.entries(attributes).filter(([, value]) => value !== undefined),
+    ) as Record<string, string | number | boolean | null>;
   }
 }

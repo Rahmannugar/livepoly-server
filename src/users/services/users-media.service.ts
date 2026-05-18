@@ -9,7 +9,7 @@ import { CreateAvatarUploadUrlDto } from '../dto/avatar.dto';
 import { UsersQueueService } from '../jobs/users-queue.service';
 import { UsersMediaRepository } from '../repositories/users-media.repository';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
-import { USER_AVATAR } from '../users.constants';
+import { USER_AVATAR, USER_EVENTS } from '../users.constants';
 import type { UserAvatarContentType } from '../users.constants';
 
 @Injectable()
@@ -80,7 +80,7 @@ export class UsersMediaService {
       objectKey,
     });
 
-    this.recordSecurityEvent('UserAvatarUploadUrlCreated', {
+    this.recordSecurityEvent(USER_EVENTS.avatarUploadUrlCreated, {
       userId: authUser.id,
       username: authUser.username,
       uploadId: upload.id,

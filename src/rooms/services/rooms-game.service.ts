@@ -5,7 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type { GameEngineState } from '../../game/engine/game-engine.types';
+import { GameStateService } from '../../game/state/game-state.service';
 import { DatabaseService } from '../../infra/database/database.service';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import { RoomsGameRepository } from '../repositories/rooms-game.repository';
@@ -13,12 +16,12 @@ import {
   BOT_NAMES,
   DEFAULT_BOT_DIFFICULTY,
   ROOM_BOARD_KEY,
+  ROOM_EVENTS,
+  ROOM_METRICS,
   ROOM_MAX_PLAYERS,
   ROOM_MIN_RANKED_HUMANS,
   STARTING_CASH,
 } from '../rooms.constants';
-import { GameStateService } from '../../game/state/game-state.service';
-import type { GameEngineState } from '../../game/engine/game-engine.types';
 
 type JoinedRoomPlayer = Awaited<
   ReturnType<RoomsGameRepository['listJoinedPlayers']>
@@ -41,6 +44,7 @@ export class RoomsGameService {
     private readonly notificationsService: NotificationsService,
     private readonly outboxQueueService: OutboxQueueService,
     private readonly gameStateService: GameStateService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   async startRoom(authUser: AuthUser, code: string) {
@@ -149,6 +153,18 @@ export class RoomsGameService {
     });
 
     await this.gameStateService.set(result.game.id, result.initialState);
+
+    this.observabilityService.recordEvent(ROOM_EVENTS.started, {
+      roomId: result.room.id,
+      roomCode: result.room.code,
+      gameId: result.game.id,
+      hostUserId: authUser.id,
+      mode,
+      playerCount: result.players.length,
+      humanPlayerCount: humanPlayers.length,
+      botPlayerCount: result.players.length - humanPlayers.length,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.started(mode));
 
     for (const outboxEventId of result.outboxEventIds) {
       await this.outboxQueueService.enqueuePublishEvent(outboxEventId);

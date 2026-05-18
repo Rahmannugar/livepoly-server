@@ -1,11 +1,13 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { DatabaseService } from '../../infra/database/database.service';
+import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import { RoomsGameService } from '../services/rooms-game.service';
 import type { GameStateService } from '../../game/state/game-state.service';
 import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
+import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 
 type RoomsGameRepositoryMock = {
   findRoomByCode: jest.Mock;
@@ -30,6 +32,11 @@ type OutboxQueueServiceMock = {
 
 type GameStateServiceMock = {
   set: jest.Mock;
+};
+
+type ObservabilityServiceMock = {
+  recordEvent: jest.Mock;
+  recordMetric: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -104,6 +111,7 @@ const humanPlayerThree = {
 };
 
 let gameStateService: GameStateServiceMock;
+let observabilityService: ObservabilityServiceMock;
 
 describe('RoomsGameService', () => {
   let service: RoomsGameService;
@@ -155,12 +163,18 @@ describe('RoomsGameService', () => {
       set: jest.fn().mockResolvedValue(undefined),
     };
 
+    observabilityService = {
+      recordEvent: jest.fn(),
+      recordMetric: jest.fn(),
+    };
+
     service = new RoomsGameService(
       roomsGameRepository as unknown as RoomsGameRepository,
       databaseService as unknown as DatabaseService,
       notificationsService as unknown as NotificationsService,
       outboxQueueService as unknown as OutboxQueueService,
       gameStateService as unknown as GameStateService,
+      observabilityService as unknown as ObservabilityService,
     );
   });
 
@@ -252,6 +266,22 @@ describe('RoomsGameService', () => {
         currentTurnRoomPlayerId: humanPlayerOne.id,
         lastDiceRoll: null,
       }),
+    );
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.started,
+      {
+        roomId: activeRoom.id,
+        roomCode: activeRoom.code,
+        gameId: 'game-1',
+        hostUserId: authUser.id,
+        mode: 'ranked',
+        playerCount: 3,
+        humanPlayerCount: 3,
+        botPlayerCount: 0,
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.started('ranked'),
     );
 
     expect(result.room).toEqual({
@@ -408,6 +438,22 @@ describe('RoomsGameService', () => {
         currentTurnRoomPlayerId: humanPlayerOne.id,
         lastDiceRoll: null,
       }),
+    );
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.started,
+      {
+        roomId: activeRoom.id,
+        roomCode: activeRoom.code,
+        gameId: 'game-1',
+        hostUserId: authUser.id,
+        mode: 'casual',
+        playerCount: 4,
+        humanPlayerCount: 1,
+        botPlayerCount: 3,
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.started('casual'),
     );
 
     expect(result.room.players).toHaveLength(4);

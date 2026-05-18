@@ -8,6 +8,7 @@ import type { UsersQueueService } from '../jobs/users-queue.service';
 import type { UsersMediaRepository } from '../repositories/users-media.repository';
 import type { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersMediaService } from '../services/users-media.service';
+import { USER_EVENTS } from '../users.constants';
 
 type UsersProfileRepositoryMock = {
   findActiveUserById: jest.Mock;
@@ -159,7 +160,7 @@ describe('UsersMediaService', () => {
     });
 
     expect(observabilityService.recordSecurityEvent).toHaveBeenCalledWith(
-      'UserAvatarUploadUrlCreated',
+      USER_EVENTS.avatarUploadUrlCreated,
       expect.objectContaining({
         userId: authUser.id,
         username: authUser.username,

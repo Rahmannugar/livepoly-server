@@ -13,7 +13,7 @@ import { MailQueueService } from '../mail/jobs/mail-queue.service';
 import { OtpService } from '../otp/otp.service';
 import { SessionCacheService } from '../session/session-cache.service';
 import type { AuthRequestContext, OAuthProfile } from './auth.types';
-import { AUTH } from './auth.constants';
+import { AUTH, AUTH_EVENTS } from './auth.constants';
 import { AuthRepository } from './auth.repository';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -131,7 +131,7 @@ export class AuthService {
     context: AuthRequestContext,
   ) {
     if (!profile.emailVerified) {
-      this.recordSecurityEvent('OAuthFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
         provider: profile.provider,
         reason: 'email_unverified',
         hasIp: Boolean(context.ip),
@@ -240,7 +240,7 @@ export class AuthService {
     const email = dto.email.trim().toLowerCase();
     const username = dto.username.trim().toLowerCase();
 
-    this.recordSecurityEvent('SignupRequested', {
+    this.recordSecurityEvent(AUTH_EVENTS.signupRequested, {
       hasIp: Boolean(context.ip),
     });
 
@@ -250,7 +250,7 @@ export class AuthService {
     );
 
     if (existingUser) {
-      this.recordSecurityEvent('SignupFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.signupFailed, {
         reason: 'email_or_username_exists',
         hasIp: Boolean(context.ip),
       });
@@ -278,7 +278,7 @@ export class AuthService {
       otpCode,
     });
 
-    this.recordSecurityEvent('SignupSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.signupSucceeded, {
       userId: user.id,
       hasIp: Boolean(context.ip),
     });
@@ -294,7 +294,7 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
-      this.recordSecurityEvent('EmailVerificationFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.emailVerificationFailed, {
         reason: 'user_not_found',
         hasIp: Boolean(context.ip),
       });
@@ -303,7 +303,7 @@ export class AuthService {
     }
 
     if (user.emailVerified) {
-      this.recordSecurityEvent('EmailVerificationSucceeded', {
+      this.recordSecurityEvent(AUTH_EVENTS.emailVerificationSucceeded, {
         userId: user.id,
         alreadyVerified: true,
         hasIp: Boolean(context.ip),
@@ -320,7 +320,7 @@ export class AuthService {
     );
 
     if (!verified) {
-      this.recordSecurityEvent('EmailVerificationFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.emailVerificationFailed, {
         reason: 'invalid_otp',
         userId: user.id,
         hasIp: Boolean(context.ip),
@@ -332,7 +332,7 @@ export class AuthService {
     await this.authRepository.markEmailVerified(user.id);
     await this.otpService.deleteEmailVerificationOtp(user.id);
 
-    this.recordSecurityEvent('EmailVerificationSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.emailVerificationSucceeded, {
       userId: user.id,
       alreadyVerified: false,
       hasIp: Boolean(context.ip),
@@ -357,7 +357,7 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
-      this.recordSecurityEvent('EmailVerificationResendSkipped', {
+      this.recordSecurityEvent(AUTH_EVENTS.emailVerificationResendSkipped, {
         reason: 'user_not_found',
         hasIp: Boolean(context.ip),
       });
@@ -366,7 +366,7 @@ export class AuthService {
     }
 
     if (user.emailVerified) {
-      this.recordSecurityEvent('EmailVerificationResendSkipped', {
+      this.recordSecurityEvent(AUTH_EVENTS.emailVerificationResendSkipped, {
         reason: 'already_verified',
         userId: user.id,
         hasIp: Boolean(context.ip),
@@ -388,7 +388,7 @@ export class AuthService {
       otpCode,
     });
 
-    this.recordSecurityEvent('EmailVerificationResent', {
+    this.recordSecurityEvent(AUTH_EVENTS.emailVerificationResent, {
       userId: user.id,
       hasIp: Boolean(context.ip),
     });
@@ -402,7 +402,7 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user?.passwordHash) {
-      this.recordSecurityEvent('LoginFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.loginFailed, {
         reason: 'invalid_credentials',
         hasIp: Boolean(context.ip),
       });
@@ -413,7 +413,7 @@ export class AuthService {
     const passwordValid = await verifyPassword(user.passwordHash, dto.password);
 
     if (!passwordValid) {
-      this.recordSecurityEvent('LoginFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.loginFailed, {
         reason: 'invalid_credentials',
         userId: user.id,
         hasIp: Boolean(context.ip),
@@ -423,7 +423,7 @@ export class AuthService {
     }
 
     if (!user.emailVerified) {
-      this.recordSecurityEvent('LoginFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.loginFailed, {
         reason: 'email_unverified',
         userId: user.id,
         hasIp: Boolean(context.ip),
@@ -456,7 +456,7 @@ export class AuthService {
       },
     );
 
-    this.recordSecurityEvent('LoginSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.loginSucceeded, {
       userId: user.id,
       hasIp: Boolean(context.ip),
     });
@@ -474,7 +474,7 @@ export class AuthService {
 
   async refresh(refreshToken: string | undefined) {
     if (!refreshToken) {
-      this.recordSecurityEvent('RefreshFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.refreshFailed, {
         reason: 'missing_refresh_token',
       });
 
@@ -494,7 +494,7 @@ export class AuthService {
       ));
 
     if (!session) {
-      this.recordSecurityEvent('RefreshFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.refreshFailed, {
         reason: 'invalid_session',
       });
 
@@ -506,7 +506,7 @@ export class AuthService {
     );
 
     if (!user?.emailVerified) {
-      this.recordSecurityEvent('RefreshFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.refreshFailed, {
         reason: 'invalid_user',
         userId: session.userId,
       });
@@ -537,7 +537,7 @@ export class AuthService {
     );
 
     if (!rotatedSession) {
-      this.recordSecurityEvent('RefreshFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.refreshFailed, {
         reason: 'rotation_failed',
         userId: user.id,
       });
@@ -573,7 +573,7 @@ export class AuthService {
       },
     );
 
-    this.recordSecurityEvent('RefreshSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.refreshSucceeded, {
       userId: user.id,
     });
 
@@ -590,7 +590,7 @@ export class AuthService {
 
   async logout(refreshToken: string | undefined) {
     if (!refreshToken) {
-      this.recordSecurityEvent('LogoutSucceeded', {
+      this.recordSecurityEvent(AUTH_EVENTS.logoutSucceeded, {
         hasRefreshToken: false,
       });
 
@@ -604,7 +604,7 @@ export class AuthService {
     await this.authRepository.revokeSession(refreshTokenHash);
     await this.sessionCacheService.deleteSession(refreshTokenHash);
 
-    this.recordSecurityEvent('LogoutSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.logoutSucceeded, {
       hasRefreshToken: true,
     });
 
@@ -633,7 +633,7 @@ export class AuthService {
       });
     }
 
-    this.recordSecurityEvent('PasswordResetRequested', {
+    this.recordSecurityEvent(AUTH_EVENTS.passwordResetRequested, {
       userExists: Boolean(user),
       hasIp: Boolean(context.ip),
     });
@@ -649,7 +649,7 @@ export class AuthService {
     const user = await this.authRepository.findUserByEmail(email);
 
     if (!user) {
-      this.recordSecurityEvent('PasswordResetFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.passwordResetFailed, {
         reason: 'user_not_found',
         hasIp: Boolean(context.ip),
       });
@@ -663,7 +663,7 @@ export class AuthService {
     );
 
     if (!validOtp) {
-      this.recordSecurityEvent('PasswordResetFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.passwordResetFailed, {
         reason: 'invalid_otp',
         userId: user.id,
         hasIp: Boolean(context.ip),
@@ -683,7 +683,7 @@ export class AuthService {
         );
 
         if (!updatedUser) {
-          this.recordSecurityEvent('PasswordResetFailed', {
+          this.recordSecurityEvent(AUTH_EVENTS.passwordResetFailed, {
             reason: 'password_update_failed',
             userId: user.id,
             hasIp: Boolean(context.ip),
@@ -711,7 +711,7 @@ export class AuthService {
       ),
     ]);
 
-    this.recordSecurityEvent('PasswordResetSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.passwordResetSucceeded, {
       userId: user.id,
       revokedSessionCount: revokedSessions.length,
       hasIp: Boolean(context.ip),
@@ -723,7 +723,7 @@ export class AuthService {
   }
 
   async getGoogleOAuthUrl() {
-    this.recordSecurityEvent('OAuthStartRequested', {
+    this.recordSecurityEvent(AUTH_EVENTS.oauthStartRequested, {
       provider: 'google',
     });
 
@@ -732,7 +732,7 @@ export class AuthService {
   }
 
   async getDiscordOAuthUrl() {
-    this.recordSecurityEvent('OAuthStartRequested', {
+    this.recordSecurityEvent(AUTH_EVENTS.oauthStartRequested, {
       provider: 'discord',
     });
 
@@ -746,7 +746,7 @@ export class AuthService {
     context: AuthRequestContext,
   ) {
     if (!code || !state) {
-      this.recordSecurityEvent('OAuthFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
         provider: 'google',
         reason: 'invalid_callback',
         hasIp: Boolean(context.ip),
@@ -762,7 +762,7 @@ export class AuthService {
 
     const result = await this.loginOrCreateOAuthUser(profile, context);
 
-    this.recordSecurityEvent('OAuthSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.oauthSucceeded, {
       provider: 'google',
       hasIp: Boolean(context.ip),
     });
@@ -781,7 +781,7 @@ export class AuthService {
     context: AuthRequestContext,
   ) {
     if (!code || !state) {
-      this.recordSecurityEvent('OAuthFailed', {
+      this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
         provider: 'discord',
         reason: 'invalid_callback',
         hasIp: Boolean(context.ip),
@@ -797,7 +797,7 @@ export class AuthService {
 
     const result = await this.loginOrCreateOAuthUser(profile, context);
 
-    this.recordSecurityEvent('OAuthSucceeded', {
+    this.recordSecurityEvent(AUTH_EVENTS.oauthSucceeded, {
       provider: 'discord',
       hasIp: Boolean(context.ip),
     });

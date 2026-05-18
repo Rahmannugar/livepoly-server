@@ -35,3 +35,21 @@ export type BotDifficulty = (typeof BOT_DIFFICULTIES)[number];
 export const DEFAULT_BOT_DIFFICULTY: BotDifficulty = 'normal';
 
 export const STARTING_CASH = 1500;
+
+export const ROOM_EVENTS = {
+  created: 'RoomCreated',
+  joined: 'RoomJoined',
+  left: 'RoomLeft',
+  cancelled: 'RoomCancelled',
+  inviteSent: 'RoomInviteSent',
+  started: 'RoomStarted',
+} as const;
+
+export const ROOM_METRICS = {
+  created: 'Custom/Room/Created',
+  joined: 'Custom/Room/Joined',
+  left: 'Custom/Room/Left',
+  cancelled: 'Custom/Room/Cancelled',
+  inviteSent: 'Custom/Room/InviteSent',
+  started: (mode: string) => `Custom/Room/Started/${mode}`,
+} as const;

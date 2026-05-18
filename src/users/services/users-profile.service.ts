@@ -11,6 +11,7 @@ import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { SessionCacheService } from '../../session/session-cache.service';
 import { UpdateUserDto } from '../dto/update-user.dto';
+import { USER_EVENTS } from '../users.constants';
 import { UsersQueueService } from '../jobs/users-queue.service';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersStatsService } from './users-stats.service';
@@ -36,7 +37,7 @@ export class UsersProfileService {
       );
 
     if (!user) {
-      this.recordSecurityEvent('PublicProfileViewFailed', {
+      this.recordSecurityEvent(USER_EVENTS.publicProfileViewFailed, {
         targetUsername: normalizedUsername,
         reason: 'user_not_found',
       });
@@ -46,7 +47,7 @@ export class UsersProfileService {
 
     const stats = await this.usersStatsService.getStats(user.id);
 
-    this.recordSecurityEvent('PublicProfileViewed', {
+    this.recordSecurityEvent(USER_EVENTS.publicProfileViewed, {
       targetUserId: user.id,
       targetUsername: user.username,
     });
@@ -60,7 +61,7 @@ export class UsersProfileService {
     );
 
     if (!user) {
-      this.recordSecurityEvent('UserProfileViewFailed', {
+      this.recordSecurityEvent(USER_EVENTS.profileViewFailed, {
         userId: authUser.id,
         username: authUser.username,
         reason: 'user_not_found',
@@ -71,7 +72,7 @@ export class UsersProfileService {
 
     const stats = await this.usersStatsService.getStats(user.id);
 
-    this.recordSecurityEvent('UserProfileViewed', {
+    this.recordSecurityEvent(USER_EVENTS.profileViewed, {
       userId: user.id,
       username: user.username,
     });
@@ -83,13 +84,13 @@ export class UsersProfileService {
     const username = dto.username?.trim().toLowerCase();
     const bio = dto.bio === undefined ? undefined : dto.bio.trim() || null;
 
-    this.recordSecurityEvent('UserProfileUpdateRequested', {
+    this.recordSecurityEvent(USER_EVENTS.profileUpdateRequested, {
       userId: authUser.id,
       username: authUser.username,
     });
 
     if (username === undefined && bio === undefined) {
-      this.recordSecurityEvent('UserProfileUpdateFailed', {
+      this.recordSecurityEvent(USER_EVENTS.profileUpdateFailed, {
         userId: authUser.id,
         username: authUser.username,
         reason: 'empty_update',
@@ -103,7 +104,7 @@ export class UsersProfileService {
         await this.usersProfileRepository.findUserByUsername(username);
 
       if (existingUser) {
-        this.recordSecurityEvent('UserProfileUpdateFailed', {
+        this.recordSecurityEvent(USER_EVENTS.profileUpdateFailed, {
           userId: authUser.id,
           username: authUser.username,
           reason: 'username_taken',
@@ -120,7 +121,7 @@ export class UsersProfileService {
       });
 
       if (!user) {
-        this.recordSecurityEvent('UserProfileUpdateFailed', {
+        this.recordSecurityEvent(USER_EVENTS.profileUpdateFailed, {
           userId: authUser.id,
           username: authUser.username,
           reason: 'user_not_found',
@@ -131,7 +132,7 @@ export class UsersProfileService {
 
       const stats = await this.usersStatsService.getStats(user.id);
 
-      this.recordSecurityEvent('UserProfileUpdated', {
+      this.recordSecurityEvent(USER_EVENTS.profileUpdated, {
         userId: user.id,
         username: user.username,
       });
@@ -139,7 +140,7 @@ export class UsersProfileService {
       return this.profile(user, stats);
     } catch (error) {
       if (this.isUsernameUniqueViolation(error)) {
-        this.recordSecurityEvent('UserProfileUpdateFailed', {
+        this.recordSecurityEvent(USER_EVENTS.profileUpdateFailed, {
           userId: authUser.id,
           username: authUser.username,
           reason: 'username_taken_race',
@@ -153,7 +154,7 @@ export class UsersProfileService {
   }
 
   async deleteMe(authUser: AuthUser): Promise<void> {
-    this.recordSecurityEvent('UserDeleteRequested', {
+    this.recordSecurityEvent(USER_EVENTS.deleteRequested, {
       userId: authUser.id,
       username: authUser.username,
     });
@@ -179,7 +180,7 @@ export class UsersProfileService {
     );
 
     if (!user) {
-      this.recordSecurityEvent('UserDeleteFailed', {
+      this.recordSecurityEvent(USER_EVENTS.deleteFailed, {
         userId: authUser.id,
         username: authUser.username,
         reason: 'user_not_found',
@@ -202,7 +203,7 @@ export class UsersProfileService {
       deletedAt: new Date().toISOString(),
     });
 
-    this.recordSecurityEvent('UserDeleted', {
+    this.recordSecurityEvent(USER_EVENTS.deleted, {
       userId: authUser.id,
       username: authUser.username,
     });

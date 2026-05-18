@@ -1,9 +1,11 @@
 import { ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { DatabaseService } from '../../infra/database/database.service';
+import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import type { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
+import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsLobbyService } from '../services/rooms-lobby.service';
 
 type RoomsLobbyRepositoryMock = {
@@ -37,6 +39,11 @@ type OutboxQueueServiceMock = {
   enqueuePublishEvent: jest.Mock;
 };
 
+type ObservabilityServiceMock = {
+  recordEvent: jest.Mock;
+  recordMetric: jest.Mock;
+};
+
 const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
@@ -66,6 +73,7 @@ describe('RoomsLobbyService', () => {
   let databaseService: DatabaseServiceMock;
   let notificationsService: NotificationsServiceMock;
   let outboxQueueService: OutboxQueueServiceMock;
+  let observabilityService: ObservabilityServiceMock;
 
   const tx = { tx: true };
 
@@ -103,11 +111,17 @@ describe('RoomsLobbyService', () => {
       enqueuePublishEvent: jest.fn().mockResolvedValue(undefined),
     };
 
+    observabilityService = {
+      recordEvent: jest.fn(),
+      recordMetric: jest.fn(),
+    };
+
     service = new RoomsLobbyService(
       roomsLobbyRepository as unknown as RoomsLobbyRepository,
       databaseService as unknown as DatabaseService,
       notificationsService as unknown as NotificationsService,
       outboxQueueService as unknown as OutboxQueueService,
+      observabilityService as unknown as ObservabilityService,
     );
   });
 
@@ -177,6 +191,20 @@ describe('RoomsLobbyService', () => {
       tx,
     );
 
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.created,
+      {
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        userId: authUser.id,
+        durationMinutes: waitingRoom.durationMinutes,
+        boardKey: waitingRoom.boardKey,
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.created,
+    );
+
     expect(result).toEqual({
       ...waitingRoom,
       players: [
@@ -222,6 +250,18 @@ describe('RoomsLobbyService', () => {
       userId: joiningUser.id,
       seatNumber: 3,
     });
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.joined,
+      {
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        userId: joiningUser.id,
+        seatNumber: 3,
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.joined,
+    );
   });
 
   it('blocks joining a full room', async () => {
@@ -290,6 +330,17 @@ describe('RoomsLobbyService', () => {
     );
 
     expect(result).toEqual({ message: 'Room cancelled' });
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.cancelled,
+      {
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        userId: authUser.id,
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.cancelled,
+    );
   });
 
   it('invites a friend to a waiting room through notification outbox', async () => {
@@ -354,6 +405,18 @@ describe('RoomsLobbyService', () => {
       message: 'Room invite sent',
       roomCode: waitingRoom.code,
     });
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.inviteSent,
+      {
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        inviterId: authUser.id,
+        inviteeId: invitee.id,
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.inviteSent,
+    );
   });
 
   it('blocks inviting users who are not accepted friends', async () => {

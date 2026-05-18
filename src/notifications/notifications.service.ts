@@ -11,11 +11,9 @@ import { ObservabilityService } from '../infra/observability/observability.servi
 import { OUTBOX_TOPICS } from '../outbox/outbox.types';
 import { OutboxService } from '../outbox/outbox.service';
 import { ListNotificationsDto } from './dto/list-notifications.dto';
+import { NOTIFICATION_EVENTS, NOTIFICATIONS } from './notifications.constants';
 import type { NotificationType } from './notifications.repository';
 import { NotificationsRepository } from './notifications.repository';
-
-const DEFAULT_NOTIFICATION_LIMIT = 50;
-const MAX_NOTIFICATION_LIMIT = 100;
 
 type CreateNotificationInput = {
   userId: string;
@@ -153,8 +151,8 @@ export class NotificationsService {
 
   async list(authUser: AuthUser, dto: ListNotificationsDto) {
     const limit = Math.min(
-      dto.limit ?? DEFAULT_NOTIFICATION_LIMIT,
-      MAX_NOTIFICATION_LIMIT,
+      dto.limit ?? NOTIFICATIONS.defaultLimit,
+      NOTIFICATIONS.maxLimit,
     );
     const cursor = this.decodeCursor(dto.cursor);
 
@@ -184,7 +182,7 @@ export class NotificationsService {
       throw new NotFoundException('Notification not found');
     }
 
-    this.recordSecurityEvent('NotificationMarkedRead', {
+    this.recordSecurityEvent(NOTIFICATION_EVENTS.markedRead, {
       userId: authUser.id,
       username: authUser.username,
       notificationId,
@@ -196,7 +194,7 @@ export class NotificationsService {
   async markAllAsRead(authUser: AuthUser) {
     await this.notificationsRepository.markAllAsRead(authUser.id);
 
-    this.recordSecurityEvent('NotificationsMarkedRead', {
+    this.recordSecurityEvent(NOTIFICATION_EVENTS.markedReadAll, {
       userId: authUser.id,
       username: authUser.username,
     });

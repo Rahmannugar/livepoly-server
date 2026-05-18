@@ -7,6 +7,7 @@ import {
 import { randomInt } from 'crypto';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { DatabaseService } from '../../infra/database/database.service';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import { CreateRoomDto } from '../dto/create-room.dto';
@@ -18,6 +19,8 @@ import {
   ROOM_BOARD_KEY,
   ROOM_CODE_ALPHABET,
   ROOM_CODE_LENGTH,
+  ROOM_EVENTS,
+  ROOM_METRICS,
   ROOM_MAX_PLAYERS,
 } from '../rooms.constants';
 
@@ -28,6 +31,7 @@ export class RoomsLobbyService {
     private readonly databaseService: DatabaseService,
     private readonly notificationsService: NotificationsService,
     private readonly outboxQueueService: OutboxQueueService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
@@ -60,6 +64,15 @@ export class RoomsLobbyService {
 
           return createdRoom;
         });
+
+        this.observabilityService.recordEvent(ROOM_EVENTS.created, {
+          roomId: room.id,
+          roomCode: room.code,
+          userId: authUser.id,
+          durationMinutes: room.durationMinutes,
+          boardKey: room.boardKey,
+        });
+        this.observabilityService.recordMetric(ROOM_METRICS.created);
 
         return this.getRoomPayload(room.id, room);
       } catch (error) {
@@ -136,6 +149,14 @@ export class RoomsLobbyService {
       throw error;
     }
 
+    this.observabilityService.recordEvent(ROOM_EVENTS.joined, {
+      roomId: room.id,
+      roomCode: room.code,
+      userId: authUser.id,
+      seatNumber,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.joined);
+
     return this.getRoomPayload(room.id, room);
   }
 
@@ -168,6 +189,13 @@ export class RoomsLobbyService {
         await this.roomsLobbyRepository.cancelRoom(room.id, tx);
       });
 
+      this.observabilityService.recordEvent(ROOM_EVENTS.cancelled, {
+        roomId: room.id,
+        roomCode: room.code,
+        userId: authUser.id,
+      });
+      this.observabilityService.recordMetric(ROOM_METRICS.cancelled);
+
       return { message: 'Room cancelled' };
     }
 
@@ -175,6 +203,13 @@ export class RoomsLobbyService {
       roomId: room.id,
       userId: authUser.id,
     });
+
+    this.observabilityService.recordEvent(ROOM_EVENTS.left, {
+      roomId: room.id,
+      roomCode: room.code,
+      userId: authUser.id,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.left);
 
     return { message: 'Room left' };
   }
@@ -257,6 +292,14 @@ export class RoomsLobbyService {
     });
 
     await this.outboxQueueService.enqueuePublishEvent(result.outboxEventId);
+
+    this.observabilityService.recordEvent(ROOM_EVENTS.inviteSent, {
+      roomId: room.id,
+      roomCode: room.code,
+      inviterId: authUser.id,
+      inviteeId: invitee.id,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.inviteSent);
 
     return {
       message: 'Room invite sent',

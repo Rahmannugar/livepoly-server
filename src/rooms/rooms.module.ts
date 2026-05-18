@@ -5,11 +5,10 @@ import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { RoomsLobbyRepository } from './repositories/rooms-lobby.repository';
 import { RoomsController } from './rooms.controller';
 import { RoomsLobbyService } from './services/rooms-lobby.service';
-import { RoomsRateLimitService } from './services/rooms-rate-limit.service';
 
 @Module({
   imports: [AuthModule, DatabaseModule, RateLimitModule],
   controllers: [RoomsController],
-  providers: [RoomsLobbyService, RoomsLobbyRepository, RoomsRateLimitService],
+  providers: [RoomsLobbyService, RoomsLobbyRepository],
 })
 export class RoomsModule {}

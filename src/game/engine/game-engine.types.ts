@@ -154,6 +154,10 @@ export type DeclareBankruptcyInput = {
   creditorRoomPlayerId?: string | null;
 };
 
+export type FinishGameByTimeInput = {
+  finishedAt: number;
+};
+
 export type DeclinePropertyInput = {
   roomPlayerId: string;
 };
@@ -341,11 +345,26 @@ export type GameEngineEvent =
       winnerRoomPlayerId: string | null;
     }
   | {
+      type: 'game_finished_by_time';
+      finishedAt: number;
+      winnerRoomPlayerId: string | null;
+      tiedRoomPlayerIds: string[];
+      standings: PlayerNetWorth[];
+    }
+  | {
       type: 'turn_ended';
       roomPlayerId: string;
       nextRoomPlayerId: string;
       turnNumber: number;
     };
+
+export type PlayerNetWorth = {
+  roomPlayerId: string;
+  seatNumber: number;
+  cash: number;
+  assetValue: number;
+  netWorth: number;
+};
 
 export type GameEngineResult = {
   state: GameEngineState;
@@ -385,7 +404,8 @@ export type GameEngineErrorCode =
   | 'PROPERTY_ALREADY_MORTGAGED'
   | 'PROPERTY_NOT_MORTGAGED'
   | 'PLAYER_ALREADY_BANKRUPT'
-  | 'INVALID_BANKRUPTCY_CREDITOR';
+  | 'INVALID_BANKRUPTCY_CREDITOR'
+  | 'INVALID_FINISH_TIME';
 
 export class GameEngineError extends Error {
   constructor(

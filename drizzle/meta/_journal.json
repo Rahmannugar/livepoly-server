@@ -85,6 +85,13 @@
       "when": 1779113697550,
       "tag": "0011_add_game_state_schema",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1779163895321,
+      "tag": "0012_drop_push_subscriptions",
+      "breakpoints": true
     }
   ]
 }

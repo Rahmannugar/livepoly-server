@@ -62,22 +62,3 @@ export const notifications = pgTable(
     ),
   ],
 );
-
-export const pushSubscriptions = pgTable(
-  TABLE_NAMES.pushSubscriptions,
-  {
-    id: id(),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    endpoint: text('endpoint').notNull(),
-    keys: jsonb('keys').notNull(),
-    createdAt: createdAt(),
-    updatedAt: updatedAt(),
-    revokedAt: timestamp('revoked_at', { withTimezone: true }),
-  },
-  (table) => [
-    uniqueIndex('push_subscriptions_endpoint_unique_idx').on(table.endpoint),
-    index('push_subscriptions_user_id_idx').on(table.userId),
-  ],
-);

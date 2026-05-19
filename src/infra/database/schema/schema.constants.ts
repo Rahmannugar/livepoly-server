@@ -13,7 +13,6 @@ export const TABLE_NAMES = {
   ratingHistory: 'rating_history',
   leaderboardSnapshots: 'leaderboard_snapshots',
   notifications: 'notifications',
-  pushSubscriptions: 'push_subscriptions',
   jobs: 'jobs',
   userAvatarUploads: 'user_avatar_uploads',
   outboxEvents: 'outbox_events',

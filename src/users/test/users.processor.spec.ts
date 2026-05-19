@@ -1,4 +1,5 @@
 import type { Job } from 'bullmq';
+import { Logger } from '@nestjs/common';
 import type { CacheService } from '../../infra/cache/cache.service';
 import { USER_JOBS } from '../../infra/queue/queue.constants';
 import type { StorageService } from '../../infra/storage/storage.service';
@@ -69,8 +70,13 @@ describe('UsersProcessor', () => {
   let cacheService: CacheServiceMock;
   let storageService: StorageServiceMock;
   let usersMediaRepository: UsersMediaRepositoryMock;
+  let loggerLogSpy: jest.SpyInstance;
+  let loggerWarnSpy: jest.SpyInstance;
 
   beforeEach(() => {
+    loggerLogSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+    loggerWarnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
     mailQueueService = {
       enqueueAccountDeletedEmail: jest.fn(),
     };
@@ -99,6 +105,11 @@ describe('UsersProcessor', () => {
       storageService as unknown as StorageService,
       usersMediaRepository as unknown as UsersMediaRepository,
     );
+  });
+
+  afterEach(() => {
+    loggerLogSpy.mockRestore();
+    loggerWarnSpy.mockRestore();
   });
 
   it('confirms a valid uploaded avatar and deletes the previous avatar', async () => {

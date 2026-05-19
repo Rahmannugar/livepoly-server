@@ -10,19 +10,43 @@ export const GAME_TURN_TIMER = {
 
 export const GAME_BOTS = {
   actionDelayMs: {
-    easy: 1400,
-    normal: 1000,
-    hard: 750,
+    min: 900,
+    max: 1800,
   },
   cashReserve: {
     easy: 200,
     normal: 350,
     hard: 500,
   },
+  buyScoreThreshold: {
+    easy: 65,
+    normal: 35,
+    hard: 35,
+  },
   auctionMaxPriceRatio: {
     easy: 0.55,
     normal: 0.75,
     hard: 0.9,
+  },
+  setCompletionBonus: {
+    easy: 10,
+    normal: 70,
+    hard: 100,
+  },
+  opponentBlockBonus: {
+    easy: 0,
+    normal: 30,
+    hard: 80,
+  },
+  rentPotentialWeight: {
+    easy: 0.2,
+    normal: 0.6,
+    hard: 1,
+  },
+  cheapPropertyBias: {
+    easy: 70,
+    normal: 35,
+    hard: 0,
   },
 } as const;
 

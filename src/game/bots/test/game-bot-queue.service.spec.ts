@@ -21,6 +21,7 @@ type ObservabilityServiceMock = {
 
 describe('GameBotQueueService', () => {
   let service: GameBotQueueService;
+  let mathRandomSpy: jest.SpyInstance;
   let gameQueue: QueueMock;
   let gameBotService: GameBotServiceMock;
   let observabilityService: ObservabilityServiceMock;
@@ -71,6 +72,8 @@ describe('GameBotQueueService', () => {
   };
 
   beforeEach(() => {
+    mathRandomSpy = jest.spyOn(Math, 'random').mockReturnValue(0.5);
+
     gameQueue = {
       add: jest.fn().mockResolvedValue(undefined),
     };
@@ -100,6 +103,10 @@ describe('GameBotQueueService', () => {
     );
   });
 
+  afterEach(() => {
+    mathRandomSpy.mockRestore();
+  });
+
   it('does not enqueue when no bot can act', async () => {
     gameBotService.chooseDecision.mockReturnValue(null);
 
@@ -109,7 +116,7 @@ describe('GameBotQueueService', () => {
     expect(observabilityService.recordEvent).not.toHaveBeenCalled();
   });
 
-  it('enqueues bot turn with difficulty based delay', async () => {
+  it('enqueues bot turn with human-like randomized delay', async () => {
     await service.enqueueIfBotCanAct('game-1', state);
 
     expect(gameQueue.add).toHaveBeenCalledWith(
@@ -117,7 +124,7 @@ describe('GameBotQueueService', () => {
       { gameId: 'game-1' },
       {
         jobId: 'bot-turn:game-1:3:awaiting_roll:bot-player-1',
-        delay: GAME_BOTS.actionDelayMs.hard,
+        delay: 1350,
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000 },
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
@@ -136,7 +143,7 @@ describe('GameBotQueueService', () => {
         roomPlayerId: 'bot-player-1',
         phase: 'awaiting_roll',
         turnNumber: 3,
-        delay: GAME_BOTS.actionDelayMs.hard,
+        delay: 1350,
       },
     );
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(

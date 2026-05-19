@@ -227,19 +227,44 @@ export class GameBotService {
     bot: GameEnginePlayer,
     tile: OwnableTile,
   ): boolean {
+    if (tile.price > bot.cash) {
+      return false;
+    }
+
+    const difficulty = this.difficulty(bot);
+    const score = this.scoreTilePurchase(state, bot, tile);
+
+    return score >= GAME_BOTS.buyScoreThreshold[difficulty];
+  }
+
+  private scoreTilePurchase(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+    tile: OwnableTile,
+  ): number {
+    const difficulty = this.difficulty(bot);
+    const remainingCash = bot.cash - tile.price;
     const reserve = this.cashReserve(bot);
-    const completingSetBonus =
-      tile.kind === 'property' && this.wouldCompleteSet(state, bot, tile);
+    const reservePenalty =
+      remainingCash < reserve ? (reserve - remainingCash) / 10 : 0;
 
-    if (bot.botDifficulty === 'easy') {
-      return tile.price <= 160 && bot.cash - tile.price >= reserve;
+    let score =
+      this.rentPotentialScore(tile) * GAME_BOTS.rentPotentialWeight[difficulty] -
+      reservePenalty;
+
+    if (tile.kind === 'property' && tile.price <= 160) {
+      score += GAME_BOTS.cheapPropertyBias[difficulty];
     }
 
-    if (bot.botDifficulty === 'normal') {
-      return bot.cash - tile.price >= reserve || completingSetBonus;
+    if (tile.kind === 'property' && this.wouldCompleteSet(state, bot, tile)) {
+      score += GAME_BOTS.setCompletionBonus[difficulty];
     }
 
-    return bot.cash - tile.price >= reserve || completingSetBonus;
+    if (tile.kind === 'property' && this.wouldBlockOpponentSet(state, bot, tile)) {
+      score += GAME_BOTS.opponentBlockBonus[difficulty];
+    }
+
+    return score;
   }
 
   private shouldPayJailFine(bot: GameEnginePlayer): boolean {
@@ -252,7 +277,13 @@ export class GameBotService {
 
   private getMaxAuctionBid(bot: GameEnginePlayer, tile: OwnableTile): number {
     const difficulty = this.difficulty(bot);
-    return Math.floor(tile.price * GAME_BOTS.auctionMaxPriceRatio[difficulty]);
+    const strategicPremium =
+      tile.kind === 'property' ? this.rentPotentialScore(tile) / 2 : 0;
+
+    return Math.floor(
+      tile.price * GAME_BOTS.auctionMaxPriceRatio[difficulty] +
+        strategicPremium * GAME_BOTS.rentPotentialWeight[difficulty],
+    );
   }
 
   private cashReserve(bot: GameEnginePlayer): number {
@@ -285,6 +316,51 @@ export class GameBotService {
           property.ownerRoomPlayerId === bot.roomPlayerId,
       );
     });
+  }
+
+  private wouldBlockOpponentSet(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+    tile: PropertyTile,
+  ): boolean {
+    const board = getGameBoard(state.boardKey);
+    const setTiles = board.tiles.filter(
+      (candidate): candidate is PropertyTile =>
+        candidate.kind === 'property' && candidate.setKey === tile.setKey,
+    );
+
+    return state.players
+      .filter(
+        (player) =>
+          player.roomPlayerId !== bot.roomPlayerId && !player.bankrupt,
+      )
+      .some((opponent) =>
+        setTiles.every((setTile) => {
+          if (setTile.key === tile.key) {
+            return true;
+          }
+
+          return state.properties.some(
+            (property) =>
+              property.tileKey === setTile.key &&
+              property.ownerRoomPlayerId === opponent.roomPlayerId,
+          );
+        }),
+      );
+  }
+
+  private rentPotentialScore(tile: OwnableTile): number {
+    if (tile.kind === 'property') {
+      return tile.hotelRent / 20;
+    }
+
+    if (tile.kind === 'airport') {
+      return tile.rentByOwnedCount[tile.rentByOwnedCount.length - 1] / 4;
+    }
+
+    return tile.rentMultiplierByOwnedCount[
+      tile.rentMultiplierByOwnedCount.length - 1
+    ] * 4;
   }
 
   private getPendingOwnableTile(state: GameEngineState): OwnableTile | null {

@@ -23,12 +23,7 @@ export class GameBotQueueService {
       return;
     }
 
-    const delay =
-      GAME_BOTS.actionDelayMs[
-        state.players.find(
-          (player) => player.roomPlayerId === decision.roomPlayerId,
-        )?.botDifficulty ?? 'normal'
-      ];
+    const delay = this.getActionDelay();
 
     await this.gameQueue.add(
       GAME_JOBS.executeBotTurn,
@@ -52,5 +47,11 @@ export class GameBotQueueService {
     });
 
     this.observabilityService.recordMetric(GAME_METRICS.botTurnQueued);
+  }
+
+  private getActionDelay(): number {
+    const { min, max } = GAME_BOTS.actionDelayMs;
+
+    return Math.round(min + Math.random() * (max - min));
   }
 }

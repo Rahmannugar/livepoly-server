@@ -1,11 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
-import { GAME_COMMANDS, GAME_EVENTS, GAME_METRICS } from '../game.constants';
-import { GameEngineService } from '../engine/game-engine.service';
+import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
+import {
+  reduceGameEngineIntent,
+  type GameEngineIntent,
+} from '../engine/game-engine-intents';
 import { GameEngineError } from '../engine/game-engine.types';
 import { GameStateService } from '../state/game-state.service';
 import type {
   EndTurnCommand,
+  ExecuteGameIntentCommand,
   GameCommandResult,
   RollAndMoveCommand,
 } from './game-commands.types';
@@ -14,30 +18,49 @@ import type {
 export class GameCommandsService {
   constructor(
     private readonly gameStateService: GameStateService,
-    private readonly gameEngineService: GameEngineService,
     private readonly observabilityService: ObservabilityService,
   ) {}
 
-  async rollAndMove(input: RollAndMoveCommand): Promise<GameCommandResult> {
+  async executeIntent(
+    input: ExecuteGameIntentCommand,
+  ): Promise<GameCommandResult> {
+    this.assertIntentActorMatchesCommand(input);
+
+    let commandResult: GameCommandResult | null = null;
+
     try {
-      const state = await this.gameStateService.update(input.gameId, (state) =>
-        this.gameEngineService.rollAndMove(state, {
-          roomPlayerId: input.roomPlayerId,
-          dice: input.dice,
-        }),
+      const state = await this.gameStateService.update(
+        input.gameId,
+        (state) => {
+          const engineResult = reduceGameEngineIntent(state, input.intent);
+
+          commandResult = {
+            state: engineResult.state,
+            events: engineResult.events,
+            intentType: input.intent.type,
+          };
+
+          return engineResult.state;
+        },
       );
+
+      const result = commandResult ?? {
+        state,
+        events: [],
+        intentType: input.intent.type,
+      };
 
       this.recordCommandSucceeded(
-        GAME_COMMANDS.rollAndMove,
+        input.intent.type,
         input.gameId,
         input.roomPlayerId,
-        state,
+        result,
       );
 
-      return { state };
+      return result;
     } catch (error) {
       this.recordCommandFailed(
-        GAME_COMMANDS.rollAndMove,
+        input.intent.type,
         input.gameId,
         input.roomPlayerId,
         error,
@@ -47,47 +70,83 @@ export class GameCommandsService {
     }
   }
 
-  async endTurn(input: EndTurnCommand): Promise<GameCommandResult> {
-    try {
-      const state = await this.gameStateService.update(input.gameId, (state) =>
-        this.gameEngineService.endTurn(state, {
+  async rollAndMove(input: RollAndMoveCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      intent: {
+        type: 'roll_and_move',
+        payload: {
           roomPlayerId: input.roomPlayerId,
-        }),
-      );
+          dice: input.dice,
+        },
+      },
+    });
+  }
 
-      this.recordCommandSucceeded(
-        GAME_COMMANDS.endTurn,
-        input.gameId,
-        input.roomPlayerId,
-        state,
-      );
+  async endTurn(input: EndTurnCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      intent: {
+        type: 'end_turn',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
 
-      return { state };
-    } catch (error) {
-      this.recordCommandFailed(
-        GAME_COMMANDS.endTurn,
-        input.gameId,
-        input.roomPlayerId,
-        error,
-      );
+  private assertIntentActorMatchesCommand(
+    input: ExecuteGameIntentCommand,
+  ): void {
+    const actorRoomPlayerId = this.getIntentActorRoomPlayerId(input.intent);
 
-      throw error;
+    if (!actorRoomPlayerId) {
+      return;
+    }
+
+    if (!input.roomPlayerId || actorRoomPlayerId !== input.roomPlayerId) {
+      throw new BadRequestException('Invalid game command');
+    }
+  }
+
+  private getIntentActorRoomPlayerId(intent: GameEngineIntent): string | null {
+    switch (intent.type) {
+      case 'roll_and_move':
+      case 'buy_property':
+      case 'decline_property_purchase':
+      case 'place_auction_bid':
+      case 'pass_auction_bid':
+      case 'build_property':
+      case 'sell_building':
+      case 'mortgage_property':
+      case 'unmortgage_property':
+      case 'declare_bankruptcy':
+      case 'pay_debt':
+      case 'pay_jail_fine':
+      case 'end_turn':
+        return intent.payload.roomPlayerId;
+
+      case 'finish_game_by_time':
+        return null;
     }
   }
 
   private recordCommandSucceeded(
     command: string,
     gameId: string,
-    roomPlayerId: string,
-    state: GameCommandResult['state'],
+    roomPlayerId: string | undefined,
+    result: GameCommandResult,
   ): void {
     this.observabilityService.recordEvent(GAME_EVENTS.commandSucceeded, {
       gameId,
       roomPlayerId,
       command,
-      mode: state.mode,
-      phase: state.phase,
-      turnNumber: state.turnNumber,
+      mode: result.state.mode,
+      phase: result.state.phase,
+      turnNumber: result.state.turnNumber,
+      eventCount: result.events.length,
     });
 
     this.observabilityService.recordMetric(
@@ -98,7 +157,7 @@ export class GameCommandsService {
   private recordCommandFailed(
     command: string,
     gameId: string,
-    roomPlayerId: string,
+    roomPlayerId: string | undefined,
     error: unknown,
   ): void {
     this.observabilityService.recordEvent(GAME_EVENTS.commandFailed, {

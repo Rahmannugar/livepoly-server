@@ -54,4 +54,11 @@ function assertCanFinishByTime(
       'Finish time must be a positive timestamp',
     );
   }
+
+  if (state.expiresAt && input.finishedAt < state.expiresAt) {
+    throw new GameEngineError(
+      'GAME_TIME_NOT_EXPIRED',
+      'Game time has not elapsed',
+    );
+  }
 }

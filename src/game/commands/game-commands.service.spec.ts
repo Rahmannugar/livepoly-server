@@ -1,20 +1,16 @@
+import { BadRequestException } from '@nestjs/common';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
-import { GAME_COMMANDS, GAME_EVENTS, GAME_METRICS } from '../game.constants';
-import type { GameEngineService } from '../engine/game-engine.service';
+import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import {
   GameEngineError,
   type GameEngineState,
 } from '../engine/game-engine.types';
+import { createGameEngineState } from '../engine/tests/game-engine.test-factory';
 import type { GameStateService } from '../state/game-state.service';
 import { GameCommandsService } from './game-commands.service';
 
 type GameStateServiceMock = {
   update: jest.Mock;
-};
-
-type GameEngineServiceMock = {
-  rollAndMove: jest.Mock;
-  endTurn: jest.Mock;
 };
 
 type ObservabilityServiceMock = {
@@ -25,30 +21,15 @@ type ObservabilityServiceMock = {
 describe('GameCommandsService', () => {
   let service: GameCommandsService;
   let gameStateService: GameStateServiceMock;
-  let gameEngineService: GameEngineServiceMock;
   let observabilityService: ObservabilityServiceMock;
 
-  const state: GameEngineState = {
-    version: 1,
-    roomId: 'room-1',
-    roomCode: 'ABC12345',
-    boardKey: 'classic',
-    mode: 'ranked',
+  const state: GameEngineState = createGameEngineState({
     phase: 'awaiting_roll',
-    turnNumber: 2,
-    currentTurnRoomPlayerId: 'room-player-1',
-    lastDiceRoll: null,
-    players: [],
-  };
+  });
 
   beforeEach(() => {
     gameStateService = {
       update: jest.fn(),
-    };
-
-    gameEngineService = {
-      rollAndMove: jest.fn(),
-      endTurn: jest.fn(),
     };
 
     observabilityService = {
@@ -58,94 +39,147 @@ describe('GameCommandsService', () => {
 
     service = new GameCommandsService(
       gameStateService as unknown as GameStateService,
-      gameEngineService as unknown as GameEngineService,
       observabilityService as unknown as ObservabilityService,
     );
   });
 
-  it('applies roll and move through a serialized state update', async () => {
-    const nextState: GameEngineState = {
-      ...state,
-      phase: 'awaiting_turn_end',
-      lastDiceRoll: [3, 4],
-    };
-
+  it('executes roll and move through an engine intent inside serialized state update', async () => {
     gameStateService.update.mockImplementation(async (_gameId, updater) =>
       updater(state),
     );
-    gameEngineService.rollAndMove.mockReturnValue(nextState);
 
     const result = await service.rollAndMove({
       gameId: 'game-1',
       roomPlayerId: 'room-player-1',
-      dice: [3, 4],
+      dice: [1, 2],
     });
 
     expect(gameStateService.update).toHaveBeenCalledWith(
       'game-1',
       expect.any(Function),
     );
-    expect(gameEngineService.rollAndMove).toHaveBeenCalledWith(state, {
+    expect(result).toMatchObject({
+      intentType: 'roll_and_move',
+      state: {
+        phase: 'awaiting_property_decision',
+        pendingTileKey: 'ghana',
+      },
+    });
+    expect(result.events).toContainEqual({
+      type: 'player_moved',
       roomPlayerId: 'room-player-1',
-      dice: [3, 4],
+      fromPosition: 0,
+      toPosition: 3,
+      dice: [1, 2],
     });
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       GAME_EVENTS.commandSucceeded,
       {
         gameId: 'game-1',
         roomPlayerId: 'room-player-1',
-        command: GAME_COMMANDS.rollAndMove,
+        command: 'roll_and_move',
         mode: 'ranked',
-        phase: 'awaiting_turn_end',
-        turnNumber: 2,
+        phase: 'awaiting_property_decision',
+        turnNumber: 1,
+        eventCount: result.events.length,
       },
     );
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(
-      GAME_METRICS.commandSucceeded(GAME_COMMANDS.rollAndMove),
+      GAME_METRICS.commandSucceeded('roll_and_move'),
     );
-    expect(result).toEqual({ state: nextState });
   });
 
-  it('applies end turn through a serialized state update', async () => {
-    const nextState: GameEngineState = {
-      ...state,
-      phase: 'awaiting_roll',
-      turnNumber: 3,
-      currentTurnRoomPlayerId: 'room-player-2',
-    };
+  it('executes end turn through an engine intent inside serialized state update', async () => {
+    const turnEndState = createGameEngineState({
+      phase: 'awaiting_turn_end',
+    });
 
     gameStateService.update.mockImplementation(async (_gameId, updater) =>
-      updater(state),
+      updater(turnEndState),
     );
-    gameEngineService.endTurn.mockReturnValue(nextState);
 
     const result = await service.endTurn({
       gameId: 'game-1',
       roomPlayerId: 'room-player-1',
     });
 
-    expect(gameStateService.update).toHaveBeenCalledWith(
-      'game-1',
-      expect.any(Function),
-    );
-    expect(gameEngineService.endTurn).toHaveBeenCalledWith(state, {
-      roomPlayerId: 'room-player-1',
+    expect(result).toMatchObject({
+      intentType: 'end_turn',
+      state: {
+        phase: 'awaiting_roll',
+        turnNumber: 2,
+        currentTurnRoomPlayerId: 'room-player-2',
+      },
     });
+    expect(result.events).toEqual([
+      {
+        type: 'turn_ended',
+        roomPlayerId: 'room-player-1',
+        nextRoomPlayerId: 'room-player-2',
+        turnNumber: 2,
+      },
+    ]);
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       GAME_EVENTS.commandSucceeded,
       {
         gameId: 'game-1',
         roomPlayerId: 'room-player-1',
-        command: GAME_COMMANDS.endTurn,
+        command: 'end_turn',
         mode: 'ranked',
         phase: 'awaiting_roll',
-        turnNumber: 3,
+        turnNumber: 2,
+        eventCount: 1,
       },
     );
-    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
-      GAME_METRICS.commandSucceeded(GAME_COMMANDS.endTurn),
+  });
+
+  it('executes generic engine intents', async () => {
+    const finishableState = createGameEngineState({
+      phase: 'awaiting_roll',
+    });
+
+    gameStateService.update.mockImplementation(async (_gameId, updater) =>
+      updater(finishableState),
     );
-    expect(result).toEqual({ state: nextState });
+
+    const result = await service.executeIntent({
+      gameId: 'game-1',
+      intent: {
+        type: 'finish_game_by_time',
+        payload: {
+          finishedAt: 1779150000000,
+        },
+      },
+    });
+
+    expect(result).toMatchObject({
+      intentType: 'finish_game_by_time',
+      state: {
+        phase: 'finished',
+      },
+    });
+    expect(result.events[0]).toMatchObject({
+      type: 'game_finished_by_time',
+      finishedAt: 1779150000000,
+    });
+  });
+
+  it('rejects player-scoped intents that do not match server resolved actor', async () => {
+    await expect(
+      service.executeIntent({
+        gameId: 'game-1',
+        roomPlayerId: 'room-player-1',
+        intent: {
+          type: 'roll_and_move',
+          payload: {
+            roomPlayerId: 'room-player-2',
+            dice: [1, 2],
+          },
+        },
+      }),
+    ).rejects.toThrow(BadRequestException);
+
+    expect(gameStateService.update).not.toHaveBeenCalled();
   });
 
   it('records failed game commands', async () => {
@@ -169,13 +203,13 @@ describe('GameCommandsService', () => {
       {
         gameId: 'game-1',
         roomPlayerId: 'room-player-2',
-        command: GAME_COMMANDS.rollAndMove,
+        command: 'roll_and_move',
         errorCode: 'NOT_CURRENT_TURN',
         errorName: 'GameEngineError',
       },
     );
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(
-      GAME_METRICS.commandFailed(GAME_COMMANDS.rollAndMove),
+      GAME_METRICS.commandFailed('roll_and_move'),
     );
   });
 });

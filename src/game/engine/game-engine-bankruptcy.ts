@@ -1,4 +1,8 @@
 import {
+  calculateNetWorthStandings,
+  getNetWorthWinners,
+} from './game-engine-derived-state';
+import {
   GameEngineError,
   type DeclareBankruptcyInput,
   type GameEnginePlayer,
@@ -22,14 +26,28 @@ export function declareBankruptcy(
     );
   }
 
-  if (input.creditorRoomPlayerId) {
-    assertValidCreditor(state, input);
-  }
+  const creditorRoomPlayerId =
+    input.creditorRoomPlayerId ??
+    (state.debt?.roomPlayerId === input.roomPlayerId
+      ? state.debt.creditorRoomPlayerId
+      : null);
 
-  const liquidatedState = liquidatePlayerAssets(state, input);
+  if (creditorRoomPlayerId) {
+    assertValidCreditor(state, {
+      ...input,
+      creditorRoomPlayerId,
+    });
+  }
+  const liquidatedState = liquidatePlayerAssets(state, {
+    ...input,
+    creditorRoomPlayerId,
+  });
   const activePlayersAfterBankruptcy = getActivePlayers(liquidatedState);
 
   if (activePlayersAfterBankruptcy.length <= 1) {
+    const standings = calculateNetWorthStandings(liquidatedState);
+    const winners = getNetWorthWinners(standings);
+
     return {
       state: {
         ...liquidatedState,
@@ -46,12 +64,14 @@ export function declareBankruptcy(
         {
           type: 'player_bankrupt',
           roomPlayerId: input.roomPlayerId,
-          creditorRoomPlayerId: input.creditorRoomPlayerId ?? null,
+          creditorRoomPlayerId,
         },
         {
           type: 'game_finished_by_bankruptcy',
           winnerRoomPlayerId:
-            activePlayersAfterBankruptcy[0]?.roomPlayerId ?? null,
+            winners.length === 1 ? winners[0].roomPlayerId : null,
+          tiedRoomPlayerIds: winners.map((winner) => winner.roomPlayerId),
+          standings,
         },
       ],
     };
@@ -64,7 +84,7 @@ export function declareBankruptcy(
         {
           type: 'player_bankrupt',
           roomPlayerId: input.roomPlayerId,
-          creditorRoomPlayerId: input.creditorRoomPlayerId ?? null,
+          creditorRoomPlayerId,
         },
       ],
     };
@@ -92,7 +112,7 @@ export function declareBankruptcy(
       {
         type: 'player_bankrupt',
         roomPlayerId: input.roomPlayerId,
-        creditorRoomPlayerId: input.creditorRoomPlayerId ?? null,
+        creditorRoomPlayerId,
       },
       {
         type: 'turn_ended',
@@ -154,6 +174,7 @@ function liquidatePlayerAssets(
     properties: state.properties.map((property) =>
       liquidateProperty(property, input),
     ),
+    debt: state.debt?.roomPlayerId === input.roomPlayerId ? null : state.debt,
   };
 }
 

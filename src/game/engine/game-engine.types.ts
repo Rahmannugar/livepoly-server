@@ -7,6 +7,7 @@ export type GamePhase =
   | 'awaiting_roll'
   | 'awaiting_property_decision'
   | 'awaiting_auction_bid'
+  | 'awaiting_debt_resolution'
   | 'awaiting_turn_end'
   | 'finished'
   | 'cancelled';
@@ -97,12 +98,24 @@ export type GameEngineAuction = {
   passedRoomPlayerIds: string[];
 };
 
+export type GameEngineDebtReason = 'rent' | 'tax' | 'card' | 'jail_fine';
+
+export type GameEngineDebt = {
+  roomPlayerId: string;
+  creditorRoomPlayerId: string | null;
+  amount: number;
+  reason: GameEngineDebtReason;
+};
+
 export type GameEngineState = {
   version: 1;
   roomId: string;
   roomCode: string;
   boardKey: GameBoardKey;
   mode: GameMode;
+  startedAt?: number | null;
+  durationMinutes?: number | null;
+  expiresAt?: number | null;
   phase: GamePhase;
   turnNumber: number;
   currentTurnRoomPlayerId: string;
@@ -111,6 +124,7 @@ export type GameEngineState = {
   lastDiceRoll?: DiceRoll | null;
   pendingTileKey?: string | null;
   auction?: GameEngineAuction | null;
+  debt?: GameEngineDebt | null;
   decks: GameEngineDecks;
   players: GameEnginePlayer[];
   properties: GameEngineProperty[];
@@ -152,6 +166,10 @@ export type UnmortgagePropertyInput = {
 export type DeclareBankruptcyInput = {
   roomPlayerId: string;
   creditorRoomPlayerId?: string | null;
+};
+
+export type PayDebtInput = {
+  roomPlayerId: string;
 };
 
 export type FinishGameByTimeInput = {
@@ -298,6 +316,26 @@ export type GameEngineEvent =
       amount: number;
     }
   | {
+      type: 'tax_paid';
+      roomPlayerId: string;
+      tileKey: string;
+      amount: number;
+    }
+  | {
+      type: 'payment_required';
+      roomPlayerId: string;
+      creditorRoomPlayerId: string | null;
+      amount: number;
+      reason: GameEngineDebtReason;
+    }
+  | {
+      type: 'debt_paid';
+      roomPlayerId: string;
+      creditorRoomPlayerId: string | null;
+      amount: number;
+      reason: GameEngineDebtReason;
+    }
+  | {
       type: 'property_house_built';
       roomPlayerId: string;
       tileKey: string;
@@ -343,6 +381,8 @@ export type GameEngineEvent =
   | {
       type: 'game_finished_by_bankruptcy';
       winnerRoomPlayerId: string | null;
+      tiedRoomPlayerIds: string[];
+      standings: PlayerNetWorth[];
     }
   | {
       type: 'game_finished_by_time';
@@ -379,6 +419,8 @@ export type GameEngineErrorCode =
   | 'ROLL_NOT_ALLOWED'
   | 'BUY_NOT_ALLOWED'
   | 'AUCTION_NOT_ALLOWED'
+  | 'DEBT_RESOLUTION_REQUIRED'
+  | 'NO_ACTIVE_DEBT'
   | 'JAIL_FINE_NOT_ALLOWED'
   | 'TURN_END_NOT_ALLOWED'
   | 'NO_ACTIVE_PLAYERS'
@@ -405,7 +447,8 @@ export type GameEngineErrorCode =
   | 'PROPERTY_NOT_MORTGAGED'
   | 'PLAYER_ALREADY_BANKRUPT'
   | 'INVALID_BANKRUPTCY_CREDITOR'
-  | 'INVALID_FINISH_TIME';
+  | 'INVALID_FINISH_TIME'
+  | 'GAME_TIME_NOT_EXPIRED';
 
 export class GameEngineError extends Error {
   constructor(

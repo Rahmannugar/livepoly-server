@@ -10,6 +10,7 @@ import type {
   GameEngineState,
   MortgagePropertyInput,
   PassAuctionBidInput,
+  PayDebtInput,
   PayJailFineInput,
   PlaceAuctionBidInput,
   RollAndMoveInput,
@@ -57,6 +58,10 @@ export type GameEngineIntent =
   | {
       type: 'declare_bankruptcy';
       payload: DeclareBankruptcyInput;
+    }
+  | {
+      type: 'pay_debt';
+      payload: PayDebtInput;
     }
   | {
       type: 'pay_jail_fine';
@@ -107,6 +112,9 @@ export function reduceGameEngineIntent(
 
     case 'declare_bankruptcy':
       return engine.declareBankruptcy(state, intent.payload);
+
+    case 'pay_debt':
+      return engine.payDebt(state, intent.payload);
 
     case 'pay_jail_fine':
       return engine.payJailFine(state, intent.payload);

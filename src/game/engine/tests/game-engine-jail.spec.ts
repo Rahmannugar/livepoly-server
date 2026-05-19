@@ -244,4 +244,49 @@ describe('game-engine-jail', () => {
       },
     ]);
   });
+
+  it('creates debt when player cannot pay forced jail fine', () => {
+    const state = createGameEngineState();
+
+    state.players[0].cash = JAIL_FINE_AMOUNT - 1;
+    state.players[0].inJail = true;
+    state.players[0].position = 10;
+    state.players[0].jailTurnCount = 2;
+
+    const result = resolveJailedRoll(state, {
+      roomPlayerId: 'room-player-1',
+      dice: [2, 3],
+      moveReleasedPlayer: jest.fn(),
+    });
+
+    expect(result?.state).toMatchObject({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: null,
+        amount: JAIL_FINE_AMOUNT,
+        reason: 'jail_fine',
+      },
+    });
+    expect(result?.state.players[0]).toMatchObject({
+      position: 10,
+      inJail: true,
+      jailTurnCount: 3,
+    });
+    expect(result?.events).toEqual([
+      {
+        type: 'jail_escape_roll_failed',
+        roomPlayerId: 'room-player-1',
+        dice: [2, 3],
+        jailTurnCount: 3,
+      },
+      {
+        type: 'payment_required',
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: null,
+        amount: JAIL_FINE_AMOUNT,
+        reason: 'jail_fine',
+      },
+    ]);
+  });
 });

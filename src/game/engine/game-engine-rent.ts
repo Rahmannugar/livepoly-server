@@ -4,7 +4,7 @@ import type {
   PropertyTile,
   UtilityTile,
 } from './game-board.types';
-import { transferPlayerCash } from './game-engine-money';
+import { transferPlayerCashOrCreateDebt } from './game-engine-money';
 import {
   GameEngineError,
   type GameEngineResult,
@@ -45,24 +45,26 @@ export function payRent(
   }
 
   const amount = calculateRent(state, tile, input.dice);
-  const nextState = transferPlayerCash(
-    state,
-    input.payerRoomPlayerId,
-    property.ownerRoomPlayerId,
+  const paymentResult = transferPlayerCashOrCreateDebt(state, {
+    fromRoomPlayerId: input.payerRoomPlayerId,
+    toRoomPlayerId: property.ownerRoomPlayerId,
     amount,
-  );
+    reason: 'rent',
+  });
 
   return {
-    state: nextState,
-    events: [
-      {
-        type: 'rent_paid',
-        payerRoomPlayerId: input.payerRoomPlayerId,
-        ownerRoomPlayerId: property.ownerRoomPlayerId,
-        tileKey: input.tileKey,
-        amount,
-      },
-    ],
+    state: paymentResult.state,
+    events: paymentResult.paid
+      ? [
+          {
+            type: 'rent_paid',
+            payerRoomPlayerId: input.payerRoomPlayerId,
+            ownerRoomPlayerId: property.ownerRoomPlayerId,
+            tileKey: input.tileKey,
+            amount,
+          },
+        ]
+      : paymentResult.events,
   };
 }
 

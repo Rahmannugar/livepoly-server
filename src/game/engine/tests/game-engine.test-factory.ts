@@ -57,6 +57,7 @@ export function createGameEngineState(
     lastDiceRoll: null,
     pendingTileKey: null,
     auction: null,
+    debt: null,
     decks: createInitialDeckState(),
     players: [
       createGameEnginePlayer(),

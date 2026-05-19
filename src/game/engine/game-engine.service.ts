@@ -16,6 +16,7 @@ import {
   sellBuilding as sellPropertyBuilding,
 } from './game-engine-buildings';
 import { cloneGameState } from './game-engine-cloner';
+import { payDebt as payPlayerDebt } from './game-engine-debt';
 import { finishGameByTime as finishGameByExpiredTime } from './game-engine-finish';
 import { payJailFine as payPlayerJailFine } from './game-engine-jail';
 import {
@@ -36,6 +37,7 @@ import {
   type GameEngineState,
   type MortgagePropertyInput,
   type PassAuctionBidInput,
+  type PayDebtInput,
   type PayJailFineInput,
   type PlaceAuctionBidInput,
   type RollAndMoveInput,
@@ -130,6 +132,10 @@ export class GameEngineService {
     input: DeclareBankruptcyInput,
   ): GameEngineResult {
     return declarePlayerBankruptcy(cloneGameState(state), input);
+  }
+
+  payDebt(state: GameEngineState, input: PayDebtInput): GameEngineResult {
+    return payPlayerDebt(cloneGameState(state), input);
   }
 
   finishGameByTime(

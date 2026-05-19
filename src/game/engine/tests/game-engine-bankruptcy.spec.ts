@@ -180,8 +180,58 @@ describe('game-engine-bankruptcy', () => {
       {
         type: 'game_finished_by_bankruptcy',
         winnerRoomPlayerId: 'room-player-1',
+        tiedRoomPlayerIds: ['room-player-1'],
+        standings: [
+          {
+            roomPlayerId: 'room-player-1',
+            seatNumber: 1,
+            cash: 1500,
+            assetValue: 0,
+            netWorth: 1500,
+          },
+        ],
       },
     ]);
+  });
+
+  it('uses active debt creditor when bankruptcy input does not pass creditor', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: 'room-player-2',
+        amount: 200,
+        reason: 'rent',
+      },
+      properties: createGameEngineState().properties.map((property) => {
+        if (property.tileKey === 'nigeria') {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-1',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    const result = service.declareBankruptcy(state, {
+      roomPlayerId: 'room-player-1',
+    });
+
+    expect(result.state.debt).toBeNull();
+    expect(
+      result.state.properties.find(
+        (property) => property.tileKey === 'nigeria',
+      ),
+    ).toMatchObject({
+      ownerRoomPlayerId: 'room-player-2',
+    });
+    expect(result.events).toContainEqual({
+      type: 'player_bankrupt',
+      roomPlayerId: 'room-player-1',
+      creditorRoomPlayerId: 'room-player-2',
+    });
   });
 
   it('rejects bankruptcy with inactive creditor', () => {

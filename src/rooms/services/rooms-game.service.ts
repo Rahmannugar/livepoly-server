@@ -5,6 +5,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import { createInitialDeckState } from '../../game/engine/game-engine-cards';
+import { createInitialPropertyState } from '../../game/engine/game-engine-properties';
 import type { GameEngineState } from '../../game/engine/game-engine.types';
 import { GameStateService } from '../../game/state/game-state.service';
 import { DatabaseService } from '../../infra/database/database.service';
@@ -110,6 +112,8 @@ export class RoomsGameService {
       const initialState = this.createInitialGameState({
         roomId: room.id,
         roomCode: room.code,
+        startedAt: activeRoom.startedAt,
+        durationMinutes: activeRoom.durationMinutes,
         mode,
         players: allPlayers,
       });
@@ -205,19 +209,34 @@ export class RoomsGameService {
   private createInitialGameState(input: {
     roomId: string;
     roomCode: string;
+    startedAt: Date | null;
+    durationMinutes: number;
     mode: GameMode;
     players: JoinedRoomPlayer[];
   }): GameEngineState {
-    return {
+    const startedAt = input.startedAt?.getTime() ?? Date.now();
+
+    const state: GameEngineState = {
       version: 1,
       roomId: input.roomId,
       roomCode: input.roomCode,
       boardKey: ROOM_BOARD_KEY,
       mode: input.mode,
+      startedAt,
+      durationMinutes: input.durationMinutes,
+      expiresAt: startedAt + input.durationMinutes * 60 * 1000,
       phase: 'awaiting_first_turn',
       turnNumber: 1,
       currentTurnRoomPlayerId: input.players[0].id,
+      consecutiveDoublesCount: 0,
+      shouldCurrentPlayerPlayAgain: false,
       lastDiceRoll: null,
+      pendingTileKey: null,
+      auction: null,
+      debt: null,
+      decks: createInitialDeckState({
+        seed: input.roomId,
+      }),
       players: input.players.map((player) => ({
         roomPlayerId: player.id,
         userId: player.userId,
@@ -228,10 +247,17 @@ export class RoomsGameService {
         seatNumber: player.seatNumber,
         cash: STARTING_CASH,
         position: 0,
-        properties: [],
         inJail: false,
+        jailTurnCount: 0,
+        getOutOfJailFreeCards: 0,
         bankrupt: false,
       })),
+      properties: [],
+    };
+
+    return {
+      ...state,
+      properties: createInitialPropertyState(state),
     };
   }
 }

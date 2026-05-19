@@ -1,4 +1,15 @@
-import type { DiceRoll, GameEngineState } from '../engine/game-engine.types';
+import type { GameEngineIntent } from '../engine/game-engine-intents';
+import type {
+  DiceRoll,
+  GameEngineEvent,
+  GameEngineState,
+} from '../engine/game-engine.types';
+
+export type ExecuteGameIntentCommand = {
+  gameId: string;
+  roomPlayerId?: string;
+  intent: GameEngineIntent;
+};
 
 export type RollAndMoveCommand = {
   gameId: string;
@@ -13,4 +24,6 @@ export type EndTurnCommand = {
 
 export type GameCommandResult = {
   state: GameEngineState;
+  events: GameEngineEvent[];
+  intentType: GameEngineIntent['type'];
 };

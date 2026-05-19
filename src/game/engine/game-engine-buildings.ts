@@ -16,6 +16,13 @@ export function buildProperty(
 ): GameEngineResult {
   assertCanManageBuildings(state);
 
+  if (state.phase === 'awaiting_debt_resolution' || state.debt) {
+    throw new GameEngineError(
+      'DEBT_RESOLUTION_REQUIRED',
+      'Player must resolve debt before building',
+    );
+  }
+
   const board = getGameBoard(state.boardKey);
   const tile = getPropertyTileByKey(board, input.tileKey);
   const setProperties = getOwnedSetProperties(

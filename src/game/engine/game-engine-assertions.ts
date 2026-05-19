@@ -6,6 +6,7 @@ import {
 
 export function assertCanRoll(state: GameEngineState): void {
   assertGameActive(state);
+  assertNoDebtResolution(state);
 
   if (
     state.phase !== 'awaiting_first_turn' &&
@@ -20,6 +21,7 @@ export function assertCanRoll(state: GameEngineState): void {
 
 export function assertCanBuyProperty(state: GameEngineState): void {
   assertGameActive(state);
+  assertNoDebtResolution(state);
 
   if (state.phase !== 'awaiting_property_decision') {
     throw new GameEngineError(
@@ -31,6 +33,7 @@ export function assertCanBuyProperty(state: GameEngineState): void {
 
 export function assertCanEndTurn(state: GameEngineState): void {
   assertGameActive(state);
+  assertNoDebtResolution(state);
 
   if (state.phase !== 'awaiting_turn_end') {
     throw new GameEngineError(
@@ -81,5 +84,14 @@ export function assertValidDice(
 function assertGameActive(state: GameEngineState): void {
   if (state.phase === 'finished' || state.phase === 'cancelled') {
     throw new GameEngineError('GAME_NOT_ACTIVE', 'Game is not active');
+  }
+}
+
+function assertNoDebtResolution(state: GameEngineState): void {
+  if (state.phase === 'awaiting_debt_resolution' || state.debt) {
+    throw new GameEngineError(
+      'DEBT_RESOLUTION_REQUIRED',
+      'Player must resolve debt before continuing',
+    );
   }
 }

@@ -5,8 +5,20 @@ export const GAME_STATE = {
 } as const;
 
 export const GAME_COMMANDS = {
-  rollAndMove: 'rollAndMove',
-  endTurn: 'endTurn',
+  rollAndMove: 'roll_and_move',
+  buyProperty: 'buy_property',
+  declinePropertyPurchase: 'decline_property_purchase',
+  placeAuctionBid: 'place_auction_bid',
+  passAuctionBid: 'pass_auction_bid',
+  buildProperty: 'build_property',
+  sellBuilding: 'sell_building',
+  mortgageProperty: 'mortgage_property',
+  unmortgageProperty: 'unmortgage_property',
+  declareBankruptcy: 'declare_bankruptcy',
+  payDebt: 'pay_debt',
+  payJailFine: 'pay_jail_fine',
+  endTurn: 'end_turn',
+  finishGameByTime: 'finish_game_by_time',
 } as const;
 
 export const GAME_SOCKET_EVENTS = {

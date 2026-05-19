@@ -1,7 +1,7 @@
 import { getGameBoard } from './game-board';
 import { cloneDiceRoll } from './game-engine-cloner';
 import { isDoubles } from './game-engine-dice';
-import { debitPlayer } from './game-engine-money';
+import { debitPlayer, debitPlayerOrCreateDebt } from './game-engine-money';
 import {
   GameEngineError,
   type DiceRoll,
@@ -102,11 +102,41 @@ export function resolveJailedRoll(
   const jailTurnCount = player.jailTurnCount + 1;
 
   if (jailTurnCount >= MAX_JAIL_TURN_COUNT) {
-    const debitedState = debitPlayer(
-      state,
-      input.roomPlayerId,
-      JAIL_FINE_AMOUNT,
-    );
+    const paymentResult = debitPlayerOrCreateDebt(state, {
+      roomPlayerId: input.roomPlayerId,
+      amount: JAIL_FINE_AMOUNT,
+      reason: 'jail_fine',
+    });
+
+    if (!paymentResult.paid) {
+      return {
+        state: {
+          ...paymentResult.state,
+          lastDiceRoll: cloneDiceRoll(input.dice),
+          players: paymentResult.state.players.map((candidate) => {
+            if (candidate.roomPlayerId !== input.roomPlayerId) {
+              return candidate;
+            }
+
+            return {
+              ...candidate,
+              jailTurnCount,
+            };
+          }),
+        },
+        events: [
+          {
+            type: 'jail_escape_roll_failed',
+            roomPlayerId: input.roomPlayerId,
+            dice: cloneDiceRoll(input.dice),
+            jailTurnCount,
+          },
+          ...paymentResult.events,
+        ],
+      };
+    }
+
+    const debitedState = paymentResult.state;
     const releasedState = releasePlayerFromJail(
       {
         ...debitedState,

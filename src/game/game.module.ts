@@ -4,7 +4,6 @@ import { CacheModule } from '../infra/cache/cache.module';
 import { DatabaseModule } from '../infra/database/database.module';
 import { ObservabilityModule } from '../infra/observability/observability.module';
 import { GameCommandsService } from './commands/game-commands.service';
-import { GameEngineService } from './engine/game-engine.service';
 import { GameAccessRepository } from './realtime/game-access.repository';
 import { GameGateway } from './realtime/game.gateway';
 import { GameStateService } from './state/game-state.service';
@@ -13,7 +12,6 @@ import { GameStateService } from './state/game-state.service';
   imports: [AuthModule, CacheModule, DatabaseModule, ObservabilityModule],
   providers: [
     GameStateService,
-    GameEngineService,
     GameCommandsService,
     GameAccessRepository,
     GameGateway,

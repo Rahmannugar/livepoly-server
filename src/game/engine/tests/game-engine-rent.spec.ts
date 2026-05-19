@@ -1,6 +1,5 @@
 import { CLASSIC_GAME_BOARD } from '../game-board';
 import { calculateRent, payRent } from '../game-engine-rent';
-import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-rent', () => {
@@ -219,7 +218,7 @@ describe('game-engine-rent', () => {
     expect(result.events).toEqual([]);
   });
 
-  it('rejects rent payment when player cannot afford rent', () => {
+  it('creates debt when player cannot afford rent', () => {
     const state = createGameEngineState();
 
     state.players[0].cash = 1;
@@ -234,17 +233,29 @@ describe('game-engine-rent', () => {
       };
     });
 
-    expect(() =>
-      payRent(state, {
-        payerRoomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
-        dice: [1, 1],
-      }),
-    ).toThrow(
-      new GameEngineError(
-        'INSUFFICIENT_FUNDS',
-        'Player does not have enough cash',
-      ),
-    );
+    const result = payRent(state, {
+      payerRoomPlayerId: 'room-player-1',
+      tileKey: 'nigeria',
+      dice: [1, 1],
+    });
+
+    expect(result.state).toMatchObject({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: 'room-player-2',
+        amount: 2,
+        reason: 'rent',
+      },
+    });
+    expect(result.events).toEqual([
+      {
+        type: 'payment_required',
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: 'room-player-2',
+        amount: 2,
+        reason: 'rent',
+      },
+    ]);
   });
 });

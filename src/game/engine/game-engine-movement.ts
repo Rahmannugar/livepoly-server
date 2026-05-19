@@ -9,6 +9,7 @@ import {
 import { resolveJailedRoll, sendPlayerToJail } from './game-engine-jail';
 import { isOwnableTile } from './game-engine-properties';
 import { payRent } from './game-engine-rent';
+import { payTax } from './game-engine-tax';
 import {
   GameEngineError,
   type GameCardDeckKey,
@@ -190,6 +191,18 @@ function rollAndMoveIgnoringJail(
     return {
       state: movedState,
       events,
+    };
+  }
+
+  if (landedTileKind === 'tax') {
+    const taxResult = payTax(movedState, {
+      roomPlayerId: input.roomPlayerId,
+      tileKey: landedTileKey,
+    });
+
+    return {
+      state: taxResult.state,
+      events: [...events, ...taxResult.events],
     };
   }
 

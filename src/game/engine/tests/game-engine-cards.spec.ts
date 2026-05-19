@@ -68,6 +68,45 @@ describe('game-engine-cards', () => {
     ]);
   });
 
+  it('creates debt when player cannot pay a money card', () => {
+    const state = createGameEngineState({
+      players: createGameEngineState().players.map((player) => {
+        if (player.roomPlayerId === 'room-player-1') {
+          return {
+            ...player,
+            cash: 25,
+          };
+        }
+
+        return player;
+      }),
+    });
+
+    state.decks.worldFund.drawPile = ['world_fund_pay_hospital'];
+
+    const result = drawAndApplyCard(state, {
+      roomPlayerId: 'room-player-1',
+      deckKey: 'world_fund',
+    });
+
+    expect(result.state).toMatchObject({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: null,
+        amount: 100,
+        reason: 'card',
+      },
+    });
+    expect(result.events).toContainEqual({
+      type: 'payment_required',
+      roomPlayerId: 'room-player-1',
+      creditorRoomPlayerId: null,
+      amount: 100,
+      reason: 'card',
+    });
+  });
+
   it('applies go to jail card', () => {
     const state = createGameEngineState();
 

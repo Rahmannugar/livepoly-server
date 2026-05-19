@@ -1,7 +1,11 @@
 import { getGameBoard, getTile } from './game-board';
 import { cloneDiceRoll } from './game-engine-cloner';
 import { sendPlayerToJail } from './game-engine-jail';
-import { creditPlayer, debitPlayer, findPlayer } from './game-engine-money';
+import {
+  creditPlayer,
+  debitPlayerOrCreateDebt,
+  findPlayer,
+} from './game-engine-money';
 import { isOwnableTile } from './game-engine-properties';
 import { payRent } from './game-engine-rent';
 import {
@@ -103,14 +107,25 @@ const CARDS_BY_KEY = new Map<string, GameEngineCard>(
   [...CHANCE_CARDS, ...WORLD_FUND_CARDS].map((card) => [card.key, card]),
 );
 
-export function createInitialDeckState(): GameEngineState['decks'] {
+export function createInitialDeckState(
+  options: {
+    seed?: string | null;
+  } = {},
+): GameEngineState['decks'] {
+  const chanceCards = CHANCE_CARDS.map((card) => card.key);
+  const worldFundCards = WORLD_FUND_CARDS.map((card) => card.key);
+
   return {
     chance: {
-      drawPile: CHANCE_CARDS.map((card) => card.key),
+      drawPile: options.seed
+        ? shuffleDeterministically(chanceCards, `${options.seed}:chance`)
+        : chanceCards,
       discardPile: [],
     },
     worldFund: {
-      drawPile: WORLD_FUND_CARDS.map((card) => card.key),
+      drawPile: options.seed
+        ? shuffleDeterministically(worldFundCards, `${options.seed}:world_fund`)
+        : worldFundCards,
       discardPile: [],
     },
   };
@@ -200,9 +215,15 @@ function applyCardEffect(
   }
 
   if (card.effect.type === 'pay_money') {
+    const paymentResult = debitPlayerOrCreateDebt(state, {
+      roomPlayerId: input.roomPlayerId,
+      amount: card.effect.amount,
+      reason: 'card',
+    });
+
     return {
-      state: debitPlayer(state, input.roomPlayerId, card.effect.amount),
-      events: [],
+      state: paymentResult.state,
+      events: paymentResult.events,
     };
   }
 
@@ -363,4 +384,42 @@ function setDeck(
             worldFund: deck,
           },
   };
+}
+
+function shuffleDeterministically(values: string[], seed: string): string[] {
+  const shuffled = [...values];
+  let random = createSeededRandom(seed);
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    random = nextRandom(random);
+
+    const swapIndex = random.value % (index + 1);
+    const current = shuffled[index];
+
+    shuffled[index] = shuffled[swapIndex];
+    shuffled[swapIndex] = current;
+  }
+
+  return shuffled;
+}
+
+function createSeededRandom(seed: string): { value: number } {
+  let value = 2166136261;
+
+  for (let index = 0; index < seed.length; index += 1) {
+    value ^= seed.charCodeAt(index);
+    value = Math.imul(value, 16777619);
+  }
+
+  return { value: value >>> 0 };
+}
+
+function nextRandom(random: { value: number }): { value: number } {
+  let value = random.value;
+
+  value ^= value << 13;
+  value ^= value >>> 17;
+  value ^= value << 5;
+
+  return { value: value >>> 0 };
 }

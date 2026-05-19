@@ -10,19 +10,35 @@ import {
   assertCurrentTurn,
   assertValidDice,
 } from './game-engine-assertions';
+import { declareBankruptcy as declarePlayerBankruptcy } from './game-engine-bankruptcy';
+import {
+  buildProperty as buildPropertyBuilding,
+  sellBuilding as sellPropertyBuilding,
+} from './game-engine-buildings';
 import { cloneGameState } from './game-engine-cloner';
+import { payJailFine as payPlayerJailFine } from './game-engine-jail';
+import {
+  mortgageProperty as mortgageOwnableProperty,
+  unmortgageProperty as unmortgageOwnableProperty,
+} from './game-engine-mortgage';
 import { rollAndMove as movePlayer } from './game-engine-movement';
 import { buyProperty as buyOwnableProperty } from './game-engine-properties';
 import { endTurn as completeTurn } from './game-engine-turns';
 import {
+  type BuildPropertyInput,
   type BuyPropertyInput,
+  type DeclareBankruptcyInput,
   type DeclinePropertyInput,
   type EndTurnInput,
   type GameEngineResult,
   type GameEngineState,
+  type MortgagePropertyInput,
   type PassAuctionBidInput,
+  type PayJailFineInput,
   type PlaceAuctionBidInput,
   type RollAndMoveInput,
+  type SellBuildingInput,
+  type UnmortgagePropertyInput,
 } from './game-engine.types';
 
 export class GameEngineService {
@@ -69,6 +85,58 @@ export class GameEngineService {
     input: PassAuctionBidInput,
   ): GameEngineResult {
     return passOwnableAuctionBid(cloneGameState(state), input);
+  }
+
+  buildProperty(
+    state: GameEngineState,
+    input: BuildPropertyInput,
+  ): GameEngineResult {
+    assertCurrentTurn(state, input.roomPlayerId);
+
+    return buildPropertyBuilding(cloneGameState(state), input);
+  }
+
+  sellBuilding(
+    state: GameEngineState,
+    input: SellBuildingInput,
+  ): GameEngineResult {
+    assertCurrentTurn(state, input.roomPlayerId);
+
+    return sellPropertyBuilding(cloneGameState(state), input);
+  }
+
+  mortgageProperty(
+    state: GameEngineState,
+    input: MortgagePropertyInput,
+  ): GameEngineResult {
+    assertCurrentTurn(state, input.roomPlayerId);
+
+    return mortgageOwnableProperty(cloneGameState(state), input);
+  }
+
+  unmortgageProperty(
+    state: GameEngineState,
+    input: UnmortgagePropertyInput,
+  ): GameEngineResult {
+    assertCurrentTurn(state, input.roomPlayerId);
+
+    return unmortgageOwnableProperty(cloneGameState(state), input);
+  }
+
+  declareBankruptcy(
+    state: GameEngineState,
+    input: DeclareBankruptcyInput,
+  ): GameEngineResult {
+    return declarePlayerBankruptcy(cloneGameState(state), input);
+  }
+
+  payJailFine(
+    state: GameEngineState,
+    input: PayJailFineInput,
+  ): GameEngineResult {
+    assertCurrentTurn(state, input.roomPlayerId);
+
+    return payPlayerJailFine(cloneGameState(state), input);
   }
 
   endTurn(state: GameEngineState, input: EndTurnInput): GameEngineResult {

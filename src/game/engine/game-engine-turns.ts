@@ -10,6 +10,25 @@ export function endTurn(
   state: GameEngineState,
   input: EndTurnInput,
 ): GameEngineResult {
+  if (state.shouldCurrentPlayerPlayAgain) {
+    return {
+      state: {
+        ...state,
+        phase: 'awaiting_roll',
+        lastDiceRoll: null,
+        shouldCurrentPlayerPlayAgain: false,
+      },
+      events: [
+        {
+          type: 'turn_ended',
+          roomPlayerId: input.roomPlayerId,
+          nextRoomPlayerId: input.roomPlayerId,
+          turnNumber: state.turnNumber,
+        },
+      ],
+    };
+  }
+
   const nextPlayer = findNextActivePlayer(state);
   const nextTurnNumber = state.turnNumber + 1;
 
@@ -19,6 +38,8 @@ export function endTurn(
       phase: 'awaiting_roll',
       turnNumber: nextTurnNumber,
       currentTurnRoomPlayerId: nextPlayer.roomPlayerId,
+      consecutiveDoublesCount: 0,
+      shouldCurrentPlayerPlayAgain: false,
       lastDiceRoll: null,
     },
     events: [

@@ -1,3 +1,4 @@
+import { createInitialDeckState } from '../game-engine-cards';
 import { createInitialPropertyState } from '../game-engine-properties';
 import type {
   GameEnginePlayer,
@@ -19,6 +20,8 @@ export function createGameEnginePlayer(
     cash: 1500,
     position: 0,
     inJail: false,
+    jailTurnCount: 0,
+    getOutOfJailFreeCards: 0,
     bankrupt: false,
     ...overrides,
   };
@@ -49,8 +52,12 @@ export function createGameEngineState(
     phase: 'awaiting_first_turn',
     turnNumber: 1,
     currentTurnRoomPlayerId: 'room-player-1',
+    consecutiveDoublesCount: 0,
+    shouldCurrentPlayerPlayAgain: false,
     lastDiceRoll: null,
     pendingTileKey: null,
+    auction: null,
+    decks: createInitialDeckState(),
     players: [
       createGameEnginePlayer(),
       createGameEnginePlayer({

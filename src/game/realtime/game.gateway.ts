@@ -1,29 +1,37 @@
+import { ConfigService } from '@nestjs/config';
+import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
   MessageBody,
   OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
   WsException,
 } from '@nestjs/websockets';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
 import { Server } from 'socket.io';
 import { AuthRepository } from '../../auth/auth.repository';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { ObservabilityService } from '../../infra/observability/observability.service';
+import type { GameCommandResult } from '../commands/game-commands.types';
 import { GameCommandsService } from '../commands/game-commands.service';
-import { GameEngineError } from '../engine/game-engine.types';
+import {
+  GameEngineError,
+  type GameEngineEvent,
+} from '../engine/game-engine.types';
+import { GAME_EVENTS, GAME_SOCKET_EVENTS } from '../game.constants';
+import { GameAccessRepository } from './game-access.repository';
 import {
   type AuthenticatedGameSocket,
   type EndTurnPayload,
+  type GameCommandRejectedEvent,
   type GameErrorEvent,
+  type GameEventsEvent,
+  type GameStateEvent,
   type JoinGamePayload,
   type RollAndMovePayload,
 } from './game-realtime.types';
-import { GAME_EVENTS, GAME_SOCKET_EVENTS } from '../game.constants';
-import { GameAccessRepository } from './game-access.repository';
 
 type AccessTokenPayload = {
   sub: string;
@@ -40,7 +48,7 @@ type AccessTokenPayload = {
     credentials: true,
   },
 })
-export class GameGateway implements OnGatewayConnection {
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   private readonly server: Server;
 
@@ -68,6 +76,14 @@ export class GameGateway implements OnGatewayConnection {
 
       socket.disconnect(true);
     }
+  }
+
+  handleDisconnect(socket: AuthenticatedGameSocket): void {
+    this.observabilityService.recordEvent(GAME_EVENTS.socketDisconnected, {
+      socketId: socket.id,
+      userId: socket.data.user?.id,
+      username: socket.data.user?.username,
+    });
   }
 
   @SubscribeMessage(GAME_SOCKET_EVENTS.join)
@@ -120,16 +136,24 @@ export class GameGateway implements OnGatewayConnection {
         dice: payload.dice,
       });
 
-      this.broadcastState(payload.gameId, result.state);
+      this.broadcastCommandResult(payload.gameId, result);
 
       return {
         event: GAME_SOCKET_EVENTS.state,
         data: {
           gameId: payload.gameId,
           state: result.state,
+          events: result.events,
         },
       };
     } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.rollAndMove,
+        error,
+      );
+
       throw this.toWsException(error);
     }
   }
@@ -153,25 +177,86 @@ export class GameGateway implements OnGatewayConnection {
         roomPlayerId: player.roomPlayerId,
       });
 
-      this.broadcastState(payload.gameId, result.state);
+      this.broadcastCommandResult(payload.gameId, result);
 
       return {
         event: GAME_SOCKET_EVENTS.state,
         data: {
           gameId: payload.gameId,
           state: result.state,
+          events: result.events,
         },
       };
     } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.endTurn,
+        error,
+      );
+
       throw this.toWsException(error);
     }
   }
 
-  private broadcastState(gameId: string, state: unknown): void {
+  private broadcastCommandResult(
+    gameId: string,
+    result: GameCommandResult,
+  ): void {
+    this.broadcastState(gameId, result.state);
+    this.broadcastEvents(gameId, result.events);
+  }
+
+  private broadcastState(gameId: string, state: GameStateEvent['state']): void {
     this.server.to(this.gameRoom(gameId)).emit(GAME_SOCKET_EVENTS.state, {
       gameId,
       state,
-    });
+    } satisfies GameStateEvent);
+  }
+
+  private broadcastEvents(gameId: string, events: GameEngineEvent[]): void {
+    if (events.length === 0) {
+      return;
+    }
+
+    this.server.to(this.gameRoom(gameId)).emit(GAME_SOCKET_EVENTS.events, {
+      gameId,
+      events,
+    } satisfies GameEventsEvent);
+  }
+
+  private emitCommandRejected(
+    socket: AuthenticatedGameSocket,
+    gameId: string,
+    command: string,
+    error: unknown,
+  ): void {
+    socket.emit(GAME_SOCKET_EVENTS.commandRejected, {
+      gameId,
+      command,
+      ...this.toCommandRejectedError(error),
+    } satisfies GameCommandRejectedEvent);
+  }
+
+  private toCommandRejectedError(
+    error: unknown,
+  ): Pick<GameCommandRejectedEvent, 'code' | 'message'> {
+    if (error instanceof GameEngineError) {
+      return {
+        code: error.code,
+        message: error.message,
+      };
+    }
+
+    if (error instanceof Error) {
+      return {
+        message: error.message,
+      };
+    }
+
+    return {
+      message: 'Game command failed',
+    };
   }
 
   private async assertPlayerCanAccessGame(gameId: string, userId: string) {

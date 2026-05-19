@@ -27,6 +27,8 @@ export const GAME_SOCKET_EVENTS = {
   rollAndMove: 'game:roll-and-move',
   endTurn: 'game:end-turn',
   state: 'game:state',
+  events: 'game:events',
+  commandRejected: 'game:command-rejected',
   error: 'game:error',
 } as const;
 
@@ -41,6 +43,7 @@ export const GAME_EVENTS = {
   commandSucceeded: 'GameCommandSucceeded',
   commandFailed: 'GameCommandFailed',
   socketConnected: 'GameSocketConnected',
+  socketDisconnected: 'GameSocketDisconnected',
   socketJoined: 'GameSocketJoined',
   socketAccessDenied: 'GameSocketAccessDenied',
 } as const;

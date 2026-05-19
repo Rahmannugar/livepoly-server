@@ -4,11 +4,15 @@ import { WsException } from '@nestjs/websockets';
 import type { AuthRepository } from '../../auth/auth.repository';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { GameCommandsService } from '../commands/game-commands.service';
+import {
+  GameEngineError,
+  type GameEngineEvent,
+  type GameEngineState,
+} from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_SOCKET_EVENTS } from '../game.constants';
-import type { GameEngineState } from '../engine/game-engine.types';
 import type { GameAccessRepository } from './game-access.repository';
-import { GameGateway } from './game.gateway';
 import type { AuthenticatedGameSocket } from './game-realtime.types';
+import { GameGateway } from './game.gateway';
 
 type GameCommandsServiceMock = {
   rollAndMove: jest.Mock;
@@ -97,9 +101,35 @@ describe('GameGateway', () => {
     phase: 'awaiting_roll',
     turnNumber: 1,
     currentTurnRoomPlayerId: 'room-player-1',
+    consecutiveDoublesCount: 0,
+    shouldCurrentPlayerPlayAgain: false,
     lastDiceRoll: null,
+    pendingTileKey: null,
+    auction: null,
+    debt: null,
+    decks: {
+      chance: {
+        drawPile: [],
+        discardPile: [],
+      },
+      worldFund: {
+        drawPile: [],
+        discardPile: [],
+      },
+    },
     players: [],
+    properties: [],
   };
+
+  const engineEvents: GameEngineEvent[] = [
+    {
+      type: 'player_moved',
+      roomPlayerId: 'room-player-1',
+      fromPosition: 0,
+      toPosition: 7,
+      dice: [3, 4],
+    },
+  ];
 
   const makeSocket = (token: string | null = 'access-token'): GameSocketMock =>
     ({
@@ -196,6 +226,22 @@ describe('GameGateway', () => {
     );
   });
 
+  it('records disconnect telemetry', () => {
+    const socket = makeSocket();
+    socket.data.user = authUser;
+
+    gateway.handleDisconnect(socket);
+
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      GAME_EVENTS.socketDisconnected,
+      {
+        socketId: socket.id,
+        userId: authUser.id,
+        username: authUser.username,
+      },
+    );
+  });
+
   it('denies join when socket user is not an active player in the game', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
@@ -251,10 +297,14 @@ describe('GameGateway', () => {
     });
   });
 
-  it('resolves room player before rolling and broadcasting state', async () => {
+  it('resolves room player before rolling and broadcasting state and events', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
-    gameCommandsService.rollAndMove.mockResolvedValue({ state: gameState });
+    gameCommandsService.rollAndMove.mockResolvedValue({
+      state: gameState,
+      events: engineEvents,
+      intentType: 'roll_and_move',
+    });
 
     const result = await gateway.rollAndMove(socket, {
       gameId: 'game-1',
@@ -275,19 +325,28 @@ describe('GameGateway', () => {
       gameId: 'game-1',
       state: gameState,
     });
+    expect(roomEmitter.emit).toHaveBeenCalledWith(GAME_SOCKET_EVENTS.events, {
+      gameId: 'game-1',
+      events: engineEvents,
+    });
     expect(result).toEqual({
       event: GAME_SOCKET_EVENTS.state,
       data: {
         gameId: 'game-1',
         state: gameState,
+        events: engineEvents,
       },
     });
   });
 
-  it('resolves room player before ending turn and broadcasting state', async () => {
+  it('resolves room player before ending turn and broadcasting state and events', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
-    gameCommandsService.endTurn.mockResolvedValue({ state: gameState });
+    gameCommandsService.endTurn.mockResolvedValue({
+      state: gameState,
+      events: engineEvents,
+      intentType: 'end_turn',
+    });
 
     const result = await gateway.endTurn(socket, {
       gameId: 'game-1',
@@ -306,12 +365,45 @@ describe('GameGateway', () => {
       gameId: 'game-1',
       state: gameState,
     });
+    expect(roomEmitter.emit).toHaveBeenCalledWith(GAME_SOCKET_EVENTS.events, {
+      gameId: 'game-1',
+      events: engineEvents,
+    });
     expect(result).toEqual({
       event: GAME_SOCKET_EVENTS.state,
       data: {
         gameId: 'game-1',
         state: gameState,
+        events: engineEvents,
       },
     });
+  });
+
+  it('emits command rejected payload for engine command errors', async () => {
+    const socket = makeSocket();
+    socket.data.user = authUser;
+    const error = new GameEngineError(
+      'NOT_CURRENT_TURN',
+      'It is not this player’s turn',
+    );
+
+    gameCommandsService.rollAndMove.mockRejectedValue(error);
+
+    await expect(
+      gateway.rollAndMove(socket, {
+        gameId: 'game-1',
+        dice: [3, 4],
+      }),
+    ).rejects.toThrow(WsException);
+
+    expect(socket.emit).toHaveBeenCalledWith(
+      GAME_SOCKET_EVENTS.commandRejected,
+      {
+        gameId: 'game-1',
+        command: GAME_SOCKET_EVENTS.rollAndMove,
+        code: 'NOT_CURRENT_TURN',
+        message: 'It is not this player’s turn',
+      },
+    );
   });
 });

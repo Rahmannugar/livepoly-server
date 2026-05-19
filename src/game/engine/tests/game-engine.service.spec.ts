@@ -29,6 +29,19 @@ describe('GameEngineService', () => {
         tileKey: 'chance_1',
         tileKind: 'chance',
       },
+      {
+        type: 'card_drawn',
+        roomPlayerId: 'room-player-1',
+        deckKey: 'chance',
+        cardKey: 'chance_bank_dividend',
+      },
+      {
+        type: 'card_applied',
+        roomPlayerId: 'room-player-1',
+        deckKey: 'chance',
+        cardKey: 'chance_bank_dividend',
+        effectType: 'collect_money',
+      },
     ]);
   });
 
@@ -68,11 +81,11 @@ describe('GameEngineService', () => {
   it('returns state and events for end turn', () => {
     const state = createGameEngineState();
 
-    state.players[0].position = 39;
+    state.players[0].position = 38;
 
     const moved = service.rollAndMove(state, {
       roomPlayerId: 'room-player-1',
-      dice: [1, 1],
+      dice: [1, 2],
     });
 
     const bought = service.buyProperty(moved.state, {

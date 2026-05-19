@@ -66,7 +66,11 @@ describe('GameEngineService', () => {
   });
 
   it('returns state and events for end turn', () => {
-    const moved = service.rollAndMove(createGameEngineState(), {
+    const state = createGameEngineState();
+
+    state.players[0].position = 39;
+
+    const moved = service.rollAndMove(state, {
       roomPlayerId: 'room-player-1',
       dice: [1, 1],
     });

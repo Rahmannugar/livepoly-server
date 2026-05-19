@@ -1,4 +1,3 @@
-// src/game/realtime/game-realtime.types.ts
 import type { Socket } from 'socket.io';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type {

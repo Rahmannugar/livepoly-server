@@ -1,13 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
-import type { ObservabilityService } from '../../infra/observability/observability.service';
-import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
+import type { ObservabilityService } from '../../../infra/observability/observability.service';
+import { GAME_EVENTS, GAME_METRICS } from '../../game.constants';
 import {
   GameEngineError,
   type GameEngineState,
-} from '../engine/game-engine.types';
-import { createGameEngineState } from '../engine/tests/game-engine.test-factory';
-import type { GameStateService } from '../state/game-state.service';
-import { GameCommandsService } from './game-commands.service';
+} from '../../engine/game-engine.types';
+import { createGameEngineState } from '../../engine/tests/game-engine.test-factory';
+import type { GameStateService } from '../../state/game-state.service';
+import { GameCommandsService } from '../game-commands.service';
 
 type GameStateServiceMock = {
   update: jest.Mock;

@@ -69,6 +69,7 @@ export const GAME_EVENTS = {
   botTurnExecuted: 'GameBotTurnExecuted',
   botTurnFailed: 'GameBotTurnFailed',
   realtimePublished: 'GameRealtimePublished',
+  realtimePublishFailed: 'GameRealtimePublishFailed',
   socketConnected: 'GameSocketConnected',
   socketDisconnected: 'GameSocketDisconnected',
   socketJoined: 'GameSocketJoined',
@@ -87,6 +88,7 @@ export const GAME_METRICS = {
   botTurnExecuted: 'Custom/Game/Bot/Executed',
   botTurnFailed: 'Custom/Game/Bot/Failed',
   realtimePublished: 'Custom/Game/Realtime/Published',
+  realtimePublishFailed: 'Custom/Game/Realtime/PublishFailed',
   commandSucceeded: (command: string) =>
     `Custom/Game/Command/Succeeded/${command}`,
   commandFailed: (command: string) => `Custom/Game/Command/Failed/${command}`,

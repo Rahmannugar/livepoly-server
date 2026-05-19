@@ -1,3 +1,4 @@
+import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -14,13 +15,24 @@ import { Server } from 'socket.io';
 import { AuthRepository } from '../../auth/auth.repository';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { ObservabilityService } from '../../infra/observability/observability.service';
+import { PubSubService } from '../../infra/pubsub/pubsub.service';
+import type {
+  PubSubPayload,
+  PubSubSubscription,
+} from '../../infra/pubsub/pubsub.types';
+import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import type { GameCommandResult } from '../commands/game-commands.types';
 import { GameCommandsService } from '../commands/game-commands.service';
 import {
   GameEngineError,
   type GameEngineEvent,
 } from '../engine/game-engine.types';
-import { GAME_EVENTS, GAME_SOCKET_EVENTS } from '../game.constants';
+import {
+  GAME_EVENTS,
+  GAME_METRICS,
+  GAME_REALTIME,
+  GAME_SOCKET_EVENTS,
+} from '../game.constants';
 import { GameAccessRepository } from './game-access.repository';
 import {
   type AuthenticatedGameSocket,
@@ -28,10 +40,12 @@ import {
   type GameCommandRejectedEvent,
   type GameErrorEvent,
   type GameEventsEvent,
+  type GameRealtimePubSubMessage,
   type GameStateEvent,
   type JoinGamePayload,
   type RollAndMovePayload,
 } from './game-realtime.types';
+import { GameRealtimePublisher } from './game-realtime.publisher';
 
 type AccessTokenPayload = {
   sub: string;
@@ -48,9 +62,17 @@ type AccessTokenPayload = {
     credentials: true,
   },
 })
-export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class GameGateway
+  implements
+    OnModuleInit,
+    OnModuleDestroy,
+    OnGatewayConnection,
+    OnGatewayDisconnect
+{
   @WebSocketServer()
   private readonly server: Server;
+
+  private realtimeSubscription: PubSubSubscription | null = null;
 
   constructor(
     private readonly gameCommandsService: GameCommandsService,
@@ -59,7 +81,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly authRepository: AuthRepository,
     private readonly observabilityService: ObservabilityService,
     private readonly gameAccessRepository: GameAccessRepository,
+    private readonly pubSubService: PubSubService,
+    private readonly gameRealtimePublisher: GameRealtimePublisher,
+    private readonly gameBotQueueService: GameBotQueueService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    this.realtimeSubscription = await this.pubSubService.subscribe(
+      GAME_REALTIME.channel,
+      (payload) => this.handleRealtimeMessage(payload),
+    );
+  }
+
+  async onModuleDestroy(): Promise<void> {
+    await this.realtimeSubscription?.unsubscribe();
+    this.realtimeSubscription = null;
+  }
 
   async handleConnection(socket: AuthenticatedGameSocket): Promise<void> {
     try {
@@ -136,7 +173,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         dice: payload.dice,
       });
 
-      this.broadcastCommandResult(payload.gameId, result);
+      await this.afterCommandSucceeded(payload.gameId, result);
 
       return {
         event: GAME_SOCKET_EVENTS.state,
@@ -177,7 +214,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         roomPlayerId: player.roomPlayerId,
       });
 
-      this.broadcastCommandResult(payload.gameId, result);
+      await this.afterCommandSucceeded(payload.gameId, result);
 
       return {
         event: GAME_SOCKET_EVENTS.state,
@@ -199,12 +236,72 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  private broadcastCommandResult(
+  private async afterCommandSucceeded(
     gameId: string,
     result: GameCommandResult,
-  ): void {
-    this.broadcastState(gameId, result.state);
-    this.broadcastEvents(gameId, result.events);
+  ): Promise<void> {
+    await this.publishRealtimeBestEffort(gameId, result);
+    await this.enqueueBotBestEffort(gameId, result);
+  }
+
+  private async publishRealtimeBestEffort(
+    gameId: string,
+    result: GameCommandResult,
+  ): Promise<void> {
+    try {
+      await this.gameRealtimePublisher.publishCommandResult(gameId, result);
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.realtimePublishFailed, {
+        gameId,
+        phase: result.state.phase,
+        turnNumber: result.state.turnNumber,
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(
+        GAME_METRICS.realtimePublishFailed,
+      );
+    }
+  }
+
+  private async enqueueBotBestEffort(
+    gameId: string,
+    result: GameCommandResult,
+  ): Promise<void> {
+    try {
+      await this.gameBotQueueService.enqueueIfBotCanAct(gameId, result.state);
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.botTurnFailed, {
+        gameId,
+        phase: result.state.phase,
+        turnNumber: result.state.turnNumber,
+        reason: 'queue_failed',
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(GAME_METRICS.botTurnFailed);
+    }
+  }
+
+  private handleRealtimeMessage(payload: PubSubPayload): void {
+    if (!this.isGameRealtimePubSubMessage(payload)) {
+      return;
+    }
+
+    this.broadcastState(payload.gameId, payload.state);
+    this.broadcastEvents(payload.gameId, payload.events);
+  }
+
+  private isGameRealtimePubSubMessage(
+    payload: PubSubPayload,
+  ): payload is PubSubPayload & GameRealtimePubSubMessage {
+    return (
+      payload.type === 'game_command_result' &&
+      typeof payload.gameId === 'string' &&
+      typeof payload.state === 'object' &&
+      payload.state !== null &&
+      Array.isArray(payload.events)
+    );
   }
 
   private broadcastState(gameId: string, state: GameStateEvent['state']): void {

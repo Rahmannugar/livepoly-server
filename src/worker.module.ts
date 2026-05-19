@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { LoggingModule } from './common/logging/logging.module';
 import { AppConfigModule } from './config/app-config.module';
-import { GameBotWorkerModule } from './game/bots/game-bot-worker.module';
+import { GameWorkerModule } from './game/jobs/game-worker.module';
 import { DatabaseModule } from './infra/database/database.module';
 import { QueueModule } from './infra/queue/queue.module';
 import { MailWorkerModule } from './mail/jobs/mail-worker.module';
@@ -17,7 +17,7 @@ import { UsersWorkerModule } from './users/jobs/users-worker.module';
     MailWorkerModule,
     UsersWorkerModule,
     OutboxWorkerModule,
-    GameBotWorkerModule,
+    GameWorkerModule,
   ],
 })
 export class WorkerModule {}

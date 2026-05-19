@@ -13,6 +13,7 @@ import { GameAccessRepository } from './realtime/game-access.repository';
 import { GameRealtimePublisher } from './realtime/game-realtime.publisher';
 import { GameGateway } from './realtime/game.gateway';
 import { GameStateService } from './state/game-state.service';
+import { GameTurnTimerQueueService } from './timers/game-turn-timer-queue.service';
 
 @Module({
   imports: [
@@ -30,8 +31,14 @@ import { GameStateService } from './state/game-state.service';
     GameRealtimePublisher,
     GameBotService,
     GameBotQueueService,
+    GameTurnTimerQueueService,
     GameGateway,
   ],
-  exports: [GameStateService, GameCommandsService, GameBotQueueService],
+  exports: [
+    GameStateService,
+    GameCommandsService,
+    GameBotQueueService,
+    GameTurnTimerQueueService,
+  ],
 })
 export class GameModule {}

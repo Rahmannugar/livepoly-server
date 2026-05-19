@@ -4,6 +4,10 @@ export const GAME_STATE = {
   updateRetryDelayMs: 25,
 } as const;
 
+export const GAME_TURN_TIMER = {
+  timeoutMs: 45_000,
+} as const;
+
 export const GAME_BOTS = {
   actionDelayMs: {
     easy: 1400,
@@ -68,6 +72,10 @@ export const GAME_EVENTS = {
   botTurnSkipped: 'GameBotTurnSkipped',
   botTurnExecuted: 'GameBotTurnExecuted',
   botTurnFailed: 'GameBotTurnFailed',
+  turnTimerQueued: 'GameTurnTimerQueued',
+  turnTimerSkipped: 'GameTurnTimerSkipped',
+  turnTimerExecuted: 'GameTurnTimerExecuted',
+  turnTimerFailed: 'GameTurnTimerFailed',
   realtimePublished: 'GameRealtimePublished',
   realtimePublishFailed: 'GameRealtimePublishFailed',
   socketConnected: 'GameSocketConnected',
@@ -87,6 +95,9 @@ export const GAME_METRICS = {
   botTurnQueued: 'Custom/Game/Bot/Queued',
   botTurnExecuted: 'Custom/Game/Bot/Executed',
   botTurnFailed: 'Custom/Game/Bot/Failed',
+  turnTimerQueued: 'Custom/Game/TurnTimer/Queued',
+  turnTimerExecuted: 'Custom/Game/TurnTimer/Executed',
+  turnTimerFailed: 'Custom/Game/TurnTimer/Failed',
   realtimePublished: 'Custom/Game/Realtime/Published',
   realtimePublishFailed: 'Custom/Game/Realtime/PublishFailed',
   commandSucceeded: (command: string) =>

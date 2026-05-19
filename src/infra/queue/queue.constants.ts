@@ -23,4 +23,5 @@ export const OUTBOX_JOBS = {
 
 export const GAME_JOBS = {
   executeBotTurn: 'execute-bot-turn',
+  executeTurnTimeout: 'execute-turn-timeout',
 } as const;

@@ -4,6 +4,24 @@ export const GAME_STATE = {
   updateRetryDelayMs: 25,
 } as const;
 
+export const GAME_BOTS = {
+  actionDelayMs: {
+    easy: 1400,
+    normal: 1000,
+    hard: 750,
+  },
+  cashReserve: {
+    easy: 200,
+    normal: 350,
+    hard: 500,
+  },
+  auctionMaxPriceRatio: {
+    easy: 0.55,
+    normal: 0.75,
+    hard: 0.9,
+  },
+} as const;
+
 export const GAME_COMMANDS = {
   rollAndMove: 'roll_and_move',
   buyProperty: 'buy_property',
@@ -32,6 +50,10 @@ export const GAME_SOCKET_EVENTS = {
   error: 'game:error',
 } as const;
 
+export const GAME_REALTIME = {
+  channel: 'game:realtime',
+} as const;
+
 export const GAME_EVENTS = {
   stateMissing: 'GameStateMissing',
   stateSaved: 'GameStateSaved',
@@ -42,6 +64,11 @@ export const GAME_EVENTS = {
   stateCasConflict: 'GameStateCasConflict',
   commandSucceeded: 'GameCommandSucceeded',
   commandFailed: 'GameCommandFailed',
+  botTurnQueued: 'GameBotTurnQueued',
+  botTurnSkipped: 'GameBotTurnSkipped',
+  botTurnExecuted: 'GameBotTurnExecuted',
+  botTurnFailed: 'GameBotTurnFailed',
+  realtimePublished: 'GameRealtimePublished',
   socketConnected: 'GameSocketConnected',
   socketDisconnected: 'GameSocketDisconnected',
   socketJoined: 'GameSocketJoined',
@@ -56,6 +83,10 @@ export const GAME_METRICS = {
   stateCorrupted: 'Custom/Game/State/Corrupted',
   stateCasRetry: 'Custom/Game/State/CAS/Retry',
   stateCasConflict: 'Custom/Game/State/CAS/Conflict',
+  botTurnQueued: 'Custom/Game/Bot/Queued',
+  botTurnExecuted: 'Custom/Game/Bot/Executed',
+  botTurnFailed: 'Custom/Game/Bot/Failed',
+  realtimePublished: 'Custom/Game/Realtime/Published',
   commandSucceeded: (command: string) =>
     `Custom/Game/Command/Succeeded/${command}`,
   commandFailed: (command: string) => `Custom/Game/Command/Failed/${command}`,

@@ -1,3 +1,4 @@
+// src/game/realtime/game-realtime.types.ts
 import type { Socket } from 'socket.io';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type {
@@ -51,4 +52,11 @@ export type GameCommandRejectedEvent = {
 export type GameErrorEvent = {
   message: string;
   code?: string;
+};
+
+export type GameRealtimePubSubMessage = {
+  type: 'game_command_result';
+  gameId: string;
+  state: GameEngineState;
+  events: GameEngineEvent[];
 };

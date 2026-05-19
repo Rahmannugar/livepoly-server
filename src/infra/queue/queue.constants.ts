@@ -2,6 +2,7 @@ export const QUEUES = {
   mail: 'mail',
   users: 'users',
   outbox: 'outbox',
+  game: 'game',
 } as const;
 
 export const MAIL_JOBS = {
@@ -18,4 +19,8 @@ export const USER_JOBS = {
 
 export const OUTBOX_JOBS = {
   publishEvent: 'publish-event',
+} as const;
+
+export const GAME_JOBS = {
+  executeBotTurn: 'execute-bot-turn',
 } as const;

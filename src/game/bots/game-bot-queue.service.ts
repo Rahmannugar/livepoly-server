@@ -1,0 +1,56 @@
+import { InjectQueue } from '@nestjs/bullmq';
+import { Injectable } from '@nestjs/common';
+import { Queue } from 'bullmq';
+import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
+import { ObservabilityService } from '../../infra/observability/observability.service';
+import type { GameEngineState } from '../engine/game-engine.types';
+import { GAME_BOTS, GAME_EVENTS, GAME_METRICS } from '../game.constants';
+import { GameBotService } from './game-bot.service';
+import type { ExecuteBotTurnJob } from './game-bot.types';
+
+@Injectable()
+export class GameBotQueueService {
+  constructor(
+    @InjectQueue(QUEUES.game) private readonly gameQueue: Queue,
+    private readonly gameBotService: GameBotService,
+    private readonly observabilityService: ObservabilityService,
+  ) {}
+
+  async enqueueIfBotCanAct(gameId: string, state: GameEngineState) {
+    const decision = this.gameBotService.chooseDecision(state);
+
+    if (!decision) {
+      return;
+    }
+
+    const delay =
+      GAME_BOTS.actionDelayMs[
+        state.players.find(
+          (player) => player.roomPlayerId === decision.roomPlayerId,
+        )?.botDifficulty ?? 'normal'
+      ];
+
+    await this.gameQueue.add(
+      GAME_JOBS.executeBotTurn,
+      { gameId } satisfies ExecuteBotTurnJob,
+      {
+        jobId: `bot-turn:${gameId}:${state.turnNumber}:${state.phase}:${decision.roomPlayerId}`,
+        delay,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000 },
+        removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
+        removeOnFail: 100,
+      },
+    );
+
+    this.observabilityService.recordEvent(GAME_EVENTS.botTurnQueued, {
+      gameId,
+      roomPlayerId: decision.roomPlayerId,
+      phase: state.phase,
+      turnNumber: state.turnNumber,
+      delay,
+    });
+
+    this.observabilityService.recordMetric(GAME_METRICS.botTurnQueued);
+  }
+}

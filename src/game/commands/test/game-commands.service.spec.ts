@@ -50,6 +50,7 @@ describe('GameCommandsService', () => {
           inJail: false,
           jailTurnCount: 0,
           getOutOfJailFreeCards: 0,
+          consecutiveMissedTurns: 0,
           bankrupt: false,
         },
         {
@@ -65,6 +66,7 @@ describe('GameCommandsService', () => {
           inJail: false,
           jailTurnCount: 0,
           getOutOfJailFreeCards: 0,
+          consecutiveMissedTurns: 0,
           bankrupt: false,
         },
       ],
@@ -239,6 +241,80 @@ describe('GameCommandsService', () => {
 
     expect(gameRecoveryService.recoverOrThrow).toHaveBeenCalledWith(gameId);
     expect(gameStateService.update).toHaveBeenCalledTimes(2);
+  });
+
+  it('resets missed turns after a player command', async () => {
+    const { service } = makeService(
+      makeState({
+        players: [
+          {
+            ...makeState().players[0],
+            consecutiveMissedTurns: 2,
+          },
+          makeState().players[1],
+        ],
+      }),
+    );
+
+    const result = await service.rollAndMove({
+      gameId,
+      roomPlayerId,
+      dice: [1, 2],
+    });
+
+    expect(result.state.players[0].consecutiveMissedTurns).toBe(0);
+  });
+
+  it('increments missed turns after a timer command', async () => {
+    const { service } = makeService();
+
+    const result = await service.executeIntent({
+      gameId,
+      roomPlayerId,
+      source: 'timer',
+      intent: {
+        type: 'roll_and_move',
+        payload: {
+          roomPlayerId,
+          dice: [1, 2],
+        },
+      },
+    });
+
+    expect(result.state.players[0].consecutiveMissedTurns).toBe(1);
+  });
+
+  it('does not increment missed turns after a bot command', async () => {
+    const { service } = makeService(
+      makeState({
+        players: [
+          {
+            ...makeState().players[0],
+            playerType: 'bot',
+            botDifficulty: 'normal',
+            botName: 'Atlas',
+            userId: null,
+            username: null,
+          },
+          makeState().players[1],
+        ],
+      }),
+    );
+
+    const result = await service.executeIntent({
+      gameId,
+      roomPlayerId,
+      source: 'bot',
+      intent: {
+        type: 'roll_and_move',
+        payload: {
+          roomPlayerId,
+          dice: [1, 2],
+        },
+      },
+    });
+
+    expect(result.state.players[0].consecutiveMissedTurns).toBe(0);
   });
 
   it('persists results after a game has expired', async () => {

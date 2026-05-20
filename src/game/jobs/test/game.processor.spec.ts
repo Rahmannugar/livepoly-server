@@ -146,6 +146,7 @@ describe('GameProcessor', () => {
     expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
       gameId: 'game-1',
       roomPlayerId: 'room-player-1',
+      source: 'bot',
       intent: rollIntent,
     });
     expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
@@ -194,6 +195,7 @@ describe('GameProcessor', () => {
     expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
       gameId: 'game-1',
       roomPlayerId: 'room-player-1',
+      source: 'timer',
       intent: rollIntent,
     });
     expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(

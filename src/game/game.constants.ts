@@ -10,6 +10,7 @@ export const GAME_SNAPSHOTS = {
 
 export const GAME_TURN_TIMER = {
   timeoutMs: 45_000,
+  maxConsecutiveMissedTurns: 3,
 } as const;
 
 export const GAME_BOTS = {

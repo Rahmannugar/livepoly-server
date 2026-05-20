@@ -5,10 +5,13 @@ import type {
   GameEngineState,
 } from '../engine/game-engine.types';
 
+export type GameCommandSource = 'player' | 'bot' | 'timer';
+
 export type ExecuteGameIntentCommand = {
   gameId: string;
   roomPlayerId?: string;
   intent: GameEngineIntent;
+  source?: GameCommandSource;
 };
 
 export type RollAndMoveCommand = {

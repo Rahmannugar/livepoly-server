@@ -258,6 +258,8 @@ export class RoomsGameService {
         inJail: false,
         jailTurnCount: 0,
         getOutOfJailFreeCards: 0,
+        consecutiveMissedTurns: 0,
+        lastMissedTurnNumber: null,
         bankrupt: false,
       })),
       properties: [],

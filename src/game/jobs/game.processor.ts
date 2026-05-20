@@ -74,6 +74,7 @@ export class GameProcessor extends WorkerHost {
       const result = await this.gameCommandsService.executeIntent({
         gameId: job.data.gameId,
         roomPlayerId: decision.roomPlayerId,
+        source: 'bot',
         intent: decision.intent,
       });
 
@@ -134,6 +135,7 @@ export class GameProcessor extends WorkerHost {
       const result = await this.gameCommandsService.executeIntent({
         gameId: job.data.gameId,
         roomPlayerId: this.getIntentRoomPlayerId(intent),
+        source: 'timer',
         intent,
       });
 

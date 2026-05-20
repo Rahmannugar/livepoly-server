@@ -1,4 +1,7 @@
-import { createGameEngineState, TEST_BOARD_TILES } from '../../engine/tests/game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from '../../engine/tests/game-engine.test-factory';
 import { GameTurnTimerPolicyService } from '../game-turn-timer-policy.service';
 
 describe('GameTurnTimerPolicyService', () => {
@@ -166,6 +169,59 @@ describe('GameTurnTimerPolicyService', () => {
       type: 'end_turn',
       payload: {
         roomPlayerId: 'room-player-1',
+      },
+    });
+  });
+
+  it('declares bankruptcy after three consecutive missed turns', () => {
+    const intent = service.chooseTimeoutIntent(
+      createGameEngineState({
+        phase: 'awaiting_roll',
+        players: [
+          {
+            ...createGameEngineState().players[0],
+            consecutiveMissedTurns: 3,
+          },
+          createGameEngineState().players[1],
+          createGameEngineState().players[2],
+        ],
+      }),
+    );
+
+    expect(intent).toEqual({
+      type: 'declare_bankruptcy',
+      payload: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: null,
+      },
+    });
+  });
+
+  it('does not forfeit bots by missed-turn count', () => {
+    const intent = service.chooseTimeoutIntent(
+      createGameEngineState({
+        phase: 'awaiting_roll',
+        players: [
+          {
+            ...createGameEngineState().players[0],
+            playerType: 'bot',
+            botDifficulty: 'normal',
+            botName: 'Atlas',
+            userId: null,
+            username: null,
+            consecutiveMissedTurns: 3,
+          },
+          createGameEngineState().players[1],
+          createGameEngineState().players[2],
+        ],
+      }),
+    );
+
+    expect(intent).toEqual({
+      type: 'roll_and_move',
+      payload: {
+        roomPlayerId: 'room-player-1',
+        dice: [1, 6],
       },
     });
   });

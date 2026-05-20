@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import type { GameEngineIntent } from '../engine/game-engine-intents';
+import { getConsecutiveMissedTurns } from '../engine/game-engine-missed-turns';
 import type {
   DiceRoll,
   GameEnginePlayer,
   GameEngineState,
 } from '../engine/game-engine.types';
+import { GAME_TURN_TIMER } from '../game.constants';
 
 @Injectable()
 export class GameTurnTimerPolicyService {
@@ -17,6 +19,16 @@ export class GameTurnTimerPolicyService {
 
     if (!currentPlayer || currentPlayer.bankrupt) {
       return null;
+    }
+
+    if (this.shouldForfeitCurrentPlayer(state, currentPlayer)) {
+      return {
+        type: 'declare_bankruptcy',
+        payload: {
+          roomPlayerId: currentPlayer.roomPlayerId,
+          creditorRoomPlayerId: null,
+        },
+      };
     }
 
     if (
@@ -80,6 +92,20 @@ export class GameTurnTimerPolicyService {
     }
 
     return null;
+  }
+
+  private shouldForfeitCurrentPlayer(
+    state: GameEngineState,
+    player: GameEnginePlayer,
+  ): boolean {
+    if (player.playerType !== 'human') {
+      return false;
+    }
+
+    return (
+      getConsecutiveMissedTurns(state, player.roomPlayerId) >=
+      GAME_TURN_TIMER.maxConsecutiveMissedTurns - 1
+    );
   }
 
   private findAuctionTimeoutPlayer(state: GameEngineState): string | null {

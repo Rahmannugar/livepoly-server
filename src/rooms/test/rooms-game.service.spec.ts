@@ -241,6 +241,7 @@ describe('RoomsGameService', () => {
               playerType: 'human',
               cash: 1500,
               position: 0,
+              consecutiveMissedTurns: 0,
             }),
           ]),
         }),
@@ -392,6 +393,7 @@ describe('RoomsGameService', () => {
               seatNumber: 1,
               cash: 1500,
               position: 0,
+              consecutiveMissedTurns: 0,
             }),
             expect.objectContaining({
               roomPlayerId: botTwo.id,
@@ -400,6 +402,7 @@ describe('RoomsGameService', () => {
               botDifficulty: 'normal',
               seatNumber: 2,
               cash: 1500,
+              consecutiveMissedTurns: 0,
             }),
             expect.objectContaining({
               roomPlayerId: botThree.id,
@@ -408,6 +411,7 @@ describe('RoomsGameService', () => {
               botDifficulty: 'normal',
               seatNumber: 3,
               cash: 1500,
+              consecutiveMissedTurns: 0,
             }),
             expect.objectContaining({
               roomPlayerId: botFour.id,
@@ -416,6 +420,7 @@ describe('RoomsGameService', () => {
               botDifficulty: 'normal',
               seatNumber: 4,
               cash: 1500,
+              consecutiveMissedTurns: 0,
             }),
           ]),
         }),

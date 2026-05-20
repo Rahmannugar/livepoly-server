@@ -79,6 +79,8 @@ export type GameEnginePlayer = {
   inJail: boolean;
   jailTurnCount: number;
   getOutOfJailFreeCards: number;
+  consecutiveMissedTurns?: number;
+  lastMissedTurnNumber?: number | null;
   bankrupt: boolean;
 };
 

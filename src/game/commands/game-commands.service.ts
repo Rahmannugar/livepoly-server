@@ -4,6 +4,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
+import {
+  incrementMissedTurn,
+  resetMissedTurn,
+} from '../engine/game-engine-missed-turns';
 import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import {
   reduceGameEngineIntent,
@@ -18,6 +22,7 @@ import type {
   EndTurnCommand,
   ExecuteGameIntentCommand,
   GameCommandResult,
+  GameCommandSource,
   RollAndMoveCommand,
 } from './game-commands.types';
 
@@ -43,6 +48,7 @@ export class GameCommandsService {
     return this.executeIntent({
       gameId: input.gameId,
       roomPlayerId: input.roomPlayerId,
+      source: 'player',
       intent: {
         type: 'roll_and_move',
         payload: {
@@ -57,6 +63,7 @@ export class GameCommandsService {
     return this.executeIntent({
       gameId: input.gameId,
       roomPlayerId: input.roomPlayerId,
+      source: 'player',
       intent: {
         type: 'end_turn',
         payload: {
@@ -73,18 +80,32 @@ export class GameCommandsService {
     let commandResult: GameCommandResult | null = null;
 
     try {
+      const source = input.source ?? 'player';
+
       const state = await this.gameStateService.update(
         input.gameId,
         (state) => {
+          const commandTurnNumber = state.turnNumber;
+          const commandTurnRoomPlayerId = state.currentTurnRoomPlayerId;
           const engineResult = reduceGameEngineIntent(state, input.intent);
+          const actorRoomPlayerId = this.getIntentActorRoomPlayerId(
+            input.intent,
+          );
+          const nextState = this.applyCommandSourceToState(
+            engineResult.state,
+            source,
+            actorRoomPlayerId,
+            commandTurnRoomPlayerId,
+            commandTurnNumber,
+          );
 
           commandResult = {
-            state: engineResult.state,
+            state: nextState,
             events: engineResult.events,
             intentType: input.intent.type,
           };
 
-          return engineResult.state;
+          return nextState;
         },
       );
 
@@ -119,6 +140,32 @@ export class GameCommandsService {
 
       throw error;
     }
+  }
+
+  private applyCommandSourceToState(
+    state: GameCommandResult['state'],
+    source: GameCommandSource,
+    actorRoomPlayerId: string | null,
+    commandTurnRoomPlayerId: string,
+    commandTurnNumber: number,
+  ): GameCommandResult['state'] {
+    if (!actorRoomPlayerId) {
+      return state;
+    }
+
+    if (source === 'timer') {
+      if (actorRoomPlayerId !== commandTurnRoomPlayerId) {
+        return state;
+      }
+
+      return incrementMissedTurn(state, actorRoomPlayerId, commandTurnNumber);
+    }
+
+    if (source === 'player') {
+      return resetMissedTurn(state, actorRoomPlayerId);
+    }
+
+    return state;
   }
 
   private async afterSuccessfulCommand(

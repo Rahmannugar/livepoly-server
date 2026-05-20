@@ -130,6 +130,15 @@ export type GameEngineState = {
   properties: GameEngineProperty[];
 };
 
+export type PlayerNetWorth = {
+  roomPlayerId: string;
+  seatNumber: number;
+  cash: number;
+  ownedPropertyCount: number;
+  assetValue: number;
+  netWorth: number;
+};
+
 export type RollAndMoveInput = {
   roomPlayerId: string;
   dice: DiceRoll;
@@ -397,14 +406,6 @@ export type GameEngineEvent =
       nextRoomPlayerId: string;
       turnNumber: number;
     };
-
-export type PlayerNetWorth = {
-  roomPlayerId: string;
-  seatNumber: number;
-  cash: number;
-  assetValue: number;
-  netWorth: number;
-};
 
 export type GameEngineResult = {
   state: GameEngineState;

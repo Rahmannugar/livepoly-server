@@ -12,6 +12,7 @@ import {
   uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { games } from './game.schema';
 import { users } from './user.schema';
 import { TABLE_NAMES } from './schema.constants';
 import { createdAt, id } from './schema.helpers';
@@ -35,6 +36,9 @@ export const roomResults = pgTable(
     roomId: uuid('room_id')
       .notNull()
       .references(() => rooms.id, { onDelete: 'cascade' }),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
     winnerRoomPlayerId: uuid('winner_room_player_id'),
     winnerUserId: uuid('winner_user_id').references(() => users.id, {
       onDelete: 'restrict',
@@ -46,6 +50,7 @@ export const roomResults = pgTable(
   },
   (table) => [
     uniqueIndex('room_results_room_id_unique_idx').on(table.roomId),
+    uniqueIndex('room_results_game_id_unique_idx').on(table.gameId),
     index('room_results_winner_user_id_idx').on(table.winnerUserId),
     index('room_results_completed_at_idx').on(table.completedAt),
     index('room_results_winner_room_player_id_idx').on(
@@ -54,17 +59,17 @@ export const roomResults = pgTable(
     check(
       'room_results_winner_required_chk',
       sql`
-    (
-      ${table.endReason} = 'cancelled'
-      and ${table.winnerRoomPlayerId} is null
-      and ${table.winnerUserId} is null
-    )
-    or
-    (
-      ${table.endReason} in ('bankruptcy', 'time_elapsed')
-      and ${table.winnerRoomPlayerId} is not null
-    )
-  `,
+        (
+          ${table.endReason} = 'cancelled'
+          and ${table.winnerRoomPlayerId} is null
+          and ${table.winnerUserId} is null
+        )
+        or
+        (
+          ${table.endReason} in ('bankruptcy', 'time_elapsed')
+          and ${table.winnerRoomPlayerId} is not null
+        )
+      `,
     ),
     check(
       'room_results_duration_seconds_chk',
@@ -122,6 +127,7 @@ export const roomPlayerResults = pgTable(
       'room_player_results_starting_cash_chk',
       sql`${table.startingCash} >= 0`,
     ),
+    check('room_player_results_final_cash_chk', sql`${table.finalCash} >= 0`),
     check(
       'room_player_results_final_net_worth_chk',
       sql`${table.finalNetWorth} >= 0`,

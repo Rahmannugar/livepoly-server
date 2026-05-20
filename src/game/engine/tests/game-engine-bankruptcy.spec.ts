@@ -1,6 +1,9 @@
 import { GameEngineService } from '../game-engine.service';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState } from './game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from './game-engine.test-factory';
 
 describe('game-engine-bankruptcy', () => {
   let service: GameEngineService;
@@ -13,7 +16,7 @@ describe('game-engine-bankruptcy', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -39,7 +42,7 @@ describe('game-engine-bankruptcy', () => {
     });
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: null,
@@ -58,7 +61,7 @@ describe('game-engine-bankruptcy', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -79,7 +82,7 @@ describe('game-engine-bankruptcy', () => {
 
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-2',
@@ -186,6 +189,7 @@ describe('game-engine-bankruptcy', () => {
             roomPlayerId: 'room-player-1',
             seatNumber: 1,
             cash: 1500,
+            ownedPropertyCount: 0,
             assetValue: 0,
             netWorth: 1500,
           },
@@ -204,7 +208,7 @@ describe('game-engine-bankruptcy', () => {
         reason: 'rent',
       },
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -222,7 +226,7 @@ describe('game-engine-bankruptcy', () => {
     expect(result.state.debt).toBeNull();
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-2',

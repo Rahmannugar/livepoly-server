@@ -101,8 +101,22 @@ export function calculateNetWorthStandings(
         return right.netWorth - left.netWorth;
       }
 
+      if (right.cash !== left.cash) {
+        return right.cash - left.cash;
+      }
+
+      if (right.ownedPropertyCount !== left.ownedPropertyCount) {
+        return right.ownedPropertyCount - left.ownedPropertyCount;
+      }
+
       return left.seatNumber - right.seatNumber;
     });
+}
+
+export function getNetWorthWinner(
+  standings: PlayerNetWorth[],
+): PlayerNetWorth | null {
+  return standings[0] ?? null;
 }
 
 export function getNetWorthWinners(
@@ -134,6 +148,7 @@ export function calculatePlayerNetWorth(
     roomPlayerId: player.roomPlayerId,
     seatNumber: player.seatNumber,
     cash: player.cash,
+    ownedPropertyCount: ownedProperties.length,
     assetValue,
     netWorth: player.cash + assetValue,
   };

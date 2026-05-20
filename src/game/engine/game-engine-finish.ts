@@ -1,5 +1,6 @@
 import {
   calculateNetWorthStandings,
+  getNetWorthWinner,
   getNetWorthWinners,
 } from './game-engine-derived-state';
 import {
@@ -16,7 +17,8 @@ export function finishGameByTime(
   assertCanFinishByTime(state, input);
 
   const standings = calculateNetWorthStandings(state);
-  const winners = getNetWorthWinners(standings);
+  const winner = getNetWorthWinner(standings);
+  const tiedByNetWorth = getNetWorthWinners(standings);
 
   return {
     state: {
@@ -31,9 +33,8 @@ export function finishGameByTime(
       {
         type: 'game_finished_by_time',
         finishedAt: input.finishedAt,
-        winnerRoomPlayerId:
-          winners.length === 1 ? winners[0].roomPlayerId : null,
-        tiedRoomPlayerIds: winners.map((winner) => winner.roomPlayerId),
+        winnerRoomPlayerId: winner?.roomPlayerId ?? null,
+        tiedRoomPlayerIds: tiedByNetWorth.map((player) => player.roomPlayerId),
         standings,
       },
     ],

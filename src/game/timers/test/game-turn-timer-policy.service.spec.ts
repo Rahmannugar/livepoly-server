@@ -1,4 +1,4 @@
-import { createGameEngineState } from '../../engine/tests/game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from '../../engine/tests/game-engine.test-factory';
 import { GameTurnTimerPolicyService } from '../game-turn-timer-policy.service';
 
 describe('GameTurnTimerPolicyService', () => {
@@ -78,7 +78,7 @@ describe('GameTurnTimerPolicyService', () => {
     const intent = service.chooseTimeoutIntent(
       createGameEngineState({
         phase: 'awaiting_property_decision',
-        pendingTileKey: 'nigeria',
+        pendingTileKey: TEST_BOARD_TILES.cheapProperty,
       }),
     );
 
@@ -95,7 +95,7 @@ describe('GameTurnTimerPolicyService', () => {
       createGameEngineState({
         phase: 'awaiting_auction_bid',
         auction: {
-          tileKey: 'nigeria',
+          tileKey: TEST_BOARD_TILES.cheapProperty,
           activeRoomPlayerIds: [
             'room-player-1',
             'room-player-2',
@@ -121,7 +121,7 @@ describe('GameTurnTimerPolicyService', () => {
       createGameEngineState({
         phase: 'awaiting_auction_bid',
         auction: {
-          tileKey: 'nigeria',
+          tileKey: TEST_BOARD_TILES.cheapProperty,
           activeRoomPlayerIds: ['room-player-1', 'room-player-2'],
           passedRoomPlayerIds: ['room-player-1', 'room-player-2'],
           highestBidderRoomPlayerId: null,

@@ -1,5 +1,5 @@
 import { rollAndMove } from '../game-engine-movement';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('game-engine-movement', () => {
   it('moves player and applies chance card', () => {
@@ -77,7 +77,7 @@ describe('game-engine-movement', () => {
       {
         type: 'player_landed_on_tile',
         roomPlayerId: 'room-player-1',
-        tileKey: 'ghana',
+        tileKey: TEST_BOARD_TILES.cheapPropertyPair,
         tileKind: 'property',
       },
     ]);
@@ -94,7 +94,7 @@ describe('game-engine-movement', () => {
 
     expect(result.state).toMatchObject({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'nigeria',
+      pendingTileKey: TEST_BOARD_TILES.cheapProperty,
     });
     expect(result.state.players[0]).toMatchObject({
       position: 1,
@@ -106,7 +106,7 @@ describe('game-engine-movement', () => {
     const state = createGameEngineState();
     state.players[0].position = 39;
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 
@@ -131,7 +131,7 @@ describe('game-engine-movement', () => {
       type: 'rent_paid',
       payerRoomPlayerId: 'room-player-1',
       ownerRoomPlayerId: 'room-player-2',
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
       amount: 2,
     });
   });
@@ -140,7 +140,7 @@ describe('game-engine-movement', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 

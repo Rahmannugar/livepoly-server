@@ -1,7 +1,7 @@
 import { calculateNetWorthStandings } from '../game-engine-derived-state';
 import { GameEngineService } from '../game-engine.service';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('game-engine-finish', () => {
   let service: GameEngineService;
@@ -37,7 +37,7 @@ describe('game-engine-finish', () => {
         return player;
       }),
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -45,7 +45,7 @@ describe('game-engine-finish', () => {
           };
         }
 
-        if (property.tileKey === 'lagos_airport') {
+        if (property.tileKey === TEST_BOARD_TILES.airport) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -62,18 +62,21 @@ describe('game-engine-finish', () => {
     expect(standings[0]).toMatchObject({
       roomPlayerId: 'room-player-2',
       cash: 1300,
+      ownedPropertyCount: 0,
       assetValue: 0,
       netWorth: 1300,
     });
     expect(standings[1]).toMatchObject({
       roomPlayerId: 'room-player-3',
       cash: 900,
+      ownedPropertyCount: 0,
       assetValue: 0,
       netWorth: 900,
     });
     expect(standings[2]).toMatchObject({
       roomPlayerId: 'room-player-1',
       cash: 100,
+      ownedPropertyCount: 2,
       assetValue: 210,
       netWorth: 310,
     });
@@ -116,6 +119,7 @@ describe('game-engine-finish', () => {
             roomPlayerId: 'room-player-1',
             seatNumber: 1,
             cash: 2000,
+            ownedPropertyCount: 0,
             assetValue: 0,
             netWorth: 2000,
           },
@@ -123,6 +127,7 @@ describe('game-engine-finish', () => {
             roomPlayerId: 'room-player-2',
             seatNumber: 2,
             cash: 1500,
+            ownedPropertyCount: 0,
             assetValue: 0,
             netWorth: 1500,
           },
@@ -130,6 +135,7 @@ describe('game-engine-finish', () => {
             roomPlayerId: 'room-player-3',
             seatNumber: 3,
             cash: 1500,
+            ownedPropertyCount: 0,
             assetValue: 0,
             netWorth: 1500,
           },
@@ -138,7 +144,7 @@ describe('game-engine-finish', () => {
     ]);
   });
 
-  it('returns no winner for tied net worth', () => {
+  it('breaks timed game ties deterministically', () => {
     const result = service.finishGameByTime(
       createGameEngineState({
         phase: 'awaiting_roll',
@@ -150,7 +156,7 @@ describe('game-engine-finish', () => {
 
     expect(result.events[0]).toMatchObject({
       type: 'game_finished_by_time',
-      winnerRoomPlayerId: null,
+      winnerRoomPlayerId: 'room-player-1',
       tiedRoomPlayerIds: ['room-player-1', 'room-player-2', 'room-player-3'],
     });
   });
@@ -178,6 +184,7 @@ describe('game-engine-finish', () => {
 
     expect(result.events[0]).toMatchObject({
       type: 'game_finished_by_time',
+      winnerRoomPlayerId: 'room-player-1',
       tiedRoomPlayerIds: ['room-player-1', 'room-player-3'],
     });
   });

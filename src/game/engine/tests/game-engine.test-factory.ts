@@ -6,6 +6,17 @@ import type {
   GameEngineState,
 } from '../game-engine.types';
 
+export const TEST_BOARD_TILES = {
+  cheapProperty: 'nigeria',
+  cheapPropertyPair: 'ghana',
+  airport: 'lagos_airport',
+  utility: 'electric_company',
+  highValueProperty: 'spain',
+  highValuePropertyPair: 'france',
+  landingProperty: 'ghana',
+  tieBreakerProperty: 'china',
+} as const;
+
 export function createGameEnginePlayer(
   overrides: Partial<GameEnginePlayer> = {},
 ): GameEnginePlayer {
@@ -31,7 +42,7 @@ export function createGameEngineProperty(
   overrides: Partial<GameEngineProperty> = {},
 ): GameEngineProperty {
   return {
-    tileKey: 'nigeria',
+    tileKey: TEST_BOARD_TILES.cheapProperty,
     ownerRoomPlayerId: null,
     houseCount: 0,
     hasHotel: false,

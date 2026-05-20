@@ -4,13 +4,13 @@ import {
   placeAuctionBid,
 } from '../game-engine-auctions';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('game-engine-auctions', () => {
   it('starts auction after purchase decline', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'nigeria',
+      pendingTileKey: TEST_BOARD_TILES.cheapProperty,
     });
 
     const result = declinePropertyPurchase(state, {
@@ -21,7 +21,7 @@ describe('game-engine-auctions', () => {
       phase: 'awaiting_auction_bid',
       pendingTileKey: null,
       auction: {
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         currentBid: 0,
         highestBidderRoomPlayerId: null,
         activeRoomPlayerIds: [
@@ -36,11 +36,11 @@ describe('game-engine-auctions', () => {
       {
         type: 'property_purchase_declined',
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       },
       {
         type: 'auction_started',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         activeRoomPlayerIds: [
           'room-player-1',
           'room-player-2',
@@ -54,7 +54,7 @@ describe('game-engine-auctions', () => {
     const auctionState = declinePropertyPurchase(
       createGameEngineState({
         phase: 'awaiting_property_decision',
-        pendingTileKey: 'nigeria',
+        pendingTileKey: TEST_BOARD_TILES.cheapProperty,
       }),
       {
         roomPlayerId: 'room-player-1',
@@ -67,7 +67,7 @@ describe('game-engine-auctions', () => {
     });
 
     expect(result.state.auction).toMatchObject({
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
       currentBid: 75,
       highestBidderRoomPlayerId: 'room-player-2',
     });
@@ -75,7 +75,7 @@ describe('game-engine-auctions', () => {
       {
         type: 'auction_bid_placed',
         roomPlayerId: 'room-player-2',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 75,
       },
     ]);
@@ -86,7 +86,7 @@ describe('game-engine-auctions', () => {
       declinePropertyPurchase(
         createGameEngineState({
           phase: 'awaiting_property_decision',
-          pendingTileKey: 'nigeria',
+          pendingTileKey: TEST_BOARD_TILES.cheapProperty,
         }),
         {
           roomPlayerId: 'room-player-1',
@@ -115,7 +115,7 @@ describe('game-engine-auctions', () => {
     const auctionState = declinePropertyPurchase(
       createGameEngineState({
         phase: 'awaiting_property_decision',
-        pendingTileKey: 'nigeria',
+        pendingTileKey: TEST_BOARD_TILES.cheapProperty,
       }),
       {
         roomPlayerId: 'room-player-1',
@@ -133,7 +133,7 @@ describe('game-engine-auctions', () => {
       {
         type: 'auction_bid_passed',
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       },
     ]);
   });
@@ -143,7 +143,7 @@ describe('game-engine-auctions', () => {
       declinePropertyPurchase(
         createGameEngineState({
           phase: 'awaiting_property_decision',
-          pendingTileKey: 'nigeria',
+          pendingTileKey: TEST_BOARD_TILES.cheapProperty,
         }),
         {
           roomPlayerId: 'room-player-1',
@@ -170,7 +170,7 @@ describe('game-engine-auctions', () => {
     expect(result.state.players[1].cash).toBe(1425);
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-2',
@@ -179,12 +179,12 @@ describe('game-engine-auctions', () => {
       {
         type: 'auction_bid_passed',
         roomPlayerId: 'room-player-3',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       },
       {
         type: 'auction_won',
         roomPlayerId: 'room-player-2',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 75,
       },
     ]);
@@ -194,7 +194,7 @@ describe('game-engine-auctions', () => {
     const auctionState = declinePropertyPurchase(
       createGameEngineState({
         phase: 'awaiting_property_decision',
-        pendingTileKey: 'nigeria',
+        pendingTileKey: TEST_BOARD_TILES.cheapProperty,
       }),
       {
         roomPlayerId: 'room-player-1',
@@ -219,7 +219,7 @@ describe('game-engine-auctions', () => {
     });
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: null,
@@ -231,7 +231,7 @@ describe('game-engine-auctions', () => {
       declinePropertyPurchase(
         createGameEngineState({
           phase: 'awaiting_property_decision',
-          pendingTileKey: 'nigeria',
+          pendingTileKey: TEST_BOARD_TILES.cheapProperty,
         }),
         {
           roomPlayerId: 'room-player-1',

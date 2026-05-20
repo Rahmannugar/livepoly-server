@@ -1,4 +1,4 @@
-import { createGameEnginePlayer } from '../../engine/tests/game-engine.test-factory';
+import { createGameEnginePlayer, TEST_BOARD_TILES } from '../../engine/tests/game-engine.test-factory';
 import type { GameEngineState } from '../../engine/game-engine.types';
 import { GameBotService } from '../game-bot.service';
 
@@ -140,14 +140,14 @@ describe('GameBotService', () => {
       ],
       properties: [
         {
-          tileKey: 'spain',
+          tileKey: TEST_BOARD_TILES.highValueProperty,
           ownerRoomPlayerId: 'room-player-2',
           houseCount: 0,
           hasHotel: false,
           mortgaged: false,
         },
         {
-          tileKey: 'france',
+          tileKey: TEST_BOARD_TILES.highValuePropertyPair,
           ownerRoomPlayerId: 'room-player-2',
           houseCount: 0,
           hasHotel: false,

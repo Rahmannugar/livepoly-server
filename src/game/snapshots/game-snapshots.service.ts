@@ -21,12 +21,20 @@ export class GameSnapshotService {
     await this.createSnapshot(gameId, 'start', state, executor);
   }
 
+  async createFinalSnapshot(
+    gameId: string,
+    state: GameEngineState,
+    executor?: DatabaseExecutor,
+  ): Promise<void> {
+    await this.createSnapshot(gameId, 'final', state, executor);
+  }
+
   async createSnapshotAfterCommand(
     gameId: string,
     state: GameEngineState,
   ): Promise<void> {
     if (state.phase === 'finished' || state.phase === 'cancelled') {
-      await this.createSnapshot(gameId, 'final', state);
+      await this.createFinalSnapshot(gameId, state);
       return;
     }
 

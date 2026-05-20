@@ -3,7 +3,7 @@ import {
   type GameEngineIntent,
 } from '../game-engine-intents';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('game-engine-intents', () => {
   it('runs roll and move intent', () => {
@@ -21,7 +21,7 @@ describe('game-engine-intents', () => {
 
     expect(result.state).toMatchObject({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'ghana',
+      pendingTileKey: TEST_BOARD_TILES.cheapPropertyPair,
     });
     expect(result.events).toContainEqual({
       type: 'player_moved',
@@ -35,7 +35,7 @@ describe('game-engine-intents', () => {
   it('runs buy property intent', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'nigeria',
+      pendingTileKey: TEST_BOARD_TILES.cheapProperty,
     });
 
     const result = reduceGameEngineIntent(state, {
@@ -51,7 +51,7 @@ describe('game-engine-intents', () => {
     });
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-1',
@@ -62,7 +62,7 @@ describe('game-engine-intents', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria' || property.tileKey === 'ghana') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty || property.tileKey === TEST_BOARD_TILES.cheapPropertyPair) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -77,13 +77,13 @@ describe('game-engine-intents', () => {
       type: 'build_property',
       payload: {
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       },
     });
 
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       houseCount: 1,
@@ -92,7 +92,7 @@ describe('game-engine-intents', () => {
       {
         type: 'property_house_built',
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         houseCount: 1,
         amount: 50,
       },
@@ -103,7 +103,7 @@ describe('game-engine-intents', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -118,14 +118,14 @@ describe('game-engine-intents', () => {
       type: 'mortgage_property',
       payload: {
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       },
     });
 
     expect(result.state.players[0].cash).toBe(1530);
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       mortgaged: true,
@@ -169,7 +169,7 @@ describe('game-engine-intents', () => {
   it('does not mutate the original state', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'nigeria',
+      pendingTileKey: TEST_BOARD_TILES.cheapProperty,
     });
 
     reduceGameEngineIntent(state, {
@@ -180,9 +180,9 @@ describe('game-engine-intents', () => {
     });
 
     expect(state.phase).toBe('awaiting_property_decision');
-    expect(state.pendingTileKey).toBe('nigeria');
+    expect(state.pendingTileKey).toBe(TEST_BOARD_TILES.cheapProperty);
     expect(
-      state.properties.find((property) => property.tileKey === 'nigeria'),
+      state.properties.find((property) => property.tileKey === TEST_BOARD_TILES.cheapProperty),
     ).toMatchObject({
       ownerRoomPlayerId: null,
     });

@@ -1,6 +1,6 @@
 import { GameEngineService } from '../game-engine.service';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('game-engine-mortgage', () => {
   let service: GameEngineService;
@@ -13,7 +13,7 @@ describe('game-engine-mortgage', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -26,13 +26,13 @@ describe('game-engine-mortgage', () => {
 
     const result = service.mortgageProperty(state, {
       roomPlayerId: 'room-player-1',
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
     });
 
     expect(result.state.players[0].cash).toBe(1530);
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       mortgaged: true,
@@ -41,7 +41,7 @@ describe('game-engine-mortgage', () => {
       {
         type: 'property_mortgaged',
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 30,
       },
     ]);
@@ -52,8 +52,8 @@ describe('game-engine-mortgage', () => {
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
         if (
-          property.tileKey === 'lagos_airport' ||
-          property.tileKey === 'electric_company'
+          property.tileKey === TEST_BOARD_TILES.airport ||
+          property.tileKey === TEST_BOARD_TILES.utility
         ) {
           return {
             ...property,
@@ -67,25 +67,25 @@ describe('game-engine-mortgage', () => {
 
     const mortgagedAirport = service.mortgageProperty(state, {
       roomPlayerId: 'room-player-1',
-      tileKey: 'lagos_airport',
+      tileKey: TEST_BOARD_TILES.airport,
     });
 
     const mortgagedUtility = service.mortgageProperty(mortgagedAirport.state, {
       roomPlayerId: 'room-player-1',
-      tileKey: 'electric_company',
+      tileKey: TEST_BOARD_TILES.utility,
     });
 
     expect(mortgagedUtility.state.players[0].cash).toBe(1675);
     expect(
       mortgagedUtility.state.properties.find(
-        (property) => property.tileKey === 'lagos_airport',
+        (property) => property.tileKey === TEST_BOARD_TILES.airport,
       ),
     ).toMatchObject({
       mortgaged: true,
     });
     expect(
       mortgagedUtility.state.properties.find(
-        (property) => property.tileKey === 'electric_company',
+        (property) => property.tileKey === TEST_BOARD_TILES.utility,
       ),
     ).toMatchObject({
       mortgaged: true,
@@ -96,7 +96,7 @@ describe('game-engine-mortgage', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-2',
@@ -110,7 +110,7 @@ describe('game-engine-mortgage', () => {
     expect(() =>
       service.mortgageProperty(state, {
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       }),
     ).toThrow(GameEngineError);
   });
@@ -119,14 +119,14 @@ describe('game-engine-mortgage', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
           };
         }
 
-        if (property.tileKey === 'ghana') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapPropertyPair) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -141,7 +141,7 @@ describe('game-engine-mortgage', () => {
     expect(() =>
       service.mortgageProperty(state, {
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       }),
     ).toThrow(GameEngineError);
   });
@@ -150,7 +150,7 @@ describe('game-engine-mortgage', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -164,13 +164,13 @@ describe('game-engine-mortgage', () => {
 
     const result = service.unmortgageProperty(state, {
       roomPlayerId: 'room-player-1',
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
     });
 
     expect(result.state.players[0].cash).toBe(1467);
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       mortgaged: false,
@@ -179,7 +179,7 @@ describe('game-engine-mortgage', () => {
       {
         type: 'property_unmortgaged',
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 33,
       },
     ]);
@@ -189,7 +189,7 @@ describe('game-engine-mortgage', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -204,7 +204,7 @@ describe('game-engine-mortgage', () => {
     expect(() =>
       service.unmortgageProperty(state, {
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       }),
     ).toThrow(GameEngineError);
   });
@@ -213,7 +213,7 @@ describe('game-engine-mortgage', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === 'nigeria') {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -227,7 +227,7 @@ describe('game-engine-mortgage', () => {
     expect(() =>
       service.mortgageProperty(state, {
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       }),
     ).toThrow(GameEngineError);
   });

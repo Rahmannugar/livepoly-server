@@ -3,7 +3,7 @@ import {
   createInitialPropertyState,
 } from '../game-engine-properties';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('game-engine-properties', () => {
   it('creates initial ownership state', () => {
@@ -13,21 +13,21 @@ describe('game-engine-properties', () => {
 
     expect(properties).toHaveLength(28);
     expect(properties).toContainEqual({
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
       ownerRoomPlayerId: null,
       houseCount: 0,
       hasHotel: false,
       mortgaged: false,
     });
     expect(properties).toContainEqual({
-      tileKey: 'lagos_airport',
+      tileKey: TEST_BOARD_TILES.airport,
       ownerRoomPlayerId: null,
       houseCount: 0,
       hasHotel: false,
       mortgaged: false,
     });
     expect(properties).toContainEqual({
-      tileKey: 'electric_company',
+      tileKey: TEST_BOARD_TILES.utility,
       ownerRoomPlayerId: null,
       houseCount: 0,
       hasHotel: false,
@@ -38,7 +38,7 @@ describe('game-engine-properties', () => {
   it('buys pending property', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'nigeria',
+      pendingTileKey: TEST_BOARD_TILES.cheapProperty,
     });
 
     const result = buyProperty(state, {
@@ -55,7 +55,7 @@ describe('game-engine-properties', () => {
     });
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-1',
@@ -64,7 +64,7 @@ describe('game-engine-properties', () => {
       {
         type: 'property_bought',
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 60,
       },
     ]);
@@ -73,7 +73,7 @@ describe('game-engine-properties', () => {
   it('buys pending airport tiles', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'lagos_airport',
+      pendingTileKey: TEST_BOARD_TILES.airport,
     });
 
     const result = buyProperty(state, {
@@ -83,7 +83,7 @@ describe('game-engine-properties', () => {
     expect(result.state.players[0].cash).toBe(1300);
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'lagos_airport',
+        (property) => property.tileKey === TEST_BOARD_TILES.airport,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-1',
@@ -93,7 +93,7 @@ describe('game-engine-properties', () => {
   it('buys pending utility tiles', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'electric_company',
+      pendingTileKey: TEST_BOARD_TILES.utility,
     });
 
     const result = buyProperty(state, {
@@ -103,7 +103,7 @@ describe('game-engine-properties', () => {
     expect(result.state.players[0].cash).toBe(1350);
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'electric_company',
+        (property) => property.tileKey === TEST_BOARD_TILES.utility,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-1',
@@ -144,11 +144,11 @@ describe('game-engine-properties', () => {
   it('rejects buying already owned tiles', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
-      pendingTileKey: 'nigeria',
+      pendingTileKey: TEST_BOARD_TILES.cheapProperty,
     });
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 

@@ -1,0 +1,166 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { DatabaseService } from '../../infra/database/database.service';
+import {
+  calculateNetWorthStandings,
+  getNetWorthWinner,
+} from '../engine/game-engine-derived-state';
+import type {
+  GameEngineEvent,
+  GameEngineState,
+} from '../engine/game-engine.types';
+import { GameSnapshotService } from '../snapshots/game-snapshots.service';
+import { GameResultsRepository } from './game-results.repository';
+import type {
+  FinalizeGameResultInput,
+  GameResultEndReason,
+  PersistRoomPlayerResultInput,
+} from './game-results.types';
+
+const DEFAULT_STARTING_CASH = 1500;
+
+@Injectable()
+export class GameResultsService {
+  constructor(
+    private readonly gameResultsRepository: GameResultsRepository,
+    private readonly databaseService: DatabaseService,
+    private readonly gameSnapshotService: GameSnapshotService,
+  ) {}
+
+  async finalizeFinishedGame(input: FinalizeGameResultInput): Promise<void> {
+    if (input.state.phase !== 'finished') {
+      return;
+    }
+
+    const game = await this.gameResultsRepository.findGameForFinalization(
+      input.gameId,
+    );
+
+    if (!game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    const completedAt = this.getCompletedAt(input.events);
+    const endReason = this.getEndReason(input.events);
+    const winnerRoomPlayerId = this.getWinnerRoomPlayerId(
+      input.events,
+      input.state,
+    );
+    const durationSeconds = this.getDurationSeconds(input.state, completedAt);
+    const playerResults = this.buildPlayerResults(input.state, completedAt);
+
+    await this.databaseService.transaction(async (tx) => {
+      await this.gameSnapshotService.createFinalSnapshot(
+        input.gameId,
+        input.state,
+        tx,
+      );
+
+      await this.gameResultsRepository.persistFinishedGame(
+        {
+          gameId: input.gameId,
+          roomId: input.state.roomId,
+          state: input.state,
+          endReason,
+          winnerRoomPlayerId,
+          completedAt,
+          durationSeconds,
+          playerResults,
+        },
+        tx,
+      );
+    });
+  }
+
+  private getCompletedAt(events: GameEngineEvent[]): Date {
+    const finishEvent = events.find(
+      (event) =>
+        event.type === 'game_finished_by_bankruptcy' ||
+        event.type === 'game_finished_by_time',
+    );
+
+    if (finishEvent?.type === 'game_finished_by_time') {
+      return new Date(finishEvent.finishedAt);
+    }
+
+    return new Date();
+  }
+
+  private getEndReason(events: GameEngineEvent[]): GameResultEndReason {
+    if (events.some((event) => event.type === 'game_finished_by_bankruptcy')) {
+      return 'bankruptcy';
+    }
+
+    if (events.some((event) => event.type === 'game_finished_by_time')) {
+      return 'time_elapsed';
+    }
+
+    return 'cancelled';
+  }
+
+  private getWinnerRoomPlayerId(
+    events: GameEngineEvent[],
+    state: GameEngineState,
+  ): string | null {
+    const bankruptcyFinishEvent = events.find(
+      (event) => event.type === 'game_finished_by_bankruptcy',
+    );
+
+    if (bankruptcyFinishEvent?.type === 'game_finished_by_bankruptcy') {
+      return bankruptcyFinishEvent.winnerRoomPlayerId;
+    }
+
+    const timeFinishEvent = events.find(
+      (event) => event.type === 'game_finished_by_time',
+    );
+
+    if (
+      timeFinishEvent?.type === 'game_finished_by_time' &&
+      timeFinishEvent.winnerRoomPlayerId
+    ) {
+      return timeFinishEvent.winnerRoomPlayerId;
+    }
+
+    return (
+      getNetWorthWinner(calculateNetWorthStandings(state))?.roomPlayerId ?? null
+    );
+  }
+
+  private getDurationSeconds(
+    state: GameEngineState,
+    completedAt: Date,
+  ): number {
+    const startedAt = state.startedAt ?? completedAt.getTime();
+
+    return Math.max(0, Math.floor((completedAt.getTime() - startedAt) / 1000));
+  }
+
+  private buildPlayerResults(
+    state: GameEngineState,
+    completedAt: Date,
+  ): PersistRoomPlayerResultInput[] {
+    const standings = calculateNetWorthStandings(state);
+    const placementByRoomPlayerId = new Map(
+      standings.map((standing, index) => [standing.roomPlayerId, index + 1]),
+    );
+
+    return state.players.map((player) => {
+      const standing = standings.find(
+        (item) => item.roomPlayerId === player.roomPlayerId,
+      );
+
+      return {
+        roomId: state.roomId,
+        roomPlayerId: player.roomPlayerId,
+        userId: player.userId,
+        seatNumber: player.seatNumber,
+        startingCash: DEFAULT_STARTING_CASH,
+        finalCash: player.cash,
+        finalNetWorth: standing?.netWorth ?? player.cash,
+        placement:
+          placementByRoomPlayerId.get(player.roomPlayerId) ??
+          state.players.length,
+        bankruptAt: player.bankrupt ? completedAt : null,
+      };
+    });
+  }
+}

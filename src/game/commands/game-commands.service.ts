@@ -11,6 +11,7 @@ import {
 } from '../engine/game-engine-intents';
 import { GameEngineError } from '../engine/game-engine.types';
 import { GameRecoveryService } from '../recovery/game-recovery.service';
+import { GameResultsService } from '../results/game-results.service';
 import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameStateService } from '../state/game-state.service';
 import type {
@@ -27,6 +28,7 @@ export class GameCommandsService {
     private readonly observabilityService: ObservabilityService,
     private readonly gameSnapshotService: GameSnapshotService,
     private readonly gameRecoveryService: GameRecoveryService,
+    private readonly gameResultsService: GameResultsService,
   ) {}
 
   async executeIntent(
@@ -99,7 +101,7 @@ export class GameCommandsService {
         result,
       );
 
-      await this.createSnapshotAfterCommand(input.gameId, result.state);
+      await this.afterSuccessfulCommand(input.gameId, result);
 
       return result;
     } catch (error) {
@@ -119,6 +121,14 @@ export class GameCommandsService {
     }
   }
 
+  private async afterSuccessfulCommand(
+    gameId: string,
+    result: GameCommandResult,
+  ): Promise<void> {
+    await this.createSnapshotAfterCommand(gameId, result.state);
+    await this.finalizeGameIfFinished(gameId, result);
+  }
+
   private async createSnapshotAfterCommand(
     gameId: string,
     state: GameCommandResult['state'],
@@ -128,6 +138,21 @@ export class GameCommandsService {
     } catch {
       // Snapshot failure should not undo a successful Redis state mutation.
     }
+  }
+
+  private async finalizeGameIfFinished(
+    gameId: string,
+    result: GameCommandResult,
+  ): Promise<void> {
+    if (result.state.phase !== 'finished') {
+      return;
+    }
+
+    await this.gameResultsService.finalizeFinishedGame({
+      gameId,
+      state: result.state,
+      events: result.events,
+    });
   }
 
   private assertIntentActorMatchesCommand(

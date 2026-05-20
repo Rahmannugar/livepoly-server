@@ -1,5 +1,5 @@
 import { GameEngineService } from '../game-engine.service';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('GameEngineService', () => {
   let service: GameEngineService;
@@ -49,7 +49,7 @@ describe('GameEngineService', () => {
     const result = service.buyProperty(
       createGameEngineState({
         phase: 'awaiting_property_decision',
-        pendingTileKey: 'nigeria',
+        pendingTileKey: TEST_BOARD_TILES.cheapProperty,
       }),
       {
         roomPlayerId: 'room-player-1',
@@ -63,7 +63,7 @@ describe('GameEngineService', () => {
     expect(result.state.players[0].cash).toBe(1440);
     expect(
       result.state.properties.find(
-        (property) => property.tileKey === 'nigeria',
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
       ownerRoomPlayerId: 'room-player-1',
@@ -72,7 +72,7 @@ describe('GameEngineService', () => {
       {
         type: 'property_bought',
         roomPlayerId: 'room-player-1',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 60,
       },
     ]);

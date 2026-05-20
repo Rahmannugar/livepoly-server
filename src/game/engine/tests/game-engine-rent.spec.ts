@@ -1,13 +1,13 @@
 import { CLASSIC_GAME_BOARD } from '../game-board';
 import { calculateRent, payRent } from '../game-engine-rent';
-import { createGameEngineState } from './game-engine.test-factory';
+import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
 
 describe('game-engine-rent', () => {
   it('pays base property rent to the owner', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 
@@ -19,7 +19,7 @@ describe('game-engine-rent', () => {
 
     const result = payRent(state, {
       payerRoomPlayerId: 'room-player-1',
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
       dice: [1, 1],
     });
 
@@ -30,7 +30,7 @@ describe('game-engine-rent', () => {
         type: 'rent_paid',
         payerRoomPlayerId: 'room-player-1',
         ownerRoomPlayerId: 'room-player-2',
-        tileKey: 'nigeria',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 2,
       },
     ]);
@@ -40,7 +40,7 @@ describe('game-engine-rent', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria' && property.tileKey !== 'ghana') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty && property.tileKey !== TEST_BOARD_TILES.cheapPropertyPair) {
         return property;
       }
 
@@ -51,7 +51,7 @@ describe('game-engine-rent', () => {
     });
 
     const nigeria = CLASSIC_GAME_BOARD.tiles.find(
-      (tile) => tile.key === 'nigeria',
+      (tile) => tile.key === TEST_BOARD_TILES.cheapProperty,
     );
 
     if (!nigeria || nigeria.kind !== 'property') {
@@ -65,7 +65,7 @@ describe('game-engine-rent', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 
@@ -77,7 +77,7 @@ describe('game-engine-rent', () => {
     });
 
     const nigeria = CLASSIC_GAME_BOARD.tiles.find(
-      (tile) => tile.key === 'nigeria',
+      (tile) => tile.key === TEST_BOARD_TILES.cheapProperty,
     );
 
     if (!nigeria || nigeria.kind !== 'property') {
@@ -91,7 +91,7 @@ describe('game-engine-rent', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 
@@ -103,7 +103,7 @@ describe('game-engine-rent', () => {
     });
 
     const nigeria = CLASSIC_GAME_BOARD.tiles.find(
-      (tile) => tile.key === 'nigeria',
+      (tile) => tile.key === TEST_BOARD_TILES.cheapProperty,
     );
 
     if (!nigeria || nigeria.kind !== 'property') {
@@ -118,7 +118,7 @@ describe('game-engine-rent', () => {
 
     state.properties = state.properties.map((property) => {
       if (
-        property.tileKey !== 'lagos_airport' &&
+        property.tileKey !== TEST_BOARD_TILES.airport &&
         property.tileKey !== 'new_york_airport'
       ) {
         return property;
@@ -131,7 +131,7 @@ describe('game-engine-rent', () => {
     });
 
     const airport = CLASSIC_GAME_BOARD.tiles.find(
-      (tile) => tile.key === 'lagos_airport',
+      (tile) => tile.key === TEST_BOARD_TILES.airport,
     );
 
     if (!airport || airport.kind !== 'airport') {
@@ -146,7 +146,7 @@ describe('game-engine-rent', () => {
 
     state.properties = state.properties.map((property) => {
       if (
-        property.tileKey !== 'electric_company' &&
+        property.tileKey !== TEST_BOARD_TILES.utility &&
         property.tileKey !== 'water_works'
       ) {
         return property;
@@ -159,7 +159,7 @@ describe('game-engine-rent', () => {
     });
 
     const utility = CLASSIC_GAME_BOARD.tiles.find(
-      (tile) => tile.key === 'electric_company',
+      (tile) => tile.key === TEST_BOARD_TILES.utility,
     );
 
     if (!utility || utility.kind !== 'utility') {
@@ -173,7 +173,7 @@ describe('game-engine-rent', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 
@@ -185,7 +185,7 @@ describe('game-engine-rent', () => {
 
     const result = payRent(state, {
       payerRoomPlayerId: 'room-player-1',
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
       dice: [1, 1],
     });
 
@@ -197,7 +197,7 @@ describe('game-engine-rent', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 
@@ -210,7 +210,7 @@ describe('game-engine-rent', () => {
 
     const result = payRent(state, {
       payerRoomPlayerId: 'room-player-1',
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
       dice: [1, 1],
     });
 
@@ -223,7 +223,7 @@ describe('game-engine-rent', () => {
 
     state.players[0].cash = 1;
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== 'nigeria') {
+      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty) {
         return property;
       }
 
@@ -235,7 +235,7 @@ describe('game-engine-rent', () => {
 
     const result = payRent(state, {
       payerRoomPlayerId: 'room-player-1',
-      tileKey: 'nigeria',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
       dice: [1, 1],
     });
 

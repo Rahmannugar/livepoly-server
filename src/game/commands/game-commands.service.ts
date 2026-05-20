@@ -6,6 +6,7 @@ import {
   type GameEngineIntent,
 } from '../engine/game-engine-intents';
 import { GameEngineError } from '../engine/game-engine.types';
+import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameStateService } from '../state/game-state.service';
 import type {
   EndTurnCommand,
@@ -19,6 +20,7 @@ export class GameCommandsService {
   constructor(
     private readonly gameStateService: GameStateService,
     private readonly observabilityService: ObservabilityService,
+    private readonly gameSnapshotService: GameSnapshotService,
   ) {}
 
   async executeIntent(
@@ -56,6 +58,8 @@ export class GameCommandsService {
         input.roomPlayerId,
         result,
       );
+
+      await this.createSnapshotAfterCommand(input.gameId, result.state);
 
       return result;
     } catch (error) {
@@ -95,6 +99,17 @@ export class GameCommandsService {
         },
       },
     });
+  }
+
+  private async createSnapshotAfterCommand(
+    gameId: string,
+    state: GameCommandResult['state'],
+  ): Promise<void> {
+    try {
+      await this.gameSnapshotService.createSnapshotAfterCommand(gameId, state);
+    } catch {
+      // Snapshot failure should not undo a successful Redis state mutation.
+    }
   }
 
   private assertIntentActorMatchesCommand(

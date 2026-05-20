@@ -23,6 +23,12 @@ export const gameStatusEnum = pgEnum('game_status', [
   'cancelled',
 ]);
 
+export const gameSnapshotTypeEnum = pgEnum('game_snapshot_type', [
+  'start',
+  'turn',
+  'final',
+]);
+
 export const games = pgTable(
   TABLE_NAMES.games,
   {
@@ -69,5 +75,41 @@ export const games = pgTable(
       columns: [table.roomId, table.currentTurnRoomPlayerId],
       foreignColumns: [roomPlayers.roomId, roomPlayers.id],
     }).onDelete('restrict'),
+  ],
+);
+
+export const gameSnapshots = pgTable(
+  TABLE_NAMES.gameSnapshots,
+  {
+    id: id(),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    roomId: uuid('room_id')
+      .notNull()
+      .references(() => rooms.id, { onDelete: 'cascade' }),
+    snapshotType: gameSnapshotTypeEnum('snapshot_type').notNull(),
+    turnNumber: integer('turn_number').notNull(),
+    state: jsonb('state').notNull(),
+    stateVersion: integer('state_version').notNull().default(1),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    index('game_snapshots_game_id_idx').on(table.gameId),
+    index('game_snapshots_room_id_idx').on(table.roomId),
+    index('game_snapshots_snapshot_type_idx').on(table.snapshotType),
+    index('game_snapshots_created_at_idx').on(table.createdAt),
+    index('game_snapshots_game_turn_idx').on(table.gameId, table.turnNumber),
+    index('game_snapshots_game_created_at_idx').on(
+      table.gameId,
+      table.createdAt,
+    ),
+    uniqueIndex('game_snapshots_game_type_turn_unique_idx').on(
+      table.gameId,
+      table.snapshotType,
+      table.turnNumber,
+    ),
+    check('game_snapshots_turn_number_chk', sql`${table.turnNumber} > 0`),
+    check('game_snapshots_state_version_chk', sql`${table.stateVersion} > 0`),
   ],
 );

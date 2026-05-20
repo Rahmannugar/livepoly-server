@@ -4,6 +4,10 @@ export const GAME_STATE = {
   updateRetryDelayMs: 25,
 } as const;
 
+export const GAME_SNAPSHOTS = {
+  everyNTurns: 5,
+} as const;
+
 export const GAME_TURN_TIMER = {
   timeoutMs: 45_000,
 } as const;

@@ -7,6 +7,7 @@ export const TABLE_NAMES = {
   roomPlayers: 'room_players',
   roomSpectators: 'room_spectators',
   games: 'games',
+  gameSnapshots: 'game_snapshots',
   roomResults: 'room_results',
   roomPlayerResults: 'room_player_results',
   playerStats: 'player_stats',

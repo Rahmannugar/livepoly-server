@@ -5,6 +5,7 @@ import {
   type GameEngineState,
 } from '../../engine/game-engine.types';
 import { createGameEngineState } from '../../engine/tests/game-engine.test-factory';
+import type { GameSnapshotService } from '../../snapshots/game-snapshots.service';
 import type { GameStateService } from '../../state/game-state.service';
 import { GameCommandsService } from '../game-commands.service';
 
@@ -17,10 +18,15 @@ type ObservabilityServiceMock = {
   recordMetric: jest.Mock;
 };
 
+type GameSnapshotServiceMock = {
+  createSnapshotAfterCommand: jest.Mock;
+};
+
 describe('GameCommandsService', () => {
   let service: GameCommandsService;
   let gameStateService: GameStateServiceMock;
   let observabilityService: ObservabilityServiceMock;
+  let gameSnapshotService: GameSnapshotServiceMock;
 
   const state: GameEngineState = createGameEngineState({
     phase: 'awaiting_roll',
@@ -36,9 +42,14 @@ describe('GameCommandsService', () => {
       recordMetric: jest.fn(),
     };
 
+    gameSnapshotService = {
+      createSnapshotAfterCommand: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new GameCommandsService(
       gameStateService as unknown as GameStateService,
       observabilityService as unknown as ObservabilityService,
+      gameSnapshotService as unknown as GameSnapshotService,
     );
   });
 
@@ -71,6 +82,10 @@ describe('GameCommandsService', () => {
       toPosition: 3,
       dice: [1, 2],
     });
+    expect(gameSnapshotService.createSnapshotAfterCommand).toHaveBeenCalledWith(
+      'game-1',
+      result.state,
+    );
   });
 
   it('executes end turn inside a state update', async () => {
@@ -103,6 +118,10 @@ describe('GameCommandsService', () => {
         turnNumber: 2,
       },
     ]);
+    expect(gameSnapshotService.createSnapshotAfterCommand).toHaveBeenCalledWith(
+      'game-1',
+      result.state,
+    );
   });
 
   it('executes a generic engine intent', async () => {
@@ -134,6 +153,32 @@ describe('GameCommandsService', () => {
       type: 'game_finished_by_time',
       finishedAt: 1779150000000,
     });
+    expect(gameSnapshotService.createSnapshotAfterCommand).toHaveBeenCalledWith(
+      'game-1',
+      result.state,
+    );
+  });
+
+  it('returns command result when snapshot creation fails', async () => {
+    gameSnapshotService.createSnapshotAfterCommand.mockRejectedValue(
+      new Error('snapshot failed'),
+    );
+    gameStateService.update.mockImplementation(async (_gameId, updater) =>
+      updater(state),
+    );
+
+    const result = await service.rollAndMove({
+      gameId: 'game-1',
+      roomPlayerId: 'room-player-1',
+      dice: [1, 2],
+    });
+
+    expect(result).toMatchObject({
+      intentType: 'roll_and_move',
+      state: {
+        phase: 'awaiting_property_decision',
+      },
+    });
   });
 
   it('rejects intents for another player', async () => {
@@ -152,6 +197,9 @@ describe('GameCommandsService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(gameStateService.update).not.toHaveBeenCalled();
+    expect(
+      gameSnapshotService.createSnapshotAfterCommand,
+    ).not.toHaveBeenCalled();
   });
 
   it('rethrows failed game commands', async () => {
@@ -169,5 +217,9 @@ describe('GameCommandsService', () => {
         dice: [1, 2],
       }),
     ).rejects.toThrow(error);
+
+    expect(
+      gameSnapshotService.createSnapshotAfterCommand,
+    ).not.toHaveBeenCalled();
   });
 });

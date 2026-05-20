@@ -8,6 +8,7 @@ import type { AuthUser } from '../../auth/types/auth-user.type';
 import { createInitialDeckState } from '../../game/engine/game-engine-cards';
 import { createInitialPropertyState } from '../../game/engine/game-engine-properties';
 import type { GameEngineState } from '../../game/engine/game-engine.types';
+import { GameSnapshotService } from '../../game/snapshots/game-snapshots.service';
 import { GameStateService } from '../../game/state/game-state.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
@@ -47,6 +48,7 @@ export class RoomsGameService {
     private readonly outboxQueueService: OutboxQueueService,
     private readonly gameStateService: GameStateService,
     private readonly observabilityService: ObservabilityService,
+    private readonly gameSnapshotService: GameSnapshotService,
   ) {}
 
   async startRoom(authUser: AuthUser, code: string) {
@@ -125,6 +127,12 @@ export class RoomsGameService {
           currentTurnRoomPlayerId: allPlayers[0].id,
           state: initialState,
         },
+        tx,
+      );
+
+      await this.gameSnapshotService.createStartSnapshot(
+        game.id,
+        initialState,
         tx,
       );
 

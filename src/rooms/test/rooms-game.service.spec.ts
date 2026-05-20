@@ -1,12 +1,13 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type { GameSnapshotService } from '../../game/snapshots/game-snapshots.service';
+import type { GameStateService } from '../../game/state/game-state.service';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
-import { RoomsGameService } from '../services/rooms-game.service';
-import type { GameStateService } from '../../game/state/game-state.service';
 import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
+import { RoomsGameService } from '../services/rooms-game.service';
 
 type RoomsGameRepositoryMock = {
   findRoomByCode: jest.Mock;
@@ -36,6 +37,10 @@ type GameStateServiceMock = {
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
   recordMetric: jest.Mock;
+};
+
+type GameSnapshotServiceMock = {
+  createStartSnapshot: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -109,15 +114,15 @@ const humanPlayerThree = {
   leftAt: null,
 };
 
-let gameStateService: GameStateServiceMock;
-let observabilityService: ObservabilityServiceMock;
-
 describe('RoomsGameService', () => {
   let service: RoomsGameService;
   let roomsGameRepository: RoomsGameRepositoryMock;
   let databaseService: DatabaseServiceMock;
   let notificationsService: NotificationsServiceMock;
   let outboxQueueService: OutboxQueueServiceMock;
+  let gameStateService: GameStateServiceMock;
+  let observabilityService: ObservabilityServiceMock;
+  let gameSnapshotService: GameSnapshotServiceMock;
 
   const tx = { tx: true };
 
@@ -167,6 +172,10 @@ describe('RoomsGameService', () => {
       recordMetric: jest.fn(),
     };
 
+    gameSnapshotService = {
+      createStartSnapshot: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsGameService(
       roomsGameRepository as unknown as RoomsGameRepository,
       databaseService as unknown as DatabaseService,
@@ -174,6 +183,7 @@ describe('RoomsGameService', () => {
       outboxQueueService as unknown as OutboxQueueService,
       gameStateService as unknown as GameStateService,
       observabilityService as unknown as ObservabilityService,
+      gameSnapshotService as unknown as GameSnapshotService,
     );
   });
 
@@ -234,6 +244,18 @@ describe('RoomsGameService', () => {
             }),
           ]),
         }),
+      }),
+      tx,
+    );
+
+    expect(gameSnapshotService.createStartSnapshot).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        mode: 'ranked',
+        phase: 'awaiting_first_turn',
+        turnNumber: 1,
       }),
       tx,
     );
@@ -401,6 +423,18 @@ describe('RoomsGameService', () => {
       tx,
     );
 
+    expect(gameSnapshotService.createStartSnapshot).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        roomId: waitingRoom.id,
+        roomCode: waitingRoom.code,
+        mode: 'casual',
+        phase: 'awaiting_first_turn',
+        turnNumber: 1,
+      }),
+      tx,
+    );
+
     expect(
       notificationsService.createGameStartedNotification,
     ).toHaveBeenCalledTimes(1);
@@ -444,6 +478,7 @@ describe('RoomsGameService', () => {
 
     expect(databaseService.transaction).not.toHaveBeenCalled();
     expect(roomsGameRepository.createGame).not.toHaveBeenCalled();
+    expect(gameSnapshotService.createStartSnapshot).not.toHaveBeenCalled();
     expect(
       notificationsService.createGameStartedNotification,
     ).not.toHaveBeenCalled();
@@ -461,5 +496,6 @@ describe('RoomsGameService', () => {
 
     expect(databaseService.transaction).not.toHaveBeenCalled();
     expect(roomsGameRepository.createGame).not.toHaveBeenCalled();
+    expect(gameSnapshotService.createStartSnapshot).not.toHaveBeenCalled();
   });
 });

@@ -29,7 +29,7 @@ describe('game-engine-jail', () => {
     ]);
   });
 
-  it('lets a jailed player pay fine and leave jail', () => {
+  it('releases jailed player after fine payment', () => {
     const state = createGameEngineState();
 
     state.players[0].inJail = true;
@@ -57,7 +57,7 @@ describe('game-engine-jail', () => {
     ]);
   });
 
-  it('rejects paying jail fine when player is not in jail', () => {
+  it('rejects jail fine outside jail', () => {
     expect(() =>
       payJailFine(createGameEngineState(), {
         roomPlayerId: 'room-player-1',
@@ -70,7 +70,7 @@ describe('game-engine-jail', () => {
     );
   });
 
-  it('rejects paying jail fine without enough cash', () => {
+  it('rejects jail fine without enough cash', () => {
     const state = createGameEngineState();
 
     state.players[0].inJail = true;
@@ -88,7 +88,7 @@ describe('game-engine-jail', () => {
     );
   });
 
-  it('releases and moves jailed player after rolling doubles', () => {
+  it('releases jailed player after doubles', () => {
     const state = createGameEngineState();
 
     state.players[0].inJail = true;
@@ -151,7 +151,7 @@ describe('game-engine-jail', () => {
     ]);
   });
 
-  it('keeps player in jail after failed doubles attempt', () => {
+  it('keeps player in jail after failed doubles', () => {
     const state = createGameEngineState();
 
     state.players[0].inJail = true;
@@ -179,7 +179,7 @@ describe('game-engine-jail', () => {
     ]);
   });
 
-  it('forces fine payment and moves player after third failed jail roll', () => {
+  it('forces fine after third failed jail roll', () => {
     const state = createGameEngineState();
 
     state.players[0].inJail = true;
@@ -245,7 +245,7 @@ describe('game-engine-jail', () => {
     ]);
   });
 
-  it('creates debt when player cannot pay forced jail fine', () => {
+  it('creates debt for unaffordable jail fine', () => {
     const state = createGameEngineState();
 
     state.players[0].cash = JAIL_FINE_AMOUNT - 1;

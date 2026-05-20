@@ -9,7 +9,7 @@ describe('game-engine-bankruptcy', () => {
     service = new GameEngineService();
   });
 
-  it('declares player bankrupt and returns assets to bank when there is no creditor', () => {
+  it('returns assets to bank without creditor', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
@@ -54,7 +54,7 @@ describe('game-engine-bankruptcy', () => {
     });
   });
 
-  it('transfers owned assets to creditor and clears buildings and mortgages', () => {
+  it('transfers assets to creditor', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
@@ -94,7 +94,7 @@ describe('game-engine-bankruptcy', () => {
     });
   });
 
-  it('moves turn to next active player when current player goes bankrupt', () => {
+  it('moves turn after current player bankruptcy', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
       currentTurnRoomPlayerId: 'room-player-1',
@@ -121,7 +121,7 @@ describe('game-engine-bankruptcy', () => {
     });
   });
 
-  it('does not move turn when a non-current player goes bankrupt', () => {
+  it('keeps turn after non-current player bankruptcy', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       currentTurnRoomPlayerId: 'room-player-1',
@@ -146,7 +146,7 @@ describe('game-engine-bankruptcy', () => {
     ]);
   });
 
-  it('finishes the game when only one active player remains', () => {
+  it('finishes game with one active player', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
       currentTurnRoomPlayerId: 'room-player-2',
@@ -194,7 +194,7 @@ describe('game-engine-bankruptcy', () => {
     ]);
   });
 
-  it('uses active debt creditor when bankruptcy input does not pass creditor', () => {
+  it('uses active debt creditor by default', () => {
     const state = createGameEngineState({
       phase: 'awaiting_debt_resolution',
       debt: {
@@ -256,7 +256,7 @@ describe('game-engine-bankruptcy', () => {
     ).toThrow(GameEngineError);
   });
 
-  it('rejects declaring an already bankrupt player bankrupt again', () => {
+  it('rejects already bankrupt player', () => {
     const state = createGameEngineState({
       players: createGameEngineState().players.map((player) => {
         if (player.roomPlayerId === 'room-player-1') {

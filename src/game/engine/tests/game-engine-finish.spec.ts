@@ -10,7 +10,7 @@ describe('game-engine-finish', () => {
     service = new GameEngineService();
   });
 
-  it('calculates net worth from cash, assets, buildings, and mortgages', () => {
+  it('calculates net worth', () => {
     const state = createGameEngineState({
       players: createGameEngineState().players.map((player) => {
         if (player.roomPlayerId === 'room-player-1') {
@@ -79,7 +79,7 @@ describe('game-engine-finish', () => {
     });
   });
 
-  it('finishes game by time and chooses highest net worth winner', () => {
+  it('finishes timed game by net worth', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       players: createGameEngineState().players.map((player) => {
@@ -138,7 +138,7 @@ describe('game-engine-finish', () => {
     ]);
   });
 
-  it('returns no single winner when players tie on net worth', () => {
+  it('returns no winner for tied net worth', () => {
     const result = service.finishGameByTime(
       createGameEngineState({
         phase: 'awaiting_roll',
@@ -155,7 +155,7 @@ describe('game-engine-finish', () => {
     });
   });
 
-  it('excludes bankrupt players from timed standings', () => {
+  it('excludes bankrupt players from standings', () => {
     const result = service.finishGameByTime(
       createGameEngineState({
         phase: 'awaiting_roll',
@@ -203,7 +203,7 @@ describe('game-engine-finish', () => {
     ).toThrow(GameEngineError);
   });
 
-  it('rejects finishing before configured expiry time', () => {
+  it('rejects early timed finish', () => {
     expect(() =>
       service.finishGameByTime(
         createGameEngineState({

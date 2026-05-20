@@ -6,7 +6,7 @@ import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-intents', () => {
-  it('reduces roll and move intent', () => {
+  it('runs roll and move intent', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
     });
@@ -32,7 +32,7 @@ describe('game-engine-intents', () => {
     });
   });
 
-  it('reduces buy property intent', () => {
+  it('runs buy property intent', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
       pendingTileKey: 'nigeria',
@@ -58,7 +58,7 @@ describe('game-engine-intents', () => {
     });
   });
 
-  it('reduces building intent', () => {
+  it('runs building intent', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
@@ -99,7 +99,7 @@ describe('game-engine-intents', () => {
     ]);
   });
 
-  it('reduces mortgage intent', () => {
+  it('runs mortgage intent', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
@@ -132,7 +132,7 @@ describe('game-engine-intents', () => {
     });
   });
 
-  it('reduces timed finish intent', () => {
+  it('runs timed finish intent', () => {
     const result = reduceGameEngineIntent(
       createGameEngineState({
         phase: 'awaiting_roll',

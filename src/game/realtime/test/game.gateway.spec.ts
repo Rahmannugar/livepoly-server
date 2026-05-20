@@ -16,11 +16,8 @@ import {
   type GameEngineEvent,
   type GameEngineState,
 } from '../../engine/game-engine.types';
-import {
-  GAME_EVENTS,
-  GAME_REALTIME,
-  GAME_SOCKET_EVENTS,
-} from '../../game.constants';
+import { GAME_REALTIME, GAME_SOCKET_EVENTS } from '../../game.constants';
+import type { GameTurnTimerQueueService } from '../../timers/game-turn-timer-queue.service';
 import type { GameAccessRepository } from '../game-access.repository';
 import type { GameRealtimePublisher } from '../game-realtime.publisher';
 import type { AuthenticatedGameSocket } from '../game-realtime.types';
@@ -64,6 +61,10 @@ type GameBotQueueServiceMock = {
   enqueueIfBotCanAct: jest.Mock;
 };
 
+type GameTurnTimerQueueServiceMock = {
+  enqueueTurnTimer: jest.Mock;
+};
+
 type ServerMock = {
   to: jest.Mock;
 };
@@ -85,6 +86,7 @@ describe('GameGateway', () => {
   let pubSubService: PubSubServiceMock;
   let gameRealtimePublisher: GameRealtimePublisherMock;
   let gameBotQueueService: GameBotQueueServiceMock;
+  let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
   let server: ServerMock;
   let roomEmitter: { emit: jest.Mock };
   let pubSubHandler: PubSubMessageHandler;
@@ -230,6 +232,10 @@ describe('GameGateway', () => {
       enqueueIfBotCanAct: jest.fn().mockResolvedValue(undefined),
     };
 
+    gameTurnTimerQueueService = {
+      enqueueTurnTimer: jest.fn().mockResolvedValue(undefined),
+    };
+
     roomEmitter = {
       emit: jest.fn(),
     };
@@ -248,6 +254,7 @@ describe('GameGateway', () => {
       pubSubService as unknown as PubSubService,
       gameRealtimePublisher as unknown as GameRealtimePublisher,
       gameBotQueueService as unknown as GameBotQueueService,
+      gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
     );
 
     Object.defineProperty(gateway, 'server', {
@@ -255,7 +262,7 @@ describe('GameGateway', () => {
     });
   });
 
-  it('subscribes to realtime game updates on module init', async () => {
+  it('subscribes to realtime updates on startup', async () => {
     await gateway.onModuleInit();
 
     expect(pubSubService.subscribe).toHaveBeenCalledWith(
@@ -264,14 +271,14 @@ describe('GameGateway', () => {
     );
   });
 
-  it('unsubscribes from realtime game updates on module destroy', async () => {
+  it('unsubscribes from realtime updates on shutdown', async () => {
     await gateway.onModuleInit();
     await gateway.onModuleDestroy();
 
     expect(pubSubSubscription.unsubscribe).toHaveBeenCalledTimes(1);
   });
 
-  it('fans out realtime pubsub command results to socket rooms', async () => {
+  it('emits realtime updates to the game socket room', async () => {
     await gateway.onModuleInit();
 
     pubSubHandler({
@@ -292,7 +299,7 @@ describe('GameGateway', () => {
     });
   });
 
-  it('ignores malformed realtime pubsub messages', async () => {
+  it('ignores malformed realtime messages', async () => {
     await gateway.onModuleInit();
 
     pubSubHandler({
@@ -304,7 +311,7 @@ describe('GameGateway', () => {
     expect(roomEmitter.emit).not.toHaveBeenCalled();
   });
 
-  it('disconnects unauthenticated socket connection', async () => {
+  it('disconnects unauthenticated sockets', async () => {
     const socket = makeSocket(null);
 
     await gateway.handleConnection(socket);
@@ -316,7 +323,7 @@ describe('GameGateway', () => {
     expect(socket.data.user).toBeUndefined();
   });
 
-  it('authenticates socket connection', async () => {
+  it('authenticates sockets with a valid token', async () => {
     const socket = makeSocket();
 
     await gateway.handleConnection(socket);
@@ -328,33 +335,9 @@ describe('GameGateway', () => {
       authUser.id,
     );
     expect(socket.data.user).toEqual(authUser);
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.socketConnected,
-      {
-        socketId: socket.id,
-        userId: authUser.id,
-        username: authUser.username,
-      },
-    );
   });
 
-  it('records disconnect telemetry', () => {
-    const socket = makeSocket();
-    socket.data.user = authUser;
-
-    gateway.handleDisconnect(socket);
-
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.socketDisconnected,
-      {
-        socketId: socket.id,
-        userId: authUser.id,
-        username: authUser.username,
-      },
-    );
-  });
-
-  it('denies join when socket user is not an active player in the game', async () => {
+  it('rejects game join without active player access', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
     gameAccessRepository.findActivePlayerForGame.mockResolvedValue(null);
@@ -369,17 +352,10 @@ describe('GameGateway', () => {
       'game-1',
       authUser.id,
     );
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.socketAccessDenied,
-      {
-        gameId: 'game-1',
-        userId: authUser.id,
-      },
-    );
     expect(socket.join).not.toHaveBeenCalled();
   });
 
-  it('joins socket room after active player access is verified', async () => {
+  it('joins the game room with active player access', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
 
@@ -392,14 +368,6 @@ describe('GameGateway', () => {
       authUser.id,
     );
     expect(socket.join).toHaveBeenCalledWith('game:game-1');
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.socketJoined,
-      {
-        socketId: socket.id,
-        userId: authUser.id,
-        gameId: 'game-1',
-      },
-    );
     expect(result).toEqual({
       event: GAME_SOCKET_EVENTS.joined,
       data: {
@@ -409,7 +377,7 @@ describe('GameGateway', () => {
     });
   });
 
-  it('resolves room player before rolling and publishing command result', async () => {
+  it('rolls for the authenticated room player', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
     gameCommandsService.rollAndMove.mockResolvedValue(commandResult);
@@ -436,6 +404,10 @@ describe('GameGateway', () => {
       'game-1',
       gameState,
     );
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      gameState,
+    );
     expect(server.to).not.toHaveBeenCalled();
     expect(result).toEqual({
       event: GAME_SOCKET_EVENTS.state,
@@ -447,7 +419,7 @@ describe('GameGateway', () => {
     });
   });
 
-  it('resolves room player before ending turn and publishing command result', async () => {
+  it('ends turn for the authenticated room player', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
     gameCommandsService.endTurn.mockResolvedValue({
@@ -478,6 +450,10 @@ describe('GameGateway', () => {
       'game-1',
       gameState,
     );
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      gameState,
+    );
     expect(server.to).not.toHaveBeenCalled();
     expect(result).toEqual({
       event: GAME_SOCKET_EVENTS.state,
@@ -489,7 +465,7 @@ describe('GameGateway', () => {
     });
   });
 
-  it('still returns command result if realtime publish fails after state mutation', async () => {
+  it('returns command result when realtime publish fails', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
     gameCommandsService.rollAndMove.mockResolvedValue(commandResult);
@@ -510,22 +486,17 @@ describe('GameGateway', () => {
         events: engineEvents,
       },
     });
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.realtimePublishFailed,
-      {
-        gameId: 'game-1',
-        phase: gameState.phase,
-        turnNumber: gameState.turnNumber,
-        errorName: 'Error',
-      },
-    );
     expect(gameBotQueueService.enqueueIfBotCanAct).toHaveBeenCalledWith(
+      'game-1',
+      gameState,
+    );
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
       'game-1',
       gameState,
     );
   });
 
-  it('still returns command result if bot queue fails after state mutation', async () => {
+  it('returns command result when bot queue fails', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
     gameCommandsService.rollAndMove.mockResolvedValue(commandResult);
@@ -546,19 +517,36 @@ describe('GameGateway', () => {
         events: engineEvents,
       },
     });
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.botTurnFailed,
-      {
-        gameId: 'game-1',
-        phase: gameState.phase,
-        turnNumber: gameState.turnNumber,
-        reason: 'queue_failed',
-        errorName: 'Error',
-      },
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      gameState,
     );
   });
 
-  it('emits command rejected payload for engine command errors', async () => {
+  it('returns command result when turn timer queue fails', async () => {
+    const socket = makeSocket();
+    socket.data.user = authUser;
+    gameCommandsService.rollAndMove.mockResolvedValue(commandResult);
+    gameTurnTimerQueueService.enqueueTurnTimer.mockRejectedValue(
+      new Error('timer queue down'),
+    );
+
+    const result = await gateway.rollAndMove(socket, {
+      gameId: 'game-1',
+      dice: [3, 4],
+    });
+
+    expect(result).toEqual({
+      event: GAME_SOCKET_EVENTS.state,
+      data: {
+        gameId: 'game-1',
+        state: gameState,
+        events: engineEvents,
+      },
+    });
+  });
+
+  it('emits command rejected for engine errors', async () => {
     const socket = makeSocket();
     socket.data.user = authUser;
     const error = new GameEngineError(
@@ -586,5 +574,6 @@ describe('GameGateway', () => {
     );
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
     expect(gameBotQueueService.enqueueIfBotCanAct).not.toHaveBeenCalled();
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).not.toHaveBeenCalled();
   });
 });

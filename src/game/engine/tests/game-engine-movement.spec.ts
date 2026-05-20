@@ -2,7 +2,7 @@ import { rollAndMove } from '../game-engine-movement';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-movement', () => {
-  it('moves a player, lands on chance, and applies the drawn card', () => {
+  it('moves player and applies chance card', () => {
     const result = rollAndMove(createGameEngineState(), {
       roomPlayerId: 'room-player-1',
       dice: [3, 4],
@@ -48,7 +48,7 @@ describe('game-engine-movement', () => {
     ]);
   });
 
-  it('pays pass-go cash and emits a pass-go event', () => {
+  it('pays cash after passing go', () => {
     const state = createGameEngineState();
     state.players[0].position = 38;
 
@@ -83,7 +83,7 @@ describe('game-engine-movement', () => {
     ]);
   });
 
-  it('waits for a property decision after landing on an unowned ownable tile', () => {
+  it('waits for decision on unowned property', () => {
     const state = createGameEngineState();
     state.players[0].position = 39;
 
@@ -102,7 +102,7 @@ describe('game-engine-movement', () => {
     });
   });
 
-  it('charges rent after landing on another player owned property', () => {
+  it('charges rent on owned property', () => {
     const state = createGameEngineState();
     state.players[0].position = 39;
     state.properties = state.properties.map((property) => {
@@ -136,7 +136,7 @@ describe('game-engine-movement', () => {
     });
   });
 
-  it('does not wait for a property decision when the ownable tile is already owned', () => {
+  it('skips property decision for owned property', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
@@ -162,7 +162,7 @@ describe('game-engine-movement', () => {
     });
   });
 
-  it('sends player to jail after landing on go to jail', () => {
+  it('sends player to jail from go to jail tile', () => {
     const state = createGameEngineState();
     state.players[0].position = 28;
 
@@ -187,7 +187,7 @@ describe('game-engine-movement', () => {
     });
   });
 
-  it('grants another turn after rolling doubles before the third doubles', () => {
+  it('grants another turn after doubles', () => {
     const result = rollAndMove(createGameEngineState(), {
       roomPlayerId: 'room-player-1',
       dice: [2, 2],
@@ -204,7 +204,7 @@ describe('game-engine-movement', () => {
     });
   });
 
-  it('sends player to jail after third consecutive doubles', () => {
+  it('sends player to jail after third doubles', () => {
     const result = rollAndMove(
       createGameEngineState({
         consecutiveDoublesCount: 2,
@@ -242,7 +242,7 @@ describe('game-engine-movement', () => {
     ]);
   });
 
-  it('lets jailed player roll doubles, leave jail, and move without extra turn', () => {
+  it('releases jailed player after rolling doubles', () => {
     const state = createGameEngineState();
 
     state.players[0].inJail = true;
@@ -270,7 +270,7 @@ describe('game-engine-movement', () => {
     });
   });
 
-  it('keeps jailed player in jail after failed doubles roll', () => {
+  it('keeps jailed player after failed doubles roll', () => {
     const state = createGameEngineState();
 
     state.players[0].inJail = true;

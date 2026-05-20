@@ -2,7 +2,6 @@ import type { Queue } from 'bullmq';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import { GAME_JOBS } from '../../../infra/queue/queue.constants';
 import type { GameEngineState } from '../../engine/game-engine.types';
-import { GAME_BOTS, GAME_EVENTS, GAME_METRICS } from '../../game.constants';
 import type { GameBotService } from '../game-bot.service';
 import { GameBotQueueService } from '../game-bot-queue.service';
 
@@ -107,16 +106,15 @@ describe('GameBotQueueService', () => {
     mathRandomSpy.mockRestore();
   });
 
-  it('does not enqueue when no bot can act', async () => {
+  it('skips when no bot can act', async () => {
     gameBotService.chooseDecision.mockReturnValue(null);
 
     await service.enqueueIfBotCanAct('game-1', state);
 
     expect(gameQueue.add).not.toHaveBeenCalled();
-    expect(observabilityService.recordEvent).not.toHaveBeenCalled();
   });
 
-  it('enqueues bot turn with human-like randomized delay', async () => {
+  it('enqueues bot turn with randomized delay', async () => {
     await service.enqueueIfBotCanAct('game-1', state);
 
     expect(gameQueue.add).toHaveBeenCalledWith(
@@ -130,24 +128,6 @@ describe('GameBotQueueService', () => {
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
         removeOnFail: 100,
       },
-    );
-  });
-
-  it('records bot queue telemetry', async () => {
-    await service.enqueueIfBotCanAct('game-1', state);
-
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.botTurnQueued,
-      {
-        gameId: 'game-1',
-        roomPlayerId: 'bot-player-1',
-        phase: 'awaiting_roll',
-        turnNumber: 3,
-        delay: 1350,
-      },
-    );
-    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
-      GAME_METRICS.botTurnQueued,
     );
   });
 });

@@ -2,7 +2,7 @@ import { rollAndMove } from '../game-engine-movement';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-tax', () => {
-  it('charges tax when player lands on a tax tile', () => {
+  it('charges tax on tax tile', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
     });
@@ -22,7 +22,7 @@ describe('game-engine-tax', () => {
     });
   });
 
-  it('creates debt when player cannot pay tax', () => {
+  it('creates debt for unaffordable tax', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       players: createGameEngineState().players.map((player) => {

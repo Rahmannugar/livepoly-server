@@ -12,7 +12,7 @@ describe('game-engine-cards', () => {
     expect(decks.worldFund.discardPile).toEqual([]);
   });
 
-  it('draws and applies a collect money chance card', () => {
+  it('applies a collect money card', () => {
     const result = drawAndApplyCard(createGameEngineState(), {
       roomPlayerId: 'room-player-1',
       deckKey: 'chance',
@@ -40,7 +40,7 @@ describe('game-engine-cards', () => {
     ]);
   });
 
-  it('draws and applies a pay money world fund card', () => {
+  it('applies a pay money card', () => {
     const state = createGameEngineState();
 
     state.decks.worldFund.drawPile = ['world_fund_pay_hospital'];
@@ -68,7 +68,7 @@ describe('game-engine-cards', () => {
     ]);
   });
 
-  it('creates debt when player cannot pay a money card', () => {
+  it('creates debt for unaffordable money card', () => {
     const state = createGameEngineState({
       players: createGameEngineState().players.map((player) => {
         if (player.roomPlayerId === 'room-player-1') {
@@ -128,7 +128,7 @@ describe('game-engine-cards', () => {
     });
   });
 
-  it('applies get out of jail free card without discarding it', () => {
+  it('keeps get out of jail card with player', () => {
     const state = createGameEngineState();
 
     state.decks.chance.drawPile = ['chance_get_out_of_jail_free'];
@@ -142,7 +142,7 @@ describe('game-engine-cards', () => {
     expect(result.state.decks.chance.discardPile).toEqual([]);
   });
 
-  it('reshuffles discard pile into draw pile deterministically when draw pile is empty', () => {
+  it('reshuffles discard pile when draw pile is empty', () => {
     const state = createGameEngineState();
 
     state.decks.chance.drawPile = [];

@@ -6,8 +6,13 @@ import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import { GameBotService } from '../bots/game-bot.service';
 import type { ExecuteBotTurnJob } from '../bots/game-bot.types';
+import type { GameCommandResult } from '../commands/game-commands.types';
 import { GameCommandsService } from '../commands/game-commands.service';
-import { GameEngineError } from '../engine/game-engine.types';
+import type { GameEngineIntent } from '../engine/game-engine-intents';
+import {
+  GameEngineError,
+  type GameEngineState,
+} from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
 import { GameStateService } from '../state/game-state.service';
@@ -15,8 +20,6 @@ import { GameTurnTimerPolicyService } from '../timers/game-turn-timer-policy.ser
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import type { ExecuteTurnTimeoutJob } from '../timers/game-turn-timer.types';
 import type { GameJob } from './game-jobs.types';
-import type { GameCommandResult } from '../commands/game-commands.types';
-import type { GameEngineState } from '../engine/game-engine.types';
 
 @Processor(QUEUES.game)
 export class GameProcessor extends WorkerHost {
@@ -169,9 +172,10 @@ export class GameProcessor extends WorkerHost {
     await this.gameBotQueueService.enqueueIfBotCanAct(gameId, state);
     await this.gameTurnTimerQueueService.enqueueTurnTimer(gameId, state);
   }
+
   private isTimerJobCurrent(
     data: ExecuteTurnTimeoutJob,
-    state: Parameters<GameTurnTimerPolicyService['chooseTimeoutIntent']>[0],
+    state: GameEngineState,
   ): boolean {
     return (
       data.turnNumber === state.turnNumber &&
@@ -180,9 +184,7 @@ export class GameProcessor extends WorkerHost {
     );
   }
 
-  private getIntentRoomPlayerId(
-    intent: Parameters<GameCommandsService['executeIntent']>[0]['intent'],
-  ): string | undefined {
+  private getIntentRoomPlayerId(intent: GameEngineIntent): string | undefined {
     if (intent.type === 'finish_game_by_time') {
       return undefined;
     }

@@ -49,7 +49,7 @@ describe('game-engine-buildings', () => {
     ]);
   });
 
-  it('rejects building when player does not own the full set', () => {
+  it('rejects building without full set ownership', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
@@ -234,7 +234,7 @@ describe('game-engine-buildings', () => {
     ]);
   });
 
-  it('rejects building on airports and utilities', () => {
+  it('rejects buildings on airports and utilities', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
     });
@@ -254,7 +254,7 @@ describe('game-engine-buildings', () => {
     ).toThrow(GameEngineError);
   });
 
-  it('rejects building when any property in the set is mortgaged', () => {
+  it('rejects building on mortgaged sets', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {

@@ -11,7 +11,7 @@ describe('game-engine-dice', () => {
     expect(isDoubles([3, 4])).toBe(false);
   });
 
-  it('increments doubles count and grants another turn before third doubles', () => {
+  it('tracks doubles before third doubles', () => {
     const result = applyDoublesState(createGameEngineState(), [2, 2]);
 
     expect(result).toMatchObject({

@@ -36,7 +36,7 @@ describe('game-engine-rent', () => {
     ]);
   });
 
-  it('doubles base rent when the owner owns the full property set with no buildings', () => {
+  it('doubles rent for a full set without buildings', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
@@ -218,7 +218,7 @@ describe('game-engine-rent', () => {
     expect(result.events).toEqual([]);
   });
 
-  it('creates debt when player cannot afford rent', () => {
+  it('creates debt for unaffordable rent', () => {
     const state = createGameEngineState();
 
     state.players[0].cash = 1;

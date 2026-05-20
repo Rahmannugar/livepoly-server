@@ -3,7 +3,7 @@ import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-turns', () => {
-  it('finds the next active player by seat order', () => {
+  it('finds next player by seat order', () => {
     const state = createGameEngineState();
 
     const result = findNextActivePlayer(state);
@@ -11,7 +11,7 @@ describe('game-engine-turns', () => {
     expect(result.roomPlayerId).toBe('room-player-2');
   });
 
-  it('skips bankrupt players when finding the next active player', () => {
+  it('skips bankrupt players', () => {
     const state = createGameEngineState();
     state.players[1].bankrupt = true;
 
@@ -20,7 +20,7 @@ describe('game-engine-turns', () => {
     expect(result.roomPlayerId).toBe('room-player-3');
   });
 
-  it('ends the current turn and emits a turn event', () => {
+  it('ends current turn', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
     });

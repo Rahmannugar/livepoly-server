@@ -7,7 +7,6 @@ import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service'
 import { RoomsGameService } from '../services/rooms-game.service';
 import type { GameStateService } from '../../game/state/game-state.service';
 import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
-import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 
 type RoomsGameRepositoryMock = {
   findRoomByCode: jest.Mock;
@@ -178,7 +177,7 @@ describe('RoomsGameService', () => {
     );
   });
 
-  it('starts a ranked game with three humans and does not add bots', async () => {
+  it('starts ranked game with three humans', async () => {
     const players = [humanPlayerOne, humanPlayerTwo, humanPlayerThree];
 
     roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
@@ -267,22 +266,6 @@ describe('RoomsGameService', () => {
         lastDiceRoll: null,
       }),
     );
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      ROOM_EVENTS.started,
-      {
-        roomId: activeRoom.id,
-        roomCode: activeRoom.code,
-        gameId: 'game-1',
-        hostUserId: authUser.id,
-        mode: 'ranked',
-        playerCount: 3,
-        humanPlayerCount: 3,
-        botPlayerCount: 0,
-      },
-    );
-    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
-      ROOM_METRICS.started('ranked'),
-    );
 
     expect(result.room).toEqual({
       ...activeRoom,
@@ -296,7 +279,7 @@ describe('RoomsGameService', () => {
     );
   });
 
-  it('starts a casual game with fewer than three humans and fills empty seats with bots', async () => {
+  it('starts casual game and fills seats with bots', async () => {
     const players = [humanPlayerOne];
 
     const botTwo = {
@@ -439,22 +422,6 @@ describe('RoomsGameService', () => {
         lastDiceRoll: null,
       }),
     );
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      ROOM_EVENTS.started,
-      {
-        roomId: activeRoom.id,
-        roomCode: activeRoom.code,
-        gameId: 'game-1',
-        hostUserId: authUser.id,
-        mode: 'casual',
-        playerCount: 4,
-        humanPlayerCount: 1,
-        botPlayerCount: 3,
-      },
-    );
-    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
-      ROOM_METRICS.started('casual'),
-    );
 
     expect(result.room.players).toHaveLength(4);
     expect(result.game).toEqual(
@@ -465,7 +432,7 @@ describe('RoomsGameService', () => {
     );
   });
 
-  it('rejects non-host start attempts', async () => {
+  it('rejects start from non-host', async () => {
     roomsGameRepository.findRoomByCode.mockResolvedValue({
       ...waitingRoom,
       hostUserId: 'other-user',

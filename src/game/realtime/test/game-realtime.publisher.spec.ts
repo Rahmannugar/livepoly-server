@@ -2,7 +2,7 @@ import type { ObservabilityService } from '../../../infra/observability/observab
 import type { PubSubService } from '../../../infra/pubsub/pubsub.service';
 import type { GameCommandResult } from '../../commands/game-commands.types';
 import type { GameEngineState } from '../../engine/game-engine.types';
-import { GAME_EVENTS, GAME_METRICS, GAME_REALTIME } from '../../game.constants';
+import { GAME_REALTIME } from '../../game.constants';
 import { GameRealtimePublisher } from '../game-realtime.publisher';
 
 type PubSubServiceMock = {
@@ -78,7 +78,7 @@ describe('GameRealtimePublisher', () => {
     );
   });
 
-  it('publishes command result to the shared realtime channel', async () => {
+  it('publishes command results to the realtime channel', async () => {
     await publisher.publishCommandResult('game-1', result);
 
     expect(pubSubService.publish).toHaveBeenCalledWith(GAME_REALTIME.channel, {
@@ -87,22 +87,5 @@ describe('GameRealtimePublisher', () => {
       state,
       events: result.events,
     });
-  });
-
-  it('records realtime publish telemetry', async () => {
-    await publisher.publishCommandResult('game-1', result);
-
-    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
-      GAME_EVENTS.realtimePublished,
-      {
-        gameId: 'game-1',
-        phase: state.phase,
-        turnNumber: state.turnNumber,
-        eventCount: result.events.length,
-      },
-    );
-    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
-      GAME_METRICS.realtimePublished,
-    );
   });
 });

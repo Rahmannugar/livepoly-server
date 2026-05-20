@@ -7,7 +7,7 @@ import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-auctions', () => {
-  it('starts an auction when a player declines to buy pending property', () => {
+  it('starts auction after purchase decline', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
       pendingTileKey: 'nigeria',
@@ -81,7 +81,7 @@ describe('game-engine-auctions', () => {
     ]);
   });
 
-  it('rejects bids that are not higher than the current bid', () => {
+  it('rejects bids below current bid', () => {
     const auctionState = placeAuctionBid(
       declinePropertyPurchase(
         createGameEngineState({
@@ -111,7 +111,7 @@ describe('game-engine-auctions', () => {
     );
   });
 
-  it('records a player passing an auction bid', () => {
+  it('passes an auction bid', () => {
     const auctionState = declinePropertyPurchase(
       createGameEngineState({
         phase: 'awaiting_property_decision',
@@ -138,7 +138,7 @@ describe('game-engine-auctions', () => {
     ]);
   });
 
-  it('awards the property when all other active players pass', () => {
+  it('awards property to the last bidder', () => {
     const auctionState = placeAuctionBid(
       declinePropertyPurchase(
         createGameEngineState({
@@ -190,7 +190,7 @@ describe('game-engine-auctions', () => {
     ]);
   });
 
-  it('ends auction without owner when everyone passes without a bid', () => {
+  it('ends auction with no owner when all players pass', () => {
     const auctionState = declinePropertyPurchase(
       createGameEngineState({
         phase: 'awaiting_property_decision',

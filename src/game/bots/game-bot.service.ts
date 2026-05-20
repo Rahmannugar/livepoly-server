@@ -249,7 +249,8 @@ export class GameBotService {
       remainingCash < reserve ? (reserve - remainingCash) / 10 : 0;
 
     let score =
-      this.rentPotentialScore(tile) * GAME_BOTS.rentPotentialWeight[difficulty] -
+      this.rentPotentialScore(tile) *
+        GAME_BOTS.rentPotentialWeight[difficulty] -
       reservePenalty;
 
     if (tile.kind === 'property' && tile.price <= 160) {
@@ -260,7 +261,10 @@ export class GameBotService {
       score += GAME_BOTS.setCompletionBonus[difficulty];
     }
 
-    if (tile.kind === 'property' && this.wouldBlockOpponentSet(state, bot, tile)) {
+    if (
+      tile.kind === 'property' &&
+      this.wouldBlockOpponentSet(state, bot, tile)
+    ) {
       score += GAME_BOTS.opponentBlockBonus[difficulty];
     }
 
@@ -358,9 +362,11 @@ export class GameBotService {
       return tile.rentByOwnedCount[tile.rentByOwnedCount.length - 1] / 4;
     }
 
-    return tile.rentMultiplierByOwnedCount[
-      tile.rentMultiplierByOwnedCount.length - 1
-    ] * 4;
+    return (
+      tile.rentMultiplierByOwnedCount[
+        tile.rentMultiplierByOwnedCount.length - 1
+      ] * 4
+    );
   }
 
   private getPendingOwnableTile(state: GameEngineState): OwnableTile | null {

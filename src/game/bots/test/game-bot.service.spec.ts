@@ -65,7 +65,7 @@ describe('GameBotService', () => {
     expect(service.chooseDecision(state)).toBeNull();
   });
 
-  it('easy bot declines expensive non-strategic property', () => {
+  it('easy bot declines expensive property', () => {
     const state = createBotState({
       players: [
         createGameEnginePlayer({
@@ -91,7 +91,7 @@ describe('GameBotService', () => {
     });
   });
 
-  it('hard bot buys valuable property that easy bot would decline', () => {
+  it('hard bot buys valuable property', () => {
     const state = createBotState({
       players: [
         createGameEnginePlayer({
@@ -117,7 +117,7 @@ describe('GameBotService', () => {
     });
   });
 
-  it('hard bot values blocking an opponent set', () => {
+  it('hard bot blocks opponent sets', () => {
     const state = createBotState({
       pendingTileKey: 'uk',
       players: [

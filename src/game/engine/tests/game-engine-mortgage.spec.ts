@@ -9,7 +9,7 @@ describe('game-engine-mortgage', () => {
     service = new GameEngineService();
   });
 
-  it('mortgages an owned property and credits mortgage value', () => {
+  it('mortgages owned property', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
@@ -115,7 +115,7 @@ describe('game-engine-mortgage', () => {
     ).toThrow(GameEngineError);
   });
 
-  it('rejects mortgage when any property in the set has buildings', () => {
+  it('rejects mortgage on sets with buildings', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
@@ -146,7 +146,7 @@ describe('game-engine-mortgage', () => {
     ).toThrow(GameEngineError);
   });
 
-  it('unmortgages an owned property and debits mortgage value plus interest', () => {
+  it('unmortgages owned property', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {

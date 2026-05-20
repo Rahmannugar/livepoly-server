@@ -6,7 +6,7 @@ import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-properties', () => {
-  it('creates initial ownership state for every ownable board tile', () => {
+  it('creates initial ownership state', () => {
     const properties = createInitialPropertyState({
       boardKey: 'classic',
     });
@@ -35,7 +35,7 @@ describe('game-engine-properties', () => {
     });
   });
 
-  it('buys the pending property and moves to turn end', () => {
+  it('buys pending property', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
       pendingTileKey: 'nigeria',
@@ -110,7 +110,7 @@ describe('game-engine-properties', () => {
     });
   });
 
-  it('rejects buying when no property decision is pending', () => {
+  it('rejects buying without pending decision', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
       pendingTileKey: null,
@@ -170,7 +170,7 @@ describe('game-engine-properties', () => {
     );
   });
 
-  it('rejects buying when player does not have enough cash', () => {
+  it('rejects buying without enough cash', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
       pendingTileKey: 'australia',

@@ -33,6 +33,7 @@ import {
   GAME_REALTIME,
   GAME_SOCKET_EVENTS,
 } from '../game.constants';
+import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import { GameAccessRepository } from './game-access.repository';
 import {
   type AuthenticatedGameSocket,
@@ -84,6 +85,7 @@ export class GameGateway
     private readonly pubSubService: PubSubService,
     private readonly gameRealtimePublisher: GameRealtimePublisher,
     private readonly gameBotQueueService: GameBotQueueService,
+    private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
   ) {}
 
   async onModuleInit(): Promise<void> {
@@ -242,6 +244,7 @@ export class GameGateway
   ): Promise<void> {
     await this.publishRealtimeBestEffort(gameId, result);
     await this.enqueueBotBestEffort(gameId, result);
+    await this.enqueueTurnTimerBestEffort(gameId, result);
   }
 
   private async publishRealtimeBestEffort(
@@ -280,6 +283,28 @@ export class GameGateway
       });
 
       this.observabilityService.recordMetric(GAME_METRICS.botTurnFailed);
+    }
+  }
+
+  private async enqueueTurnTimerBestEffort(
+    gameId: string,
+    result: GameCommandResult,
+  ): Promise<void> {
+    try {
+      await this.gameTurnTimerQueueService.enqueueTurnTimer(
+        gameId,
+        result.state,
+      );
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerFailed, {
+        gameId,
+        phase: result.state.phase,
+        turnNumber: result.state.turnNumber,
+        reason: 'queue_failed',
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(GAME_METRICS.turnTimerFailed);
     }
   }
 

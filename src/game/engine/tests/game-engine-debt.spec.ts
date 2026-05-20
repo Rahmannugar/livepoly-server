@@ -3,7 +3,7 @@ import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-debt', () => {
-  it('pays bank debt and returns game to turn end', () => {
+  it('pays bank debt', () => {
     const state = createGameEngineState({
       phase: 'awaiting_debt_resolution',
       debt: {
@@ -34,7 +34,7 @@ describe('game-engine-debt', () => {
     ]);
   });
 
-  it('pays creditor debt and transfers cash', () => {
+  it('pays creditor debt', () => {
     const state = createGameEngineState({
       phase: 'awaiting_debt_resolution',
       debt: {

@@ -45,7 +45,7 @@ describe('GameEngineService', () => {
     ]);
   });
 
-  it('returns state and events for buying property', () => {
+  it('returns state and events for buy property', () => {
     const result = service.buyProperty(
       createGameEngineState({
         phase: 'awaiting_property_decision',

@@ -8,7 +8,7 @@ import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
 
 describe('game-engine-assertions', () => {
-  it('allows rolling while awaiting first turn', () => {
+  it('allows rolling before the first turn', () => {
     expect(() => assertCanRoll(createGameEngineState())).not.toThrow();
   });
 
@@ -53,7 +53,7 @@ describe('game-engine-assertions', () => {
     );
   });
 
-  it('rejects actions once the game is finished', () => {
+  it('rejects actions after game finish', () => {
     expect(() =>
       assertCanRoll(
         createGameEngineState({

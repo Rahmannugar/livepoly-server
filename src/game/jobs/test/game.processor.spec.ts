@@ -7,14 +7,14 @@ import type { GameCommandsService } from '../../commands/game-commands.service';
 import type { GameEngineIntent } from '../../engine/game-engine-intents';
 import { createGameEngineState } from '../../engine/tests/game-engine.test-factory';
 import type { GameRealtimePublisher } from '../../realtime/game-realtime.publisher';
-import type { GameStateService } from '../../state/game-state.service';
+import type { GameRecoveryService } from '../../recovery/game-recovery.service';
 import type { GameTurnTimerPolicyService } from '../../timers/game-turn-timer-policy.service';
 import type { GameTurnTimerQueueService } from '../../timers/game-turn-timer-queue.service';
 import type { GameJob } from '../game-jobs.types';
 import { GameProcessor } from '../game.processor';
 
-type GameStateServiceMock = {
-  get: jest.Mock;
+type GameRecoveryServiceMock = {
+  getOrRecover: jest.Mock;
 };
 
 type GameBotServiceMock = {
@@ -48,7 +48,7 @@ type ObservabilityServiceMock = {
 
 describe('GameProcessor', () => {
   let processor: GameProcessor;
-  let gameStateService: GameStateServiceMock;
+  let gameRecoveryService: GameRecoveryServiceMock;
   let gameBotService: GameBotServiceMock;
   let gameCommandsService: GameCommandsServiceMock;
   let gameRealtimePublisher: GameRealtimePublisherMock;
@@ -86,8 +86,8 @@ describe('GameProcessor', () => {
   };
 
   beforeEach(() => {
-    gameStateService = {
-      get: jest.fn().mockResolvedValue(state),
+    gameRecoveryService = {
+      getOrRecover: jest.fn().mockResolvedValue(state),
     };
 
     gameBotService = {
@@ -123,7 +123,7 @@ describe('GameProcessor', () => {
     };
 
     processor = new GameProcessor(
-      gameStateService as unknown as GameStateService,
+      gameRecoveryService as unknown as GameRecoveryService,
       gameBotService as unknown as GameBotService,
       gameCommandsService as unknown as GameCommandsService,
       gameRealtimePublisher as unknown as GameRealtimePublisher,
@@ -141,7 +141,7 @@ describe('GameProcessor', () => {
       }),
     );
 
-    expect(gameStateService.get).toHaveBeenCalledWith('game-1');
+    expect(gameRecoveryService.getOrRecover).toHaveBeenCalledWith('game-1');
     expect(gameBotService.chooseDecision).toHaveBeenCalledWith(state);
     expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
       gameId: 'game-1',
@@ -187,7 +187,7 @@ describe('GameProcessor', () => {
       }),
     );
 
-    expect(gameStateService.get).toHaveBeenCalledWith('game-1');
+    expect(gameRecoveryService.getOrRecover).toHaveBeenCalledWith('game-1');
     expect(gameTurnTimerPolicyService.chooseTimeoutIntent).toHaveBeenCalledWith(
       state,
     );
@@ -241,6 +241,22 @@ describe('GameProcessor', () => {
 
     expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+  });
+
+  it('rethrows recovery failures for retry', async () => {
+    const error = new Error('recovery failed');
+    gameRecoveryService.getOrRecover.mockRejectedValue(error);
+
+    await expect(
+      processor.process(
+        makeJob(GAME_JOBS.executeBotTurn, {
+          gameId: 'game-1',
+        }),
+      ),
+    ).rejects.toThrow(error);
+
+    expect(gameBotService.chooseDecision).not.toHaveBeenCalled();
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
   });
 
   it('rethrows command failures for retry', async () => {

@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import {
@@ -6,6 +10,7 @@ import {
   type GameEngineIntent,
 } from '../engine/game-engine-intents';
 import { GameEngineError } from '../engine/game-engine.types';
+import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameStateService } from '../state/game-state.service';
 import type {
@@ -21,6 +26,7 @@ export class GameCommandsService {
     private readonly gameStateService: GameStateService,
     private readonly observabilityService: ObservabilityService,
     private readonly gameSnapshotService: GameSnapshotService,
+    private readonly gameRecoveryService: GameRecoveryService,
   ) {}
 
   async executeIntent(
@@ -28,6 +34,40 @@ export class GameCommandsService {
   ): Promise<GameCommandResult> {
     this.assertIntentActorMatchesCommand(input);
 
+    return this.executeIntentWithRecovery(input, false);
+  }
+
+  async rollAndMove(input: RollAndMoveCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      intent: {
+        type: 'roll_and_move',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          dice: input.dice,
+        },
+      },
+    });
+  }
+
+  async endTurn(input: EndTurnCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      intent: {
+        type: 'end_turn',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
+  private async executeIntentWithRecovery(
+    input: ExecuteGameIntentCommand,
+    recovered: boolean,
+  ): Promise<GameCommandResult> {
     let commandResult: GameCommandResult | null = null;
 
     try {
@@ -63,6 +103,11 @@ export class GameCommandsService {
 
       return result;
     } catch (error) {
+      if (!recovered && error instanceof NotFoundException) {
+        await this.gameRecoveryService.recoverOrThrow(input.gameId);
+        return this.executeIntentWithRecovery(input, true);
+      }
+
       this.recordCommandFailed(
         input.intent.type,
         input.gameId,
@@ -72,33 +117,6 @@ export class GameCommandsService {
 
       throw error;
     }
-  }
-
-  async rollAndMove(input: RollAndMoveCommand): Promise<GameCommandResult> {
-    return this.executeIntent({
-      gameId: input.gameId,
-      roomPlayerId: input.roomPlayerId,
-      intent: {
-        type: 'roll_and_move',
-        payload: {
-          roomPlayerId: input.roomPlayerId,
-          dice: input.dice,
-        },
-      },
-    });
-  }
-
-  async endTurn(input: EndTurnCommand): Promise<GameCommandResult> {
-    return this.executeIntent({
-      gameId: input.gameId,
-      roomPlayerId: input.roomPlayerId,
-      intent: {
-        type: 'end_turn',
-        payload: {
-          roomPlayerId: input.roomPlayerId,
-        },
-      },
-    });
   }
 
   private async createSnapshotAfterCommand(

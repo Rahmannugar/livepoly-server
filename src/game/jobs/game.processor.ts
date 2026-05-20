@@ -15,7 +15,7 @@ import {
 } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
-import { GameStateService } from '../state/game-state.service';
+import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameTurnTimerPolicyService } from '../timers/game-turn-timer-policy.service';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import type { ExecuteTurnTimeoutJob } from '../timers/game-turn-timer.types';
@@ -26,7 +26,7 @@ export class GameProcessor extends WorkerHost {
   private readonly logger = new Logger(GameProcessor.name);
 
   constructor(
-    private readonly gameStateService: GameStateService,
+    private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameBotService: GameBotService,
     private readonly gameCommandsService: GameCommandsService,
     private readonly gameRealtimePublisher: GameRealtimePublisher,
@@ -57,7 +57,7 @@ export class GameProcessor extends WorkerHost {
   }
 
   private async processExecuteBotTurn(job: Job<ExecuteBotTurnJob>) {
-    const state = await this.gameStateService.get(job.data.gameId);
+    const state = await this.gameRecoveryService.getOrRecover(job.data.gameId);
     const decision = this.gameBotService.chooseDecision(state);
 
     if (!decision) {
@@ -106,7 +106,7 @@ export class GameProcessor extends WorkerHost {
   }
 
   private async processExecuteTurnTimeout(job: Job<ExecuteTurnTimeoutJob>) {
-    const state = await this.gameStateService.get(job.data.gameId);
+    const state = await this.gameRecoveryService.getOrRecover(job.data.gameId);
 
     if (!this.isTimerJobCurrent(job.data, state)) {
       this.observabilityService.recordEvent(GAME_EVENTS.turnTimerSkipped, {

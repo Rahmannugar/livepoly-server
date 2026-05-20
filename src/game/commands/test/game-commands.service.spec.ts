@@ -1,10 +1,11 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import {
   GameEngineError,
   type GameEngineState,
 } from '../../engine/game-engine.types';
 import { createGameEngineState } from '../../engine/tests/game-engine.test-factory';
+import type { GameRecoveryService } from '../../recovery/game-recovery.service';
 import type { GameSnapshotService } from '../../snapshots/game-snapshots.service';
 import type { GameStateService } from '../../state/game-state.service';
 import { GameCommandsService } from '../game-commands.service';
@@ -22,11 +23,16 @@ type GameSnapshotServiceMock = {
   createSnapshotAfterCommand: jest.Mock;
 };
 
+type GameRecoveryServiceMock = {
+  recoverOrThrow: jest.Mock;
+};
+
 describe('GameCommandsService', () => {
   let service: GameCommandsService;
   let gameStateService: GameStateServiceMock;
   let observabilityService: ObservabilityServiceMock;
   let gameSnapshotService: GameSnapshotServiceMock;
+  let gameRecoveryService: GameRecoveryServiceMock;
 
   const state: GameEngineState = createGameEngineState({
     phase: 'awaiting_roll',
@@ -46,10 +52,15 @@ describe('GameCommandsService', () => {
       createSnapshotAfterCommand: jest.fn().mockResolvedValue(undefined),
     };
 
+    gameRecoveryService = {
+      recoverOrThrow: jest.fn().mockResolvedValue(state),
+    };
+
     service = new GameCommandsService(
       gameStateService as unknown as GameStateService,
       observabilityService as unknown as ObservabilityService,
       gameSnapshotService as unknown as GameSnapshotService,
+      gameRecoveryService as unknown as GameRecoveryService,
     );
   });
 
@@ -159,6 +170,44 @@ describe('GameCommandsService', () => {
     );
   });
 
+  it('recovers missing Redis state once and retries command', async () => {
+    gameStateService.update
+      .mockRejectedValueOnce(new NotFoundException('Game state not found'))
+      .mockImplementationOnce(async (_gameId, updater) => updater(state));
+
+    const result = await service.rollAndMove({
+      gameId: 'game-1',
+      roomPlayerId: 'room-player-1',
+      dice: [1, 2],
+    });
+
+    expect(gameRecoveryService.recoverOrThrow).toHaveBeenCalledWith('game-1');
+    expect(gameStateService.update).toHaveBeenCalledTimes(2);
+    expect(result).toMatchObject({
+      intentType: 'roll_and_move',
+      state: {
+        phase: 'awaiting_property_decision',
+      },
+    });
+  });
+
+  it('does not retry command after recovery already happened', async () => {
+    gameStateService.update.mockRejectedValue(
+      new NotFoundException('Game state not found'),
+    );
+
+    await expect(
+      service.rollAndMove({
+        gameId: 'game-1',
+        roomPlayerId: 'room-player-1',
+        dice: [1, 2],
+      }),
+    ).rejects.toBeInstanceOf(NotFoundException);
+
+    expect(gameRecoveryService.recoverOrThrow).toHaveBeenCalledTimes(1);
+    expect(gameStateService.update).toHaveBeenCalledTimes(2);
+  });
+
   it('returns command result when snapshot creation fails', async () => {
     gameSnapshotService.createSnapshotAfterCommand.mockRejectedValue(
       new Error('snapshot failed'),
@@ -197,6 +246,7 @@ describe('GameCommandsService', () => {
     ).rejects.toThrow(BadRequestException);
 
     expect(gameStateService.update).not.toHaveBeenCalled();
+    expect(gameRecoveryService.recoverOrThrow).not.toHaveBeenCalled();
     expect(
       gameSnapshotService.createSnapshotAfterCommand,
     ).not.toHaveBeenCalled();
@@ -218,6 +268,7 @@ describe('GameCommandsService', () => {
       }),
     ).rejects.toThrow(error);
 
+    expect(gameRecoveryService.recoverOrThrow).not.toHaveBeenCalled();
     expect(
       gameSnapshotService.createSnapshotAfterCommand,
     ).not.toHaveBeenCalled();

@@ -5,7 +5,7 @@ export const GAME_STATE = {
 } as const;
 
 export const GAME_SNAPSHOTS = {
-  everyNTurns: 5,
+  everyNTurns: 1,
 } as const;
 
 export const GAME_TURN_TIMER = {

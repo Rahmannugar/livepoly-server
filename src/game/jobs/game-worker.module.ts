@@ -10,6 +10,7 @@ import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import { GameBotService } from '../bots/game-bot.service';
 import { GameCommandsService } from '../commands/game-commands.service';
 import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
+import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameSnapshotRepository } from '../snapshots/game-snapshots.repository';
 import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameStateService } from '../state/game-state.service';
@@ -36,6 +37,7 @@ import { GameProcessor } from './game.processor';
     GameTurnTimerQueueService,
     GameSnapshotRepository,
     GameSnapshotService,
+    GameRecoveryService,
     GameProcessor,
   ],
 })

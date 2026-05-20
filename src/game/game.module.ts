@@ -12,10 +12,11 @@ import { GameCommandsService } from './commands/game-commands.service';
 import { GameAccessRepository } from './realtime/game-access.repository';
 import { GameRealtimePublisher } from './realtime/game-realtime.publisher';
 import { GameGateway } from './realtime/game.gateway';
-import { GameStateService } from './state/game-state.service';
-import { GameTurnTimerQueueService } from './timers/game-turn-timer-queue.service';
+import { GameRecoveryService } from './recovery/game-recovery.service';
 import { GameSnapshotRepository } from './snapshots/game-snapshots.repository';
 import { GameSnapshotService } from './snapshots/game-snapshots.service';
+import { GameStateService } from './state/game-state.service';
+import { GameTurnTimerQueueService } from './timers/game-turn-timer-queue.service';
 
 @Module({
   imports: [
@@ -34,9 +35,10 @@ import { GameSnapshotService } from './snapshots/game-snapshots.service';
     GameBotService,
     GameBotQueueService,
     GameTurnTimerQueueService,
-    GameGateway,
     GameSnapshotRepository,
     GameSnapshotService,
+    GameRecoveryService,
+    GameGateway,
   ],
   exports: [
     GameStateService,
@@ -44,6 +46,7 @@ import { GameSnapshotService } from './snapshots/game-snapshots.service';
     GameBotQueueService,
     GameTurnTimerQueueService,
     GameSnapshotService,
+    GameRecoveryService,
   ],
 })
 export class GameModule {}

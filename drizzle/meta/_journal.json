@@ -92,6 +92,13 @@
       "when": 1779163895321,
       "tag": "0012_drop_push_subscriptions",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1779251091390,
+      "tag": "0013_add_game_snapshots",
+      "breakpoints": true
     }
   ]
 }

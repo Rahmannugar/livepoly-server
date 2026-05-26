@@ -1,15 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
-import { PubSubService } from '../../infra/pubsub/pubsub.service';
-import type { PubSubPayload } from '../../infra/pubsub/pubsub.types';
+import { RealtimeEmitterService } from '../../infra/realtime/realtime-emitter.service';
 import type { GameCommandResult } from '../commands/game-commands.types';
-import { GAME_EVENTS, GAME_METRICS, GAME_REALTIME } from '../game.constants';
-import type { GameRealtimePubSubMessage } from './game-realtime.types';
+import {
+  GAME_EVENTS,
+  GAME_METRICS,
+  GAME_SOCKET_EVENTS,
+} from '../game.constants';
+import type { GameEventsEvent, GameStateEvent } from './game-realtime.types';
+
+const GAME_SOCKET_NAMESPACE = '/game';
 
 @Injectable()
 export class GameRealtimePublisher {
   constructor(
-    private readonly pubSubService: PubSubService,
+    private readonly realtimeEmitterService: RealtimeEmitterService,
     private readonly observabilityService: ObservabilityService,
   ) {}
 
@@ -17,17 +22,29 @@ export class GameRealtimePublisher {
     gameId: string,
     result: GameCommandResult,
   ): Promise<void> {
-    const message: GameRealtimePubSubMessage = {
-      type: 'game_command_result',
-      gameId,
-      state: result.state,
-      events: result.events,
-    };
+    const room = this.gameRoom(gameId);
 
-    await this.pubSubService.publish(
-      GAME_REALTIME.channel,
-      message as unknown as PubSubPayload,
+    this.realtimeEmitterService.emitToRoom(
+      GAME_SOCKET_NAMESPACE,
+      room,
+      GAME_SOCKET_EVENTS.state,
+      {
+        gameId,
+        state: result.state,
+      } satisfies GameStateEvent,
     );
+
+    if (result.events.length > 0) {
+      this.realtimeEmitterService.emitToRoom(
+        GAME_SOCKET_NAMESPACE,
+        room,
+        GAME_SOCKET_EVENTS.events,
+        {
+          gameId,
+          events: result.events,
+        } satisfies GameEventsEvent,
+      );
+    }
 
     this.observabilityService.recordEvent(GAME_EVENTS.realtimePublished, {
       gameId,
@@ -37,5 +54,9 @@ export class GameRealtimePublisher {
     });
 
     this.observabilityService.recordMetric(GAME_METRICS.realtimePublished);
+  }
+
+  private gameRoom(gameId: string): string {
+    return `game:${gameId}`;
   }
 }

@@ -4,13 +4,14 @@ import { AuthModule } from '../auth/auth.module';
 import { CacheModule } from '../infra/cache/cache.module';
 import { DatabaseModule } from '../infra/database/database.module';
 import { ObservabilityModule } from '../infra/observability/observability.module';
-import { PubSubModule } from '../infra/pubsub/pubsub.module';
 import { QUEUES } from '../infra/queue/queue.constants';
+import { RealtimeModule } from '../infra/realtime/realtime.module';
 import { GameBotQueueService } from './bots/game-bot-queue.service';
 import { GameBotService } from './bots/game-bot.service';
 import { GameCommandsService } from './commands/game-commands.service';
 import { GameAccessRepository } from './realtime/game-access.repository';
 import { GameRealtimePublisher } from './realtime/game-realtime.publisher';
+import { GameRealtimeService } from './realtime/game-realtime.service';
 import { GameGateway } from './realtime/game.gateway';
 import { GameRecoveryService } from './recovery/game-recovery.service';
 import { GameResultsRepository } from './results/game-results.repository';
@@ -27,13 +28,14 @@ import { GameTurnTimerQueueService } from './timers/game-turn-timer-queue.servic
     CacheModule,
     DatabaseModule,
     ObservabilityModule,
-    PubSubModule,
+    RealtimeModule,
   ],
   providers: [
     GameStateService,
     GameCommandsService,
     GameAccessRepository,
     GameRealtimePublisher,
+    GameRealtimeService,
     GameBotService,
     GameBotQueueService,
     GameTurnTimerQueueService,

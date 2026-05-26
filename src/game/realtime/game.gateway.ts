@@ -1,4 +1,3 @@
-import { OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import {
@@ -8,45 +7,22 @@ import {
   OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
-  WebSocketServer,
   WsException,
 } from '@nestjs/websockets';
-import { Server } from 'socket.io';
 import { AuthRepository } from '../../auth/auth.repository';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { ObservabilityService } from '../../infra/observability/observability.service';
-import { PubSubService } from '../../infra/pubsub/pubsub.service';
-import type {
-  PubSubPayload,
-  PubSubSubscription,
-} from '../../infra/pubsub/pubsub.types';
-import { GameBotQueueService } from '../bots/game-bot-queue.service';
-import type { GameCommandResult } from '../commands/game-commands.types';
-import { GameCommandsService } from '../commands/game-commands.service';
-import {
-  GameEngineError,
-  type GameEngineEvent,
-} from '../engine/game-engine.types';
-import {
-  GAME_EVENTS,
-  GAME_METRICS,
-  GAME_REALTIME,
-  GAME_SOCKET_EVENTS,
-} from '../game.constants';
-import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
-import { GameAccessRepository } from './game-access.repository';
+import { GameEngineError } from '../engine/game-engine.types';
+import { GAME_EVENTS, GAME_SOCKET_EVENTS } from '../game.constants';
+import { GameRealtimeService } from './game-realtime.service';
 import {
   type AuthenticatedGameSocket,
   type EndTurnPayload,
   type GameCommandRejectedEvent,
   type GameErrorEvent,
-  type GameEventsEvent,
-  type GameRealtimePubSubMessage,
-  type GameStateEvent,
   type JoinGamePayload,
   type RollAndMovePayload,
 } from './game-realtime.types';
-import { GameRealtimePublisher } from './game-realtime.publisher';
 
 type AccessTokenPayload = {
   sub: string;
@@ -63,46 +39,19 @@ type AccessTokenPayload = {
     credentials: true,
   },
 })
-export class GameGateway
-  implements
-    OnModuleInit,
-    OnModuleDestroy,
-    OnGatewayConnection,
-    OnGatewayDisconnect
-{
-  @WebSocketServer()
-  private readonly server: Server;
-
-  private realtimeSubscription: PubSubSubscription | null = null;
-
+export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
-    private readonly gameCommandsService: GameCommandsService,
+    private readonly gameRealtimeService: GameRealtimeService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly authRepository: AuthRepository,
     private readonly observabilityService: ObservabilityService,
-    private readonly gameAccessRepository: GameAccessRepository,
-    private readonly pubSubService: PubSubService,
-    private readonly gameRealtimePublisher: GameRealtimePublisher,
-    private readonly gameBotQueueService: GameBotQueueService,
-    private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
   ) {}
-
-  async onModuleInit(): Promise<void> {
-    this.realtimeSubscription = await this.pubSubService.subscribe(
-      GAME_REALTIME.channel,
-      (payload) => this.handleRealtimeMessage(payload),
-    );
-  }
-
-  async onModuleDestroy(): Promise<void> {
-    await this.realtimeSubscription?.unsubscribe();
-    this.realtimeSubscription = null;
-  }
 
   async handleConnection(socket: AuthenticatedGameSocket): Promise<void> {
     try {
       socket.data.user = await this.authenticate(socket);
+
       this.observabilityService.recordEvent(GAME_EVENTS.socketConnected, {
         socketId: socket.id,
         userId: socket.data.user.id,
@@ -133,26 +82,30 @@ export class GameGateway
     this.assertAuthenticated(socket);
     this.assertGameId(payload.gameId);
 
-    const player = await this.assertPlayerCanAccessGame(
-      payload.gameId,
-      socket.data.user.id,
-    );
-
-    await socket.join(this.gameRoom(payload.gameId));
-
-    this.observabilityService.recordEvent(GAME_EVENTS.socketJoined, {
-      socketId: socket.id,
-      userId: socket.data.user.id,
-      gameId: payload.gameId,
-    });
-
-    return {
-      event: GAME_SOCKET_EVENTS.joined,
-      data: {
+    try {
+      const player = await this.gameRealtimeService.joinGame({
         gameId: payload.gameId,
-        roomPlayerId: player.roomPlayerId,
-      },
-    };
+        userId: socket.data.user.id,
+      });
+
+      await socket.join(this.gameRoom(payload.gameId));
+
+      this.observabilityService.recordEvent(GAME_EVENTS.socketJoined, {
+        socketId: socket.id,
+        userId: socket.data.user.id,
+        gameId: payload.gameId,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.joined,
+        data: {
+          gameId: payload.gameId,
+          roomPlayerId: player.roomPlayerId,
+        },
+      };
+    } catch (error) {
+      throw this.toWsException(error);
+    }
   }
 
   @SubscribeMessage(GAME_SOCKET_EVENTS.rollAndMove)
@@ -164,18 +117,11 @@ export class GameGateway
     this.assertGameId(payload.gameId);
 
     try {
-      const player = await this.assertPlayerCanAccessGame(
-        payload.gameId,
-        socket.data.user.id,
-      );
-
-      const result = await this.gameCommandsService.rollAndMove({
+      const result = await this.gameRealtimeService.rollAndMove({
         gameId: payload.gameId,
-        roomPlayerId: player.roomPlayerId,
+        userId: socket.data.user.id,
         dice: payload.dice,
       });
-
-      await this.afterCommandSucceeded(payload.gameId, result);
 
       return {
         event: GAME_SOCKET_EVENTS.state,
@@ -206,17 +152,10 @@ export class GameGateway
     this.assertGameId(payload.gameId);
 
     try {
-      const player = await this.assertPlayerCanAccessGame(
-        payload.gameId,
-        socket.data.user.id,
-      );
-
-      const result = await this.gameCommandsService.endTurn({
+      const result = await this.gameRealtimeService.endTurn({
         gameId: payload.gameId,
-        roomPlayerId: player.roomPlayerId,
+        userId: socket.data.user.id,
       });
-
-      await this.afterCommandSucceeded(payload.gameId, result);
 
       return {
         event: GAME_SOCKET_EVENTS.state,
@@ -236,115 +175,6 @@ export class GameGateway
 
       throw this.toWsException(error);
     }
-  }
-
-  private async afterCommandSucceeded(
-    gameId: string,
-    result: GameCommandResult,
-  ): Promise<void> {
-    await this.publishRealtimeBestEffort(gameId, result);
-    await this.enqueueBotBestEffort(gameId, result);
-    await this.enqueueTurnTimerBestEffort(gameId, result);
-  }
-
-  private async publishRealtimeBestEffort(
-    gameId: string,
-    result: GameCommandResult,
-  ): Promise<void> {
-    try {
-      await this.gameRealtimePublisher.publishCommandResult(gameId, result);
-    } catch (error) {
-      this.observabilityService.recordEvent(GAME_EVENTS.realtimePublishFailed, {
-        gameId,
-        phase: result.state.phase,
-        turnNumber: result.state.turnNumber,
-        errorName: error instanceof Error ? error.name : undefined,
-      });
-
-      this.observabilityService.recordMetric(
-        GAME_METRICS.realtimePublishFailed,
-      );
-    }
-  }
-
-  private async enqueueBotBestEffort(
-    gameId: string,
-    result: GameCommandResult,
-  ): Promise<void> {
-    try {
-      await this.gameBotQueueService.enqueueIfBotCanAct(gameId, result.state);
-    } catch (error) {
-      this.observabilityService.recordEvent(GAME_EVENTS.botTurnFailed, {
-        gameId,
-        phase: result.state.phase,
-        turnNumber: result.state.turnNumber,
-        reason: 'queue_failed',
-        errorName: error instanceof Error ? error.name : undefined,
-      });
-
-      this.observabilityService.recordMetric(GAME_METRICS.botTurnFailed);
-    }
-  }
-
-  private async enqueueTurnTimerBestEffort(
-    gameId: string,
-    result: GameCommandResult,
-  ): Promise<void> {
-    try {
-      await this.gameTurnTimerQueueService.enqueueTurnTimer(
-        gameId,
-        result.state,
-      );
-    } catch (error) {
-      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerFailed, {
-        gameId,
-        phase: result.state.phase,
-        turnNumber: result.state.turnNumber,
-        reason: 'queue_failed',
-        errorName: error instanceof Error ? error.name : undefined,
-      });
-
-      this.observabilityService.recordMetric(GAME_METRICS.turnTimerFailed);
-    }
-  }
-
-  private handleRealtimeMessage(payload: PubSubPayload): void {
-    if (!this.isGameRealtimePubSubMessage(payload)) {
-      return;
-    }
-
-    this.broadcastState(payload.gameId, payload.state);
-    this.broadcastEvents(payload.gameId, payload.events);
-  }
-
-  private isGameRealtimePubSubMessage(
-    payload: PubSubPayload,
-  ): payload is PubSubPayload & GameRealtimePubSubMessage {
-    return (
-      payload.type === 'game_command_result' &&
-      typeof payload.gameId === 'string' &&
-      typeof payload.state === 'object' &&
-      payload.state !== null &&
-      Array.isArray(payload.events)
-    );
-  }
-
-  private broadcastState(gameId: string, state: GameStateEvent['state']): void {
-    this.server.to(this.gameRoom(gameId)).emit(GAME_SOCKET_EVENTS.state, {
-      gameId,
-      state,
-    } satisfies GameStateEvent);
-  }
-
-  private broadcastEvents(gameId: string, events: GameEngineEvent[]): void {
-    if (events.length === 0) {
-      return;
-    }
-
-    this.server.to(this.gameRoom(gameId)).emit(GAME_SOCKET_EVENTS.events, {
-      gameId,
-      events,
-    } satisfies GameEventsEvent);
   }
 
   private emitCommandRejected(
@@ -379,24 +209,6 @@ export class GameGateway
     return {
       message: 'Game command failed',
     };
-  }
-
-  private async assertPlayerCanAccessGame(gameId: string, userId: string) {
-    const player = await this.gameAccessRepository.findActivePlayerForGame(
-      gameId,
-      userId,
-    );
-
-    if (!player) {
-      this.observabilityService.recordEvent(GAME_EVENTS.socketAccessDenied, {
-        gameId,
-        userId,
-      });
-
-      throw new WsException('Game access denied');
-    }
-
-    return player;
   }
 
   private async authenticate(

@@ -52,10 +52,3 @@ export type GameErrorEvent = {
   message: string;
   code?: string;
 };
-
-export type GameRealtimePubSubMessage = {
-  type: 'game_command_result';
-  gameId: string;
-  state: GameEngineState;
-  events: GameEngineEvent[];
-};

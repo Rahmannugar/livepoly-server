@@ -1,12 +1,12 @@
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
-import type { PubSubService } from '../../../infra/pubsub/pubsub.service';
+import type { RealtimeEmitterService } from '../../../infra/realtime/realtime-emitter.service';
 import type { GameCommandResult } from '../../commands/game-commands.types';
 import type { GameEngineState } from '../../engine/game-engine.types';
-import { GAME_REALTIME } from '../../game.constants';
+import { GAME_SOCKET_EVENTS } from '../../game.constants';
 import { GameRealtimePublisher } from '../game-realtime.publisher';
 
-type PubSubServiceMock = {
-  publish: jest.Mock;
+type RealtimeEmitterServiceMock = {
+  emitToRoom: jest.Mock;
 };
 
 type ObservabilityServiceMock = {
@@ -16,7 +16,7 @@ type ObservabilityServiceMock = {
 
 describe('GameRealtimePublisher', () => {
   let publisher: GameRealtimePublisher;
-  let pubSubService: PubSubServiceMock;
+  let realtimeEmitterService: RealtimeEmitterServiceMock;
   let observabilityService: ObservabilityServiceMock;
 
   const state: GameEngineState = {
@@ -63,8 +63,8 @@ describe('GameRealtimePublisher', () => {
   };
 
   beforeEach(() => {
-    pubSubService = {
-      publish: jest.fn().mockResolvedValue(undefined),
+    realtimeEmitterService = {
+      emitToRoom: jest.fn(),
     };
 
     observabilityService = {
@@ -73,19 +73,49 @@ describe('GameRealtimePublisher', () => {
     };
 
     publisher = new GameRealtimePublisher(
-      pubSubService as unknown as PubSubService,
+      realtimeEmitterService as unknown as RealtimeEmitterService,
       observabilityService as unknown as ObservabilityService,
     );
   });
 
-  it('publishes command results to the realtime channel', async () => {
+  it('emits state and events to the game socket room', async () => {
     await publisher.publishCommandResult('game-1', result);
 
-    expect(pubSubService.publish).toHaveBeenCalledWith(GAME_REALTIME.channel, {
-      type: 'game_command_result',
-      gameId: 'game-1',
-      state,
-      events: result.events,
+    expect(realtimeEmitterService.emitToRoom).toHaveBeenCalledWith(
+      '/game',
+      'game:game-1',
+      GAME_SOCKET_EVENTS.state,
+      {
+        gameId: 'game-1',
+        state,
+      },
+    );
+    expect(realtimeEmitterService.emitToRoom).toHaveBeenCalledWith(
+      '/game',
+      'game:game-1',
+      GAME_SOCKET_EVENTS.events,
+      {
+        gameId: 'game-1',
+        events: result.events,
+      },
+    );
+  });
+
+  it('does not emit events when there are no events', async () => {
+    await publisher.publishCommandResult('game-1', {
+      ...result,
+      events: [],
     });
+
+    expect(realtimeEmitterService.emitToRoom).toHaveBeenCalledTimes(1);
+    expect(realtimeEmitterService.emitToRoom).toHaveBeenCalledWith(
+      '/game',
+      'game:game-1',
+      GAME_SOCKET_EVENTS.state,
+      {
+        gameId: 'game-1',
+        state,
+      },
+    );
   });
 });

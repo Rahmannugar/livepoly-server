@@ -5,6 +5,7 @@ import { Logger } from 'nestjs-pino';
 import { AppModule } from './app.module';
 import { configureApp } from './bootstrap';
 import { SERVER_TIMEOUTS } from './config/app.constants';
+import { SocketIoAdapter } from './infra/realtime/socket-io.adapter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
@@ -13,8 +14,10 @@ async function bootstrap() {
 
   const configService = app.get(ConfigService);
   const logger = app.get(Logger);
+
   app.useLogger(logger);
   app.enableShutdownHooks();
+  app.useWebSocketAdapter(new SocketIoAdapter(app, configService));
 
   configureApp(app);
 
@@ -28,4 +31,5 @@ async function bootstrap() {
   await app.listen(port);
   logger.log(`LivePoly server listening on port ${port}`);
 }
-bootstrap();
+
+void bootstrap();

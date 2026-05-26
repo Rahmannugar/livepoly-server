@@ -83,10 +83,6 @@ export const GAME_SOCKET_EVENTS = {
   error: 'game:error',
 } as const;
 
-export const GAME_REALTIME = {
-  channel: 'game:realtime',
-} as const;
-
 export const GAME_EVENTS = {
   stateMissing: 'GameStateMissing',
   stateSaved: 'GameStateSaved',

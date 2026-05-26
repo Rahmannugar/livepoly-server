@@ -67,6 +67,10 @@ export const NotificationsDocs = {
       }),
       ApiOkResponse({ type: NotificationsPageResponseDto }),
       ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Notification list query failed validation',
+      }),
+      ApiResponse({
         status: HttpStatus.UNAUTHORIZED,
         description: 'Authentication required',
       }),

@@ -6,7 +6,7 @@ const envSchema = z
       .enum(['development', 'test', 'production'])
       .default('development'),
     PORT: z.coerce.number().int().positive().max(65535).default(3002),
-    DATABASE_URL: z.string().url(),
+    DATABASE_URL: z.url(),
     NEW_RELIC_ENABLED: z
       .enum(['true', 'false'])
       .default('false')

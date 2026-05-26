@@ -1,8 +1,9 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { HttpStatus, INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { HttpRouteContract } from './common/http/http-route-contract';
 import { ApiResponseInterceptor } from './common/interceptors/api-response.interceptor';
 import {
   API_DOCUMENTATION,
@@ -14,22 +15,24 @@ import {
 export function configureApp(app: INestApplication): void {
   app.setGlobalPrefix(API_PREFIX);
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
+
   app.use(helmet());
   app.enableCors({
     origin: CORS_ORIGINS,
     credentials: true,
   });
   app.use(cookieParser());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
       transform: true,
+      errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY,
     }),
   );
 
   app.useGlobalInterceptors(new ApiResponseInterceptor());
-  app.useGlobalFilters(new AllExceptionsFilter());
 
   const apiPublicUrl =
     process.env.API_PUBLIC_URL ||
@@ -70,6 +73,15 @@ export function configureApp(app: INestApplication): void {
     app,
     documentBuilder.build(),
   );
+
+  const httpRouteContract = new HttpRouteContract(swaggerDocument, [
+    {
+      path: `/${API_PREFIX}/openapi.json`,
+      methods: ['GET', 'HEAD'],
+    },
+  ]);
+
+  app.useGlobalFilters(new AllExceptionsFilter(httpRouteContract));
 
   app
     .getHttpAdapter()

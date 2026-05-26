@@ -6,29 +6,50 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { Response } from 'express';
+import { HttpRouteContract } from '../http/http-route-contract';
 import { RequestWithId } from '../types/request-with-id';
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
+  constructor(private readonly httpRouteContract?: HttpRouteContract) {}
+
   catch(exception: unknown, host: ArgumentsHost): void {
     const context = host.switchToHttp();
     const response = context.getResponse<Response>();
     const request = context.getRequest<RequestWithId>();
 
-    const status =
+    const originalStatus =
       exception instanceof HttpException
         ? exception.getStatus()
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
+    const allowedMethods =
+      originalStatus === HttpStatus.NOT_FOUND
+        ? this.httpRouteContract?.isUnsupportedMethod(
+            request.path,
+            request.method,
+          )
+        : null;
+
+    const status = allowedMethods
+      ? HttpStatus.METHOD_NOT_ALLOWED
+      : originalStatus;
+
     const exceptionResponse =
       exception instanceof HttpException ? exception.getResponse() : undefined;
+
+    if (allowedMethods) {
+      response.setHeader('Allow', allowedMethods.join(', '));
+    }
 
     response.status(status).json({
       success: false,
       error: {
         code: this.resolveCode(status),
         statusCode: status,
-        message: this.resolveMessage(exceptionResponse, exception),
+        message: allowedMethods
+          ? 'Method not allowed'
+          : this.resolveMessage(exceptionResponse, exception),
       },
       meta: {
         requestId: request.requestId,

@@ -36,6 +36,10 @@ export const RoomsDocs = {
       }),
       ApiCreatedResponse({ type: RoomResponseDto }),
       ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Room creation request body failed validation',
+      }),
+      ApiResponse({
         status: HttpStatus.CONFLICT,
         description: 'User is already in a waiting or active room',
       }),
@@ -134,6 +138,10 @@ export const RoomsDocs = {
       ApiResponse({
         status: HttpStatus.BAD_REQUEST,
         description: 'Cannot invite yourself',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Room invite request body failed validation',
       }),
       ApiResponse({
         status: HttpStatus.CONFLICT,

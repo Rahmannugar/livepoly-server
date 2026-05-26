@@ -73,7 +73,7 @@ export class UsersController {
   }
 
   @UsersDocs.GetByUsername()
-  @UseGuards(RateLimitGuard)
+  @UseGuards(AuthGuard, RateLimitGuard)
   @RateLimit(...USERS_RATE_LIMIT_RULES.getByUsername)
   @Get(':username')
   @HttpCode(HttpStatus.OK)

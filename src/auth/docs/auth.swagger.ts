@@ -81,6 +81,10 @@ export const AuthDocs = {
         status: HttpStatus.CONFLICT,
         description: 'Email or username already exists',
       }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Signup request body failed validation',
+      }),
     ),
 
   VerifyEmail: () =>
@@ -101,6 +105,10 @@ export const AuthDocs = {
       ApiOkResponse({
         description: 'Email verified',
         ...messageResponseSchema('Email verified'),
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Email verification request body failed validation',
       }),
     ),
 
@@ -125,6 +133,10 @@ export const AuthDocs = {
           'If this email belongs to a LivePoly account, a verification code will be sent',
         ),
       }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Verification resend request body failed validation',
+      }),
     ),
 
   Login: () =>
@@ -145,6 +157,10 @@ export const AuthDocs = {
       ApiOkResponse({
         description: 'Access token returned and refresh cookie set',
         type: AuthTokenResponseDto,
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Login request body failed validation',
       }),
     ),
 
@@ -189,6 +205,10 @@ export const AuthDocs = {
           'If this email belongs to a LivePoly account, a password reset code will be sent',
         ),
       }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Password reset request body failed validation',
+      }),
     ),
 
   ResetPassword: () =>
@@ -210,6 +230,10 @@ export const AuthDocs = {
       ApiOkResponse({
         description: 'Password reset successful',
         ...messageResponseSchema('Password reset successful'),
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'New password request body failed validation',
       }),
     ),
 

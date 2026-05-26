@@ -53,7 +53,11 @@ export const UsersDocs = {
       ApiOkResponse({ type: UserProfileResponseDto }),
       ApiResponse({
         status: HttpStatus.BAD_REQUEST,
-        description: 'Invalid or empty profile update',
+        description: 'No profile updates provided',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Profile update body failed validation',
       }),
       ApiResponse({
         status: HttpStatus.CONFLICT,
@@ -98,8 +102,8 @@ export const UsersDocs = {
       }),
       ApiOkResponse({ type: AvatarUploadUrlResponseDto }),
       ApiResponse({
-        status: HttpStatus.BAD_REQUEST,
-        description: 'Invalid avatar upload request',
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Avatar upload request body failed validation',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,
@@ -109,6 +113,7 @@ export const UsersDocs = {
 
   GetByUsername: () =>
     applyDecorators(
+      ApiBearerAuth('accessToken'),
       ApiOperation({ summary: 'Get user profile by username' }),
       ApiParam({
         name: 'username',
@@ -118,6 +123,10 @@ export const UsersDocs = {
       ApiResponse({
         status: HttpStatus.NOT_FOUND,
         description: 'User not found',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
       }),
     ),
 };

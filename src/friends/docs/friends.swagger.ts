@@ -39,6 +39,10 @@ export const FriendsDocs = {
         description: 'Cannot send friend request to yourself',
       }),
       ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Friend request body failed validation',
+      }),
+      ApiResponse({
         status: HttpStatus.CONFLICT,
         description: 'Friendship already exists',
       }),

@@ -1,4 +1,8 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import type { GameCommandResult } from '../commands/game-commands.types';
@@ -8,6 +12,7 @@ import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import { GameAccessRepository } from './game-access.repository';
 import { GameRealtimePublisher } from './game-realtime.publisher';
+import { AuthRepository } from '../../auth/auth.repository';
 
 type GameActorInput = {
   gameId: string;
@@ -21,6 +26,7 @@ type RollAndMoveInput = GameActorInput & {
 @Injectable()
 export class GameRealtimeService {
   constructor(
+    private readonly authRepository: AuthRepository,
     private readonly gameAccessRepository: GameAccessRepository,
     private readonly gameCommandsService: GameCommandsService,
     private readonly gameRealtimePublisher: GameRealtimePublisher,
@@ -28,6 +34,39 @@ export class GameRealtimeService {
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
     private readonly observabilityService: ObservabilityService,
   ) {}
+
+  private async requireActivePlayer(input: GameActorInput) {
+    await this.requireActiveAccount(input.userId);
+
+    const player = await this.gameAccessRepository.findActivePlayerForGame(
+      input.gameId,
+      input.userId,
+    );
+
+    if (!player) {
+      this.observabilityService.recordEvent(GAME_EVENTS.socketAccessDenied, {
+        gameId: input.gameId,
+        userId: input.userId,
+      });
+
+      throw new ForbiddenException('Game access denied');
+    }
+
+    return player;
+  }
+
+  private async requireActiveAccount(userId: string): Promise<void> {
+    const user = await this.authRepository.findUserByIdForAuthToken(userId);
+
+    if (
+      !user ||
+      !user.emailVerified ||
+      user.status !== 'active' ||
+      user.deletedAt
+    ) {
+      throw new UnauthorizedException('Authentication required');
+    }
+  }
 
   async joinGame(input: GameActorInput) {
     const player = await this.requireActivePlayer(input);
@@ -62,24 +101,6 @@ export class GameRealtimeService {
     await this.afterHumanCommandSucceeded(input.gameId, result);
 
     return result;
-  }
-
-  private async requireActivePlayer(input: GameActorInput) {
-    const player = await this.gameAccessRepository.findActivePlayerForGame(
-      input.gameId,
-      input.userId,
-    );
-
-    if (!player) {
-      this.observabilityService.recordEvent(GAME_EVENTS.socketAccessDenied, {
-        gameId: input.gameId,
-        userId: input.userId,
-      });
-
-      throw new ForbiddenException('Game access denied');
-    }
-
-    return player;
   }
 
   private async afterHumanCommandSucceeded(

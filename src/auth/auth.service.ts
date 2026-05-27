@@ -58,6 +58,8 @@ export class AuthService {
       id: string;
       email: string;
       username: string;
+      role: 'player' | 'admin';
+      status: 'active' | 'suspended';
       tokenVersion: number;
     },
     context: AuthRequestContext,
@@ -179,6 +181,8 @@ export class AuthService {
           id: emailUser.id,
           email: emailUser.email,
           username: emailUser.username,
+          role: emailUser.role,
+          status: emailUser.status,
           tokenVersion: emailUser.tokenVersion,
         };
       }
@@ -407,7 +411,7 @@ export class AuthService {
         hasIp: Boolean(context.ip),
       });
 
-      throw new BadRequestException('Invalid email or password');
+      throw new UnauthorizedException('Invalid email or password');
     }
 
     const passwordValid = await verifyPassword(user.passwordHash, dto.password);
@@ -419,7 +423,7 @@ export class AuthService {
         hasIp: Boolean(context.ip),
       });
 
-      throw new BadRequestException('Invalid email or password');
+      throw new UnauthorizedException('Invalid email or password');
     }
 
     if (!user.emailVerified) {
@@ -429,7 +433,17 @@ export class AuthService {
         hasIp: Boolean(context.ip),
       });
 
-      throw new BadRequestException('Email verification required');
+      throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.status !== 'active') {
+      this.recordSecurityEvent(AUTH_EVENTS.loginFailed, {
+        reason: 'account_suspended',
+        userId: user.id,
+        hasIp: Boolean(context.ip),
+      });
+
+      throw new UnauthorizedException('Invalid email or password');
     }
 
     const result = await this.createSessionForUser(
@@ -437,6 +451,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        role: user.role,
+        status: user.status,
         tokenVersion: user.tokenVersion,
       },
       context,
@@ -505,10 +521,28 @@ export class AuthService {
       session.userId,
     );
 
-    if (!user?.emailVerified) {
+    if (!user || user.deletedAt) {
       this.recordSecurityEvent(AUTH_EVENTS.refreshFailed, {
         reason: 'invalid_user',
         userId: session.userId,
+      });
+
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (!user.emailVerified) {
+      this.recordSecurityEvent(AUTH_EVENTS.refreshFailed, {
+        reason: 'email_unverified',
+        userId: user.id,
+      });
+
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    if (user.status !== 'active') {
+      this.recordSecurityEvent(AUTH_EVENTS.refreshFailed, {
+        reason: 'account_suspended',
+        userId: user.id,
       });
 
       throw new UnauthorizedException('Invalid refresh token');

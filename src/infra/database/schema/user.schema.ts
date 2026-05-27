@@ -22,6 +22,10 @@ export const friendshipStatusEnum = pgEnum('friendship_status', [
   'blocked',
 ]);
 
+export const userRoleEnum = pgEnum('user_role', ['player', 'admin']);
+
+export const userStatusEnum = pgEnum('user_status', ['active', 'suspended']);
+
 export const users = pgTable(
   TABLE_NAMES.users,
   {
@@ -33,6 +37,8 @@ export const users = pgTable(
     tokenVersion: integer('token_version').notNull().default(0),
     avatarObjectKey: text('avatar_object_key'),
     bio: text('bio'),
+    role: userRoleEnum('role').notNull().default('player'),
+    status: userStatusEnum('status').notNull().default('active'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
@@ -40,6 +46,8 @@ export const users = pgTable(
   (table) => [
     uniqueIndex('users_email_unique_idx').on(table.email),
     uniqueIndex('users_username_unique_idx').on(table.username),
+    index('users_role_idx').on(table.role),
+    index('users_status_idx').on(table.status),
     check(
       'users_email_lowercase_chk',
       sql`${table.email} = lower(${table.email})`,

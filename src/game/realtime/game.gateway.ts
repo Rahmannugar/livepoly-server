@@ -228,6 +228,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (
       !user ||
       !user.emailVerified ||
+      user.status !== 'active' ||
       user.deletedAt ||
       user.tokenVersion !== payload.tv
     ) {
@@ -238,6 +239,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       id: user.id,
       email: user.email,
       username: user.username,
+      role: user.role,
+      status: user.status,
       sessionId: payload.sid,
       tokenVersion: user.tokenVersion,
     };

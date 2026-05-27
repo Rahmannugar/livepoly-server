@@ -46,6 +46,7 @@ export class AuthGuard implements CanActivate {
     if (
       !user ||
       !user.emailVerified ||
+      user.status !== 'active' ||
       user.deletedAt ||
       user.tokenVersion !== payload.tv
     ) {
@@ -56,6 +57,8 @@ export class AuthGuard implements CanActivate {
       id: user.id,
       email: user.email,
       username: user.username,
+      role: user.role,
+      status: user.status,
       sessionId: payload.sid,
       tokenVersion: user.tokenVersion,
     };

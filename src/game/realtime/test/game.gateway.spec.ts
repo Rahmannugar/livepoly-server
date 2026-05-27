@@ -47,6 +47,8 @@ describe('GameGateway', () => {
     id: 'user-1',
     email: 'player@example.com',
     username: 'playerone',
+    role: 'player',
+    status: 'active',
     sessionId: 'session-1',
     tokenVersion: 1,
   };
@@ -56,6 +58,8 @@ describe('GameGateway', () => {
     email: authUser.email,
     username: authUser.username,
     emailVerified: true,
+    role: authUser.role,
+    status: authUser.status,
     deletedAt: null,
     tokenVersion: authUser.tokenVersion,
   };
@@ -139,6 +143,23 @@ describe('GameGateway', () => {
       authUser.id,
     );
     expect(socket.data.user).toEqual(authUser);
+  });
+
+  it('disconnects suspended socket auth', async () => {
+    authRepository.findUserByIdForAuthToken.mockResolvedValue({
+      ...authUserRecord,
+      status: 'suspended',
+    });
+
+    const socket = makeSocket();
+
+    await gateway.handleConnection(socket);
+
+    expect(socket.emit).toHaveBeenCalledWith(GAME_SOCKET_EVENTS.error, {
+      message: 'Authentication required',
+    });
+    expect(socket.disconnect).toHaveBeenCalledWith(true);
+    expect(socket.data.user).toBeUndefined();
   });
 
   it('joins the game room after service approval', async () => {

@@ -27,6 +27,8 @@ type FakeUser = {
   username: string;
   passwordHash: string | null;
   emailVerified: boolean;
+  role: 'player' | 'admin';
+  status: 'active' | 'suspended';
   tokenVersion: number;
 };
 
@@ -49,9 +51,12 @@ type AuthUserForSession = {
   id: string;
   email: string;
   username: string;
+  role: 'player' | 'admin';
+  status: 'active' | 'suspended';
   tokenVersion: number;
   emailVerified?: boolean;
   passwordHash?: string | null;
+  deletedAt?: Date | null;
 };
 
 type CreateOAuthUserInput = {
@@ -129,6 +134,36 @@ type AuthRepositoryMock = {
   updatePassword: jest.Mock<
     Promise<{ tokenVersion: number } | undefined>,
     [string, string, Executor?]
+  >;
+  findActiveSessionByRefreshTokenHash: jest.Mock<
+    Promise<{
+      id: string;
+      userId: string;
+      refreshTokenHash: string;
+      expiresAt: Date;
+    } | null>,
+    [string]
+  >;
+  findUserByIdForAuthToken: jest.Mock<
+    Promise<AuthUserForSession | null>,
+    [string]
+  >;
+  rotateSessionRefreshToken: jest.Mock<
+    Promise<{
+      id: string;
+      userId: string;
+      refreshTokenHash: string;
+      expiresAt: Date;
+    } | null>,
+    [
+      {
+        sessionId: string;
+        currentRefreshTokenHash: string;
+        nextRefreshTokenHash: string;
+        expiresAt: Date;
+      },
+      Executor?,
+    ]
   >;
   revokeUserSessions: jest.Mock<Promise<RevokedSession[]>, [string, Executor?]>;
 };
@@ -219,6 +254,8 @@ describe('AuthService', () => {
           id: user.id,
           email: user.email,
           username: user.username,
+          role: user.role,
+          status: user.status,
           tokenVersion: user.tokenVersion,
           emailVerified: user.emailVerified,
         };
@@ -247,6 +284,8 @@ describe('AuthService', () => {
           username: user.username,
           passwordHash: user.passwordHash,
           emailVerified: user.emailVerified,
+          role: user.role,
+          status: user.status,
           tokenVersion: user.tokenVersion,
         };
       }),
@@ -275,6 +314,8 @@ describe('AuthService', () => {
           username: input.username,
           passwordHash: null,
           emailVerified: true,
+          role: 'player',
+          status: 'active',
           tokenVersion: 0,
         };
 
@@ -290,6 +331,8 @@ describe('AuthService', () => {
           id: user.id,
           email: user.email,
           username: user.username,
+          role: user.role,
+          status: user.status,
           tokenVersion: user.tokenVersion,
           emailVerified: user.emailVerified,
         };
@@ -345,6 +388,60 @@ describe('AuthService', () => {
 
         return {
           tokenVersion: user.tokenVersion,
+        };
+      }),
+
+      findActiveSessionByRefreshTokenHash: jest.fn(async (refreshTokenHash) => {
+        const session = sessions.find(
+          (item) =>
+            item.refreshTokenHash === refreshTokenHash && !item.revokedAt,
+        );
+
+        if (!session) return null;
+
+        return {
+          id: session.id,
+          userId: session.userId,
+          refreshTokenHash: session.refreshTokenHash,
+          expiresAt: session.expiresAt,
+        };
+      }),
+
+      findUserByIdForAuthToken: jest.fn(async (userId) => {
+        const user = users.find((item) => item.id === userId);
+
+        if (!user) return null;
+
+        return {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          role: user.role,
+          status: user.status,
+          tokenVersion: user.tokenVersion,
+          emailVerified: user.emailVerified,
+          deletedAt: null,
+        };
+      }),
+
+      rotateSessionRefreshToken: jest.fn(async (input) => {
+        const session = sessions.find(
+          (item) =>
+            item.id === input.sessionId &&
+            item.refreshTokenHash === input.currentRefreshTokenHash &&
+            !item.revokedAt,
+        );
+
+        if (!session) return null;
+
+        session.refreshTokenHash = input.nextRefreshTokenHash;
+        session.expiresAt = input.expiresAt;
+
+        return {
+          id: session.id,
+          userId: session.userId,
+          refreshTokenHash: session.refreshTokenHash,
+          expiresAt: session.expiresAt,
         };
       }),
 
@@ -524,6 +621,8 @@ describe('AuthService', () => {
       username: 'player',
       passwordHash: null,
       emailVerified: true,
+      role: 'player',
+      status: 'active',
       tokenVersion: 2,
     });
 
@@ -570,6 +669,95 @@ describe('AuthService', () => {
     expect(sessions[0].userId).toBe('user-1');
   });
 
+  it('rejects suspended password login', async () => {
+    users.push({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player',
+      passwordHash: 'password-hash',
+      emailVerified: true,
+      role: 'player',
+      status: 'suspended',
+      tokenVersion: 0,
+    });
+
+    await expect(
+      service.login(
+        {
+          email: 'player@example.com',
+          password: 'StrongPass123',
+        },
+        { ip: '127.0.0.1', userAgent: 'jest' },
+      ),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(sessions).toHaveLength(0);
+  });
+
+  it('rejects suspended oauth login', async () => {
+    users.push({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player',
+      passwordHash: null,
+      emailVerified: true,
+      role: 'player',
+      status: 'suspended',
+      tokenVersion: 0,
+    });
+
+    oauthAccounts.push({
+      userId: 'user-1',
+      provider: 'google',
+      providerAccountId: 'google-123',
+      providerEmail: 'player@example.com',
+    });
+
+    oauthClientService.exchangeGoogleCodeForProfile.mockResolvedValue({
+      provider: 'google',
+      providerAccountId: 'google-123',
+      email: 'player@example.com',
+      emailVerified: true,
+      usernameSeed: 'player',
+    });
+
+    await expect(
+      service.handleGoogleOAuthCallback('google-code', 'google-state', {
+        ip: '127.0.0.1',
+        userAgent: 'jest',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(sessions).toHaveLength(0);
+  });
+
+  it('rejects suspended refresh', async () => {
+    users.push({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player',
+      passwordHash: 'password-hash',
+      emailVerified: true,
+      role: 'player',
+      status: 'suspended',
+      tokenVersion: 0,
+    });
+
+    sessions.push({
+      id: 'session-1',
+      userId: 'user-1',
+      refreshTokenHash: 'hashed-token:plain-refresh-token',
+      expiresAt: new Date(Date.now() + 100_000),
+      revokedAt: null,
+    });
+
+    await expect(service.refresh('plain-refresh-token')).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+
+    expect(authRepository.rotateSessionRefreshToken).not.toHaveBeenCalled();
+  });
+
   it('revokes sessions and clears session cache after password reset', async () => {
     users.push({
       id: 'user-1',
@@ -577,6 +765,8 @@ describe('AuthService', () => {
       username: 'player',
       passwordHash: 'old-hash',
       emailVerified: true,
+      role: 'player',
+      status: 'active',
       tokenVersion: 0,
     });
 

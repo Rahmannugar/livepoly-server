@@ -1,4 +1,5 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import type { AuthRepository } from '../../../auth/auth.repository';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import type { GameBotQueueService } from '../../bots/game-bot-queue.service';
 import type { GameCommandsService } from '../../commands/game-commands.service';
@@ -11,6 +12,10 @@ import type { GameEngineState } from '../../engine/game-engine.types';
 
 type GameAccessRepositoryMock = {
   findActivePlayerForGame: jest.Mock;
+};
+
+type AuthRepositoryMock = {
+  findUserByIdForAuthToken: jest.Mock;
 };
 
 type GameCommandsServiceMock = {
@@ -37,6 +42,7 @@ type ObservabilityServiceMock = {
 
 describe('GameRealtimeService', () => {
   let service: GameRealtimeService;
+  let authRepository: AuthRepositoryMock;
   let gameAccessRepository: GameAccessRepositoryMock;
   let gameCommandsService: GameCommandsServiceMock;
   let gameRealtimePublisher: GameRealtimePublisherMock;
@@ -95,6 +101,19 @@ describe('GameRealtimeService', () => {
   };
 
   beforeEach(() => {
+    authRepository = {
+      findUserByIdForAuthToken: jest.fn().mockResolvedValue({
+        id: 'user-1',
+        email: 'player@example.com',
+        username: 'playerone',
+        emailVerified: true,
+        role: 'player',
+        status: 'active',
+        tokenVersion: 1,
+        deletedAt: null,
+      }),
+    };
+
     gameAccessRepository = {
       findActivePlayerForGame: jest.fn().mockResolvedValue(playerAccess),
     };
@@ -125,6 +144,7 @@ describe('GameRealtimeService', () => {
     };
 
     service = new GameRealtimeService(
+      authRepository as unknown as AuthRepository,
       gameAccessRepository as unknown as GameAccessRepository,
       gameCommandsService as unknown as GameCommandsService,
       gameRealtimePublisher as unknown as GameRealtimePublisher,
@@ -132,6 +152,29 @@ describe('GameRealtimeService', () => {
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
       observabilityService as unknown as ObservabilityService,
     );
+  });
+
+  it('rejects already-connected suspended user before live game access', async () => {
+    authRepository.findUserByIdForAuthToken.mockResolvedValue({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'playerone',
+      emailVerified: true,
+      role: 'player',
+      status: 'suspended',
+      tokenVersion: 1,
+      deletedAt: null,
+    });
+
+    await expect(
+      service.joinGame({
+        gameId: 'game-1',
+        userId: 'user-1',
+      }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(gameAccessRepository.findActivePlayerForGame).not.toHaveBeenCalled();
+    expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
   });
 
   it('rejects users who are not active game players', async () => {

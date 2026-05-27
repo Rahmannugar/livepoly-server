@@ -148,6 +148,17 @@ export class AuthService {
     );
 
     if (oauthUser) {
+      if (oauthUser.status !== 'active') {
+        this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
+          provider: profile.provider,
+          reason: 'account_suspended',
+          userId: oauthUser.id,
+          hasIp: Boolean(context.ip),
+        });
+
+        throw new UnauthorizedException('Authentication required');
+      }
+
       await this.authRepository.updateOAuthAccountEmail({
         provider: profile.provider,
         providerAccountId: profile.providerAccountId,
@@ -163,6 +174,17 @@ export class AuthService {
       );
 
       if (emailUser) {
+        if (emailUser.status !== 'active') {
+          this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
+            provider: profile.provider,
+            reason: 'account_suspended',
+            userId: emailUser.id,
+            hasIp: Boolean(context.ip),
+          });
+
+          throw new UnauthorizedException('Authentication required');
+        }
+
         await this.authRepository.linkOAuthAccount(
           {
             userId: emailUser.id,
@@ -484,6 +506,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        role: user.role,
+        status: user.status,
       },
     };
   }
@@ -618,6 +642,8 @@ export class AuthService {
         id: user.id,
         email: user.email,
         username: user.username,
+        role: user.role,
+        status: user.status,
       },
     };
   }

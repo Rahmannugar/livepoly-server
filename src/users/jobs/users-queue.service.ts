@@ -8,6 +8,7 @@ import type {
   DeletedUserCleanupJob,
   VerifyAvatarUploadJob,
 } from './users-jobs.types';
+import { exponentialBackoffWithJitter } from '../../infra/queue/queue-jitter';
 
 @Injectable()
 export class UsersQueueService {
@@ -17,7 +18,7 @@ export class UsersQueueService {
     await this.usersQueue.add(USER_JOBS.cleanupDeletedUser, data, {
       jobId: `cleanup-deleted-user:${data.userId}`,
       attempts: 3,
-      backoff: { type: 'exponential', delay: 10_000 },
+      backoff: exponentialBackoffWithJitter({ delay: 10_000 }),
       removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
       removeOnFail: 100,
     });
@@ -27,7 +28,7 @@ export class UsersQueueService {
     await this.usersQueue.add(USER_JOBS.deleteAvatar, data, {
       jobId: `delete-avatar:${data.objectKey}`,
       attempts: 3,
-      backoff: { type: 'exponential', delay: 10_000 },
+      backoff: exponentialBackoffWithJitter({ delay: 10_000 }),
       removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
       removeOnFail: 100,
     });
@@ -38,7 +39,7 @@ export class UsersQueueService {
       jobId: `verify-avatar-upload:${data.uploadId}`,
       delay: (USER_AVATAR.uploadExpiresInSeconds + 30) * 1000,
       attempts: 3,
-      backoff: { type: 'exponential', delay: 10_000 },
+      backoff: exponentialBackoffWithJitter({ delay: 10_000 }),
       removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
       removeOnFail: 100,
     });

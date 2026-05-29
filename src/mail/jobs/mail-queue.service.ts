@@ -5,6 +5,7 @@ import { MAIL_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import type { SendOtpMailJob } from './mail-jobs.types';
 import { JobsService } from '../../jobs/jobs.service';
 import { JOB_TYPES } from '../../jobs/job.types';
+import { exponentialBackoffWithJitter } from '../../infra/queue/queue-jitter';
 
 @Injectable()
 export class MailQueueService {
@@ -22,10 +23,7 @@ export class MailQueueService {
       },
       {
         attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
-        },
+        backoff: exponentialBackoffWithJitter({ delay: 5_000 }),
         removeOnComplete: true,
         removeOnFail: 100,
       },
@@ -41,10 +39,7 @@ export class MailQueueService {
       },
       {
         attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
-        },
+        backoff: exponentialBackoffWithJitter({ delay: 5_000 }),
         removeOnComplete: true,
         removeOnFail: 100,
       },
@@ -78,10 +73,7 @@ export class MailQueueService {
       {
         jobId: job.id,
         attempts: 3,
-        backoff: {
-          type: 'exponential',
-          delay: 5000,
-        },
+        backoff: exponentialBackoffWithJitter({ delay: 5_000 }),
         removeOnComplete: {
           age: 7 * 24 * 60 * 60,
           count: 1000,

@@ -7,6 +7,7 @@ import type { GameEngineState } from '../engine/game-engine.types';
 import { GAME_BOTS, GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import { GameBotService } from './game-bot.service';
 import type { ExecuteBotTurnJob } from './game-bot.types';
+import { exponentialBackoffWithJitter } from '../../infra/queue/queue-jitter';
 
 @Injectable()
 export class GameBotQueueService {
@@ -32,7 +33,7 @@ export class GameBotQueueService {
         jobId: `bot-turn:${gameId}:${state.turnNumber}:${state.phase}:${decision.roomPlayerId}`,
         delay,
         attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
+        backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
         removeOnFail: 100,
       },

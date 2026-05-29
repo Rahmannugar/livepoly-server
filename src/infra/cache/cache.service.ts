@@ -2,21 +2,8 @@ import { randomUUID } from 'crypto';
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-
-type GetOrSetInput<T> = {
-  key: string;
-  ttlSeconds: number;
-  factory: () => Promise<T>;
-  lockSeconds?: number;
-};
-
-type WithLockInput<T> = {
-  key: string;
-  ttlSeconds: number;
-  callback: () => Promise<T>;
-  waitTimeoutMs?: number;
-  retryDelayMs?: number;
-};
+import { CacheSetOptions, GetOrSetInput, WithLockInput } from './cache.types';
+import { withTtlJitter } from '../../common/utils/jitter';
 
 const RELEASE_LOCK_SCRIPT = `
 if redis.call("GET", KEYS[1]) == ARGV[1] then
@@ -47,8 +34,17 @@ export class CacheService implements OnModuleDestroy {
     return value ? (JSON.parse(value) as T) : null;
   }
 
-  async set<T>(key: string, value: T, ttlSeconds: number): Promise<void> {
-    await this.redis.set(key, JSON.stringify(value), 'EX', ttlSeconds);
+  async set<T>(
+    key: string,
+    value: T,
+    ttlSeconds: number,
+    options: CacheSetOptions = {},
+  ): Promise<void> {
+    const ttl = options.ttlJitterRatio
+      ? withTtlJitter(ttlSeconds, options.ttlJitterRatio)
+      : ttlSeconds;
+
+    await this.redis.set(key, JSON.stringify(value), 'EX', ttl);
   }
 
   async del(key: string): Promise<void> {
@@ -127,7 +123,9 @@ export class CacheService implements OnModuleDestroy {
         }
 
         const value = await input.factory();
-        await this.set(input.key, value, input.ttlSeconds);
+        await this.set(input.key, value, input.ttlSeconds, {
+          ttlJitterRatio: input.ttlJitterRatio,
+        });
 
         return value;
       },

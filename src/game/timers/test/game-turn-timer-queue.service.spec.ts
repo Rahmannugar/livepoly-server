@@ -88,7 +88,7 @@ describe('GameTurnTimerQueueService', () => {
         jobId: 'turn-timeout:game-1:4:awaiting_roll:room-player-1',
         delay: GAME_TURN_TIMER.timeoutMs,
         attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
+        backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
         removeOnFail: 100,
       },

@@ -6,6 +6,7 @@ import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import type { GameEngineState } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS, GAME_TURN_TIMER } from '../game.constants';
 import type { ExecuteTurnTimeoutJob } from './game-turn-timer.types';
+import { exponentialBackoffWithJitter } from '../../infra/queue/queue-jitter';
 
 @Injectable()
 export class GameTurnTimerQueueService {
@@ -30,7 +31,7 @@ export class GameTurnTimerQueueService {
       jobId: this.jobId(data),
       delay: GAME_TURN_TIMER.timeoutMs,
       attempts: 3,
-      backoff: { type: 'exponential', delay: 1000 },
+      backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
       removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
       removeOnFail: 100,
     });

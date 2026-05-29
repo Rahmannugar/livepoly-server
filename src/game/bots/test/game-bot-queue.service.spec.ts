@@ -124,7 +124,7 @@ describe('GameBotQueueService', () => {
         jobId: 'bot-turn:game-1:3:awaiting_roll:bot-player-1',
         delay: 1350,
         attempts: 3,
-        backoff: { type: 'exponential', delay: 1000 },
+        backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
         removeOnFail: 100,
       },

@@ -35,7 +35,7 @@ describe('GameResultsService', () => {
         startedAt: new Date(1_000),
         finishedAt: null,
       }),
-      persistFinishedGame: jest.fn(),
+      saveFinishedGame: jest.fn(),
     };
 
     const databaseService = {
@@ -46,10 +46,15 @@ describe('GameResultsService', () => {
       createFinalSnapshot: jest.fn(),
     };
 
+    const gameStatsService = {
+      applyFinishedGameStats: jest.fn(),
+    };
+
     const service = new GameResultsService(
       gameResultsRepository as never,
       databaseService as never,
       gameSnapshotService as never,
+      gameStatsService as never,
     );
 
     return {
@@ -57,6 +62,7 @@ describe('GameResultsService', () => {
       gameResultsRepository,
       databaseService,
       gameSnapshotService,
+      gameStatsService,
     };
   };
 
@@ -136,7 +142,7 @@ describe('GameResultsService', () => {
       state,
       tx,
     );
-    expect(gameResultsRepository.persistFinishedGame).toHaveBeenCalledWith(
+    expect(gameResultsRepository.saveFinishedGame).toHaveBeenCalledWith(
       expect.objectContaining({
         gameId,
         roomId: state.roomId,
@@ -148,7 +154,7 @@ describe('GameResultsService', () => {
       tx,
     );
     expect(
-      gameResultsRepository.persistFinishedGame.mock.calls[0][0].playerResults,
+      gameResultsRepository.saveFinishedGame.mock.calls[0][0].playerResults,
     ).toEqual([
       expect.objectContaining({
         roomPlayerId: 'room-player-1',
@@ -213,7 +219,7 @@ describe('GameResultsService', () => {
       ],
     });
 
-    expect(gameResultsRepository.persistFinishedGame).toHaveBeenCalledWith(
+    expect(gameResultsRepository.saveFinishedGame).toHaveBeenCalledWith(
       expect.objectContaining({
         gameId,
         roomId: state.roomId,
@@ -254,7 +260,7 @@ describe('GameResultsService', () => {
       ],
     });
 
-    expect(gameResultsRepository.persistFinishedGame).toHaveBeenCalledWith(
+    expect(gameResultsRepository.saveFinishedGame).toHaveBeenCalledWith(
       expect.objectContaining({
         winnerRoomPlayerId: 'room-player-1',
       }),
@@ -268,6 +274,7 @@ describe('GameResultsService', () => {
       databaseService,
       gameSnapshotService,
       gameResultsRepository,
+      gameStatsService,
     } = makeService();
 
     const state = makeFinishedState();
@@ -292,9 +299,17 @@ describe('GameResultsService', () => {
       state,
       tx,
     );
-    expect(gameResultsRepository.persistFinishedGame).toHaveBeenCalledWith(
+    expect(gameResultsRepository.saveFinishedGame).toHaveBeenCalledWith(
       expect.objectContaining({
         gameId,
+      }),
+      tx,
+    );
+    expect(gameStatsService.applyFinishedGameStats).toHaveBeenCalledWith(
+      expect.objectContaining({
+        roomId: state.roomId,
+        state,
+        playerResults: expect.any(Array),
       }),
       tx,
     );

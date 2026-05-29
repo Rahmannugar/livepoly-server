@@ -13,8 +13,9 @@ import { GameResultsRepository } from './game-results.repository';
 import type {
   FinalizeGameResultInput,
   GameResultEndReason,
-  PersistRoomPlayerResultInput,
+  SaveRoomPlayerResultInput,
 } from './game-results.types';
+import { GameStatsService } from '../stats/game-stats.service';
 
 const DEFAULT_STARTING_CASH = 1500;
 
@@ -24,6 +25,7 @@ export class GameResultsService {
     private readonly gameResultsRepository: GameResultsRepository,
     private readonly databaseService: DatabaseService,
     private readonly gameSnapshotService: GameSnapshotService,
+    private readonly gameStatsService: GameStatsService,
   ) {}
 
   async finalizeFinishedGame(input: FinalizeGameResultInput): Promise<void> {
@@ -55,7 +57,7 @@ export class GameResultsService {
         tx,
       );
 
-      await this.gameResultsRepository.persistFinishedGame(
+      await this.gameResultsRepository.saveFinishedGame(
         {
           gameId: input.gameId,
           roomId: input.state.roomId,
@@ -64,6 +66,15 @@ export class GameResultsService {
           winnerRoomPlayerId,
           completedAt,
           durationSeconds,
+          playerResults,
+        },
+        tx,
+      );
+
+      await this.gameStatsService.applyFinishedGameStats(
+        {
+          roomId: input.state.roomId,
+          state: input.state,
           playerResults,
         },
         tx,
@@ -137,7 +148,7 @@ export class GameResultsService {
   private buildPlayerResults(
     state: GameEngineState,
     completedAt: Date,
-  ): PersistRoomPlayerResultInput[] {
+  ): SaveRoomPlayerResultInput[] {
     const standings = calculateNetWorthStandings(state);
     const placementByRoomPlayerId = new Map(
       standings.map((standing, index) => [standing.roomPlayerId, index + 1]),

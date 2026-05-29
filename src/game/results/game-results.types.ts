@@ -11,7 +11,7 @@ export type FinalizeGameResultInput = {
   events: GameEngineEvent[];
 };
 
-export type PersistGameResultsInput = {
+export type SaveGameResultsInput = {
   gameId: string;
   roomId: string;
   state: GameEngineState;
@@ -19,10 +19,10 @@ export type PersistGameResultsInput = {
   winnerRoomPlayerId: string | null;
   completedAt: Date;
   durationSeconds: number;
-  playerResults: PersistRoomPlayerResultInput[];
+  playerResults: SaveRoomPlayerResultInput[];
 };
 
-export type PersistRoomPlayerResultInput = {
+export type SaveRoomPlayerResultInput = {
   roomId: string;
   roomPlayerId: string;
   userId: string | null;

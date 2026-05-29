@@ -20,6 +20,9 @@ import { GameSnapshotRepository } from './snapshots/game-snapshots.repository';
 import { GameSnapshotService } from './snapshots/game-snapshots.service';
 import { GameStateService } from './state/game-state.service';
 import { GameTurnTimerQueueService } from './timers/game-turn-timer-queue.service';
+import { GameRatingService } from './stats/game-rating.service';
+import { GameStatsRepository } from './stats/game-stats.repository';
+import { GameStatsService } from './stats/game-stats.service';
 
 @Module({
   imports: [
@@ -45,6 +48,9 @@ import { GameTurnTimerQueueService } from './timers/game-turn-timer-queue.servic
     GameResultsRepository,
     GameResultsService,
     GameGateway,
+    GameRatingService,
+    GameStatsRepository,
+    GameStatsService,
   ],
   exports: [
     GameStateService,

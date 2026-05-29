@@ -9,7 +9,7 @@ import {
   roomPlayers,
   rooms,
 } from '../../infra/database/schema';
-import type { PersistGameResultsInput } from './game-results.types';
+import type { SaveGameResultsInput } from './game-results.types';
 
 @Injectable()
 export class GameResultsRepository {
@@ -63,8 +63,8 @@ export class GameResultsRepository {
     return winner?.userId ?? null;
   }
 
-  async persistFinishedGame(
-    input: PersistGameResultsInput,
+  async saveFinishedGame(
+    input: SaveGameResultsInput,
     executor?: DatabaseExecutor,
   ): Promise<void> {
     const db = executor ?? this.databaseService.db;

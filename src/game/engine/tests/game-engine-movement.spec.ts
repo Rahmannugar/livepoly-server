@@ -1,5 +1,8 @@
 import { rollAndMove } from '../game-engine-movement';
-import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from './game-engine.test-factory';
 
 describe('game-engine-movement', () => {
   it('moves player and applies chance card', () => {

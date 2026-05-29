@@ -41,11 +41,13 @@ describe('GameStatsService', () => {
   const makeService = () => {
     const gameStatsRepository = {
       createMissingPlayerStats: jest.fn().mockResolvedValue(undefined),
-      lockPlayerStats: jest.fn().mockResolvedValue([
-        makeStats({ userId: 'user-1' }),
-        makeStats({ userId: 'user-2' }),
-        makeStats({ userId: 'user-3' }),
-      ]),
+      lockPlayerStats: jest
+        .fn()
+        .mockResolvedValue([
+          makeStats({ userId: 'user-1' }),
+          makeStats({ userId: 'user-2' }),
+          makeStats({ userId: 'user-3' }),
+        ]),
       recordRatingChange: jest.fn().mockResolvedValue(true),
       updatePlayerStats: jest.fn().mockResolvedValue(undefined),
     };

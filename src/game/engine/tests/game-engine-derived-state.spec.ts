@@ -9,7 +9,10 @@ import {
   isGameTerminal,
 } from '../game-engine-derived-state';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from './game-engine.test-factory';
 
 describe('game-engine-derived-state', () => {
   it('returns active players in seat order', () => {
@@ -49,7 +52,9 @@ describe('game-engine-derived-state', () => {
   it('gets property by tile key', () => {
     const state = createGameEngineState();
 
-    expect(getPropertyByTileKey(state, TEST_BOARD_TILES.cheapProperty)).toMatchObject({
+    expect(
+      getPropertyByTileKey(state, TEST_BOARD_TILES.cheapProperty),
+    ).toMatchObject({
       tileKey: TEST_BOARD_TILES.cheapProperty,
       ownerRoomPlayerId: null,
     });
@@ -69,7 +74,9 @@ describe('game-engine-derived-state', () => {
       }),
     });
 
-    expect(getTileOwnerRoomPlayerId(state, TEST_BOARD_TILES.cheapProperty)).toBe('room-player-1');
+    expect(
+      getTileOwnerRoomPlayerId(state, TEST_BOARD_TILES.cheapProperty),
+    ).toBe('room-player-1');
   });
 
   it('gets owned properties for a player', () => {

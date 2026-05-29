@@ -1,5 +1,8 @@
 import { GameEngineService } from '../game-engine.service';
-import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from './game-engine.test-factory';
 
 describe('GameEngineService', () => {
   let service: GameEngineService;

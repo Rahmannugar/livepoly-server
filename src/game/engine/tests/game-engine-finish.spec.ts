@@ -1,7 +1,10 @@
 import { calculateNetWorthStandings } from '../game-engine-derived-state';
 import { GameEngineService } from '../game-engine.service';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from './game-engine.test-factory';
 
 describe('game-engine-finish', () => {
   let service: GameEngineService;

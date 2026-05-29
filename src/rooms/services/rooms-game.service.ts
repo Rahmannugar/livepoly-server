@@ -87,8 +87,14 @@ export class RoomsGameService {
       (player) => player.playerType === 'human',
     );
 
+    const hasOnlyHumans = joinedPlayers.every(
+      (player) => player.playerType === 'human',
+    );
+
     const mode: GameMode =
-      humanPlayers.length >= ROOM_MIN_RANKED_HUMANS ? 'ranked' : 'casual';
+      hasOnlyHumans && humanPlayers.length >= ROOM_MIN_RANKED_HUMANS
+        ? 'ranked'
+        : 'casual';
 
     const botPlayers =
       mode === 'casual' ? this.buildBotPlayers(room.id, joinedPlayers) : [];

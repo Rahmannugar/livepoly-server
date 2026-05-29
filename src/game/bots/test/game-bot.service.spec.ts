@@ -1,4 +1,7 @@
-import { createGameEnginePlayer, TEST_BOARD_TILES } from '../../engine/tests/game-engine.test-factory';
+import {
+  createGameEnginePlayer,
+  TEST_BOARD_TILES,
+} from '../../engine/tests/game-engine.test-factory';
 import type { GameEngineState } from '../../engine/game-engine.types';
 import { GameBotService } from '../game-bot.service';
 

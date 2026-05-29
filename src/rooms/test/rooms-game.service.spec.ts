@@ -47,6 +47,8 @@ const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
   username: 'playerone',
+  role: 'player',
+  status: 'active',
   sessionId: 'session-1',
   tokenVersion: 0,
 };
@@ -466,6 +468,83 @@ describe('RoomsGameService', () => {
     expect(result.game).toEqual(
       expect.objectContaining({
         id: 'game-1',
+        mode: 'casual',
+      }),
+    );
+  });
+
+  it('starts casual game when joined players already include a bot', async () => {
+    const botPlayer = {
+      id: 'bot-player-4',
+      roomId: waitingRoom.id,
+      userId: null,
+      username: null,
+      playerType: 'bot' as const,
+      botDifficulty: 'normal' as const,
+      botName: 'Nova',
+      seatNumber: 4,
+      status: 'joined' as const,
+      joinedAt: createdAt,
+      leftAt: null,
+    };
+
+    const players = [
+      humanPlayerOne,
+      humanPlayerTwo,
+      humanPlayerThree,
+      botPlayer,
+    ];
+
+    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
+    roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
+    roomsGameRepository.startRoom.mockResolvedValue(activeRoom);
+    roomsGameRepository.createGame.mockResolvedValue({
+      id: 'game-1',
+      roomId: waitingRoom.id,
+      mode: 'casual' as const,
+      status: 'active' as const,
+      currentTurnRoomPlayerId: humanPlayerOne.id,
+      turnNumber: 1,
+      state: {
+        version: 1,
+        mode: 'casual',
+      },
+      startedAt: activeRoom.startedAt,
+      finishedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    const result = await service.startRoom(authUser, waitingRoom.code);
+
+    expect(roomsGameRepository.addBotPlayer).not.toHaveBeenCalled();
+
+    expect(roomsGameRepository.createGame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'casual',
+        state: expect.objectContaining({
+          mode: 'casual',
+          players: expect.arrayContaining([
+            expect.objectContaining({
+              roomPlayerId: botPlayer.id,
+              playerType: 'bot',
+            }),
+          ]),
+        }),
+      }),
+      tx,
+    );
+
+    expect(gameStateService.set).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        mode: 'casual',
+      }),
+    );
+
+    expect(result.game).toEqual(
+      expect.objectContaining({
         mode: 'casual',
       }),
     );

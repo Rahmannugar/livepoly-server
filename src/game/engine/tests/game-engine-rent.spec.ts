@@ -1,6 +1,9 @@
 import { CLASSIC_GAME_BOARD } from '../game-board';
 import { calculateRent, payRent } from '../game-engine-rent';
-import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from './game-engine.test-factory';
 
 describe('game-engine-rent', () => {
   it('pays base property rent to the owner', () => {
@@ -40,7 +43,10 @@ describe('game-engine-rent', () => {
     const state = createGameEngineState();
 
     state.properties = state.properties.map((property) => {
-      if (property.tileKey !== TEST_BOARD_TILES.cheapProperty && property.tileKey !== TEST_BOARD_TILES.cheapPropertyPair) {
+      if (
+        property.tileKey !== TEST_BOARD_TILES.cheapProperty &&
+        property.tileKey !== TEST_BOARD_TILES.cheapPropertyPair
+      ) {
         return property;
       }
 

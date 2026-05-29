@@ -3,7 +3,10 @@ import {
   type GameEngineIntent,
 } from '../game-engine-intents';
 import { GameEngineError } from '../game-engine.types';
-import { createGameEngineState, TEST_BOARD_TILES } from './game-engine.test-factory';
+import {
+  createGameEngineState,
+  TEST_BOARD_TILES,
+} from './game-engine.test-factory';
 
 describe('game-engine-intents', () => {
   it('runs roll and move intent', () => {
@@ -62,7 +65,10 @@ describe('game-engine-intents', () => {
     const state = createGameEngineState({
       phase: 'awaiting_roll',
       properties: createGameEngineState().properties.map((property) => {
-        if (property.tileKey === TEST_BOARD_TILES.cheapProperty || property.tileKey === TEST_BOARD_TILES.cheapPropertyPair) {
+        if (
+          property.tileKey === TEST_BOARD_TILES.cheapProperty ||
+          property.tileKey === TEST_BOARD_TILES.cheapPropertyPair
+        ) {
           return {
             ...property,
             ownerRoomPlayerId: 'room-player-1',
@@ -182,7 +188,9 @@ describe('game-engine-intents', () => {
     expect(state.phase).toBe('awaiting_property_decision');
     expect(state.pendingTileKey).toBe(TEST_BOARD_TILES.cheapProperty);
     expect(
-      state.properties.find((property) => property.tileKey === TEST_BOARD_TILES.cheapProperty),
+      state.properties.find(
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
+      ),
     ).toMatchObject({
       ownerRoomPlayerId: null,
     });

@@ -57,6 +57,7 @@ export class AuthController {
   @UseGuards(RateLimitGuard)
   @RateLimit(...AUTH_RATE_LIMIT_RULES.signup)
   @Post('signup')
+  @HttpCode(HttpStatus.CREATED)
   signup(@Body() dto: SignupDto, @Req() request: Request) {
     return this.authService.signup(dto, {
       ip: request.ip,

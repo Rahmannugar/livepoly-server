@@ -1,4 +1,12 @@
-import { Body, Controller, Param, Patch, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Patch,
+  UseGuards,
+} from '@nestjs/common';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AdminGuard } from '../auth/guards/admin.guard';
 import { AuthGuard } from '../auth/guards/auth.guard';
@@ -14,6 +22,7 @@ export class AdminController {
 
   @ApiUpdateUserStatus()
   @Patch('users/:username/status')
+  @HttpCode(HttpStatus.OK)
   updateUserStatus(
     @AuthUserDecorator() authUser: AuthUser,
     @Param('username') username: string,

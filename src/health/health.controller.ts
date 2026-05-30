@@ -1,4 +1,4 @@
-import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
+import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
 import { DatabaseService } from '../infra/database/database.service';
 import { HealthDocs } from './docs/health.swagger';
 
@@ -9,6 +9,7 @@ export class HealthController {
 
   @HealthDocs.Live()
   @Get('live')
+  @HttpCode(HttpStatus.OK)
   getHealth() {
     return {
       status: 'ok',
@@ -19,6 +20,7 @@ export class HealthController {
 
   @HealthDocs.Ready()
   @Get('ready')
+  @HttpCode(HttpStatus.OK)
   async getReadiness() {
     try {
       await this.databaseService.ping();

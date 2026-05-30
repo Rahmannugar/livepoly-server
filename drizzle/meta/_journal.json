@@ -127,6 +127,13 @@
       "when": 1780113117679,
       "tag": "0017_update_rating_defaults",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1780117157211,
+      "tag": "0018_update_leaderboard_snapshot_windows",
+      "breakpoints": true
     }
   ]
 }

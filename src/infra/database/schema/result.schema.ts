@@ -181,8 +181,8 @@ export const leaderboardSnapshots = pgTable(
   {
     id: id(),
     periodType: leaderboardPeriodEnum('period_type').notNull(),
-    periodStart: date('period_start').notNull(),
-    periodEnd: date('period_end').notNull(),
+    periodStart: timestamp('period_start', { withTimezone: true }).notNull(),
+    periodEnd: timestamp('period_end', { withTimezone: true }).notNull(),
     entries: jsonb('entries').notNull(),
     createdAt: createdAt(),
   },

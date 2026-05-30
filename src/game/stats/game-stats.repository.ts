@@ -8,6 +8,7 @@ import {
   PlayerStatsForUpdate,
   UpdatePlayerStatsInput,
 } from './game-stats.types';
+import { DEFAULT_RATING } from '../game.constants';
 
 @Injectable()
 export class GameStatsRepository {
@@ -25,7 +26,13 @@ export class GameStatsRepository {
 
     await db
       .insert(playerStats)
-      .values(userIds.map((userId) => ({ userId })))
+      .values(
+        userIds.map((userId) => ({
+          userId,
+          currentRating: DEFAULT_RATING,
+          peakRating: DEFAULT_RATING,
+        })),
+      )
       .onConflictDoNothing({
         target: playerStats.userId,
       });

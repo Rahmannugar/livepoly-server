@@ -120,6 +120,13 @@
       "when": 1779914238265,
       "tag": "0016_add_user_role_status",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1780113117679,
+      "tag": "0017_update_rating_defaults",
+      "breakpoints": true
     }
   ]
 }

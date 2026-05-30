@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { RatingChange, RatingParticipant } from './game-stats.types';
-
-const DEFAULT_K_FACTOR = 32;
-const MIN_RATING = 100;
+import { DEFAULT_K_FACTOR, MIN_RATING } from '../game.constants';
 
 @Injectable()
 export class GameRatingService {

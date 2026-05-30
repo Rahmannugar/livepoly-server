@@ -109,8 +109,8 @@ export const playerStats = pgTable(
     avgPosition: numeric('avg_position', { precision: 4, scale: 2 })
       .notNull()
       .default('0'),
-    currentRating: integer('current_rating').notNull().default(1200),
-    peakRating: integer('peak_rating').notNull().default(1200),
+    currentRating: integer('current_rating').notNull().default(500),
+    peakRating: integer('peak_rating').notNull().default(500),
     totalNetWorth: bigint('total_net_worth', { mode: 'bigint' })
       .notNull()
       .default(sql`0`),
@@ -132,8 +132,11 @@ export const playerStats = pgTable(
     check('player_stats_third_place_chk', sql`${table.thirdPlace} >= 0`),
     check('player_stats_fourth_place_chk', sql`${table.fourthPlace} >= 0`),
     check('player_stats_avg_position_chk', sql`${table.avgPosition} >= 0`),
-    check('player_stats_current_rating_chk', sql`${table.currentRating} > 0`),
-    check('player_stats_peak_rating_chk', sql`${table.peakRating} > 0`),
+    check(
+      'player_stats_current_rating_chk',
+      sql`${table.currentRating} >= 300`,
+    ),
+    check('player_stats_peak_rating_chk', sql`${table.peakRating} >= 300`),
     check('player_stats_total_net_worth_chk', sql`${table.totalNetWorth} >= 0`),
     check(
       'player_stats_total_rent_collected_chk',

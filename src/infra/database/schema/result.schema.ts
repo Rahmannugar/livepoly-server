@@ -168,8 +168,11 @@ export const ratingHistory = pgTable(
       'rating_history_placement_chk',
       sql`${table.placement} between 1 and 4`,
     ),
-    check('rating_history_rating_before_chk', sql`${table.ratingBefore} > 0`),
-    check('rating_history_rating_after_chk', sql`${table.ratingAfter} > 0`),
+    check(
+      'rating_history_rating_before_chk',
+      sql`${table.ratingBefore} >= 300`,
+    ),
+    check('rating_history_rating_after_chk', sql`${table.ratingAfter} >= 300`),
   ],
 );
 

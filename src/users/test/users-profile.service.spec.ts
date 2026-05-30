@@ -50,6 +50,8 @@ const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
   username: 'playerone',
+  role: 'player',
+  status: 'active',
   sessionId: 'session-1',
   tokenVersion: 0,
 };
@@ -58,7 +60,7 @@ const stats = {
   gamesPlayed: 0,
   gamesWon: 0,
   averagePlacement: null,
-  rating: null,
+  rating: 500,
 };
 
 describe('UsersProfileService', () => {

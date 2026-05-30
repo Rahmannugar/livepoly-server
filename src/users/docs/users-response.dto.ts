@@ -10,8 +10,8 @@ export class UserStatsResponseDto {
   @ApiPropertyOptional({ example: 2.35, nullable: true })
   averagePlacement: number | null;
 
-  @ApiPropertyOptional({ example: 1530, nullable: true })
-  rating: number | null;
+  @ApiProperty({ example: 500 })
+  rating: number;
 }
 
 export class UserProfileResponseDto {

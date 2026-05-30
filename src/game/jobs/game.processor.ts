@@ -1,5 +1,4 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
@@ -29,8 +28,6 @@ import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 
 @Processor(QUEUES.game)
 export class GameProcessor extends WorkerHost {
-  private readonly logger = new Logger(GameProcessor.name);
-
   constructor(
     private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameBotService: GameBotService,
@@ -63,11 +60,11 @@ export class GameProcessor extends WorkerHost {
       return;
     }
 
-    this.logger.warn({
-      message: 'Unknown game job received',
+    this.observabilityService.recordEvent(GAME_EVENTS.unknownJobReceived, {
       jobId: job.id,
       jobName: job.name,
     });
+    this.observabilityService.recordMetric(GAME_METRICS.unknownJobReceived);
   }
 
   private async processExecuteBotTurn(job: Job<ExecuteBotTurnJob>) {
@@ -211,12 +208,34 @@ export class GameProcessor extends WorkerHost {
   private async processRefreshLeaderboards(
     job: Job<RefreshLeaderboardSnapshotsJob>,
   ): Promise<void> {
-    await this.leaderboardsService.refreshSnapshots();
+    try {
+      await this.leaderboardsService.refreshSnapshots();
 
-    this.logger.log({
-      message: 'Leaderboard snapshots refreshed',
-      jobId: job.id,
-      reason: job.data.reason,
-    });
+      this.observabilityService.recordEvent(
+        GAME_EVENTS.leaderboardRefreshSucceeded,
+        {
+          jobId: job.id,
+          reason: job.data.reason,
+        },
+      );
+      this.observabilityService.recordMetric(
+        GAME_METRICS.leaderboardRefreshSucceeded,
+      );
+    } catch (error) {
+      this.observabilityService.recordEvent(
+        GAME_EVENTS.leaderboardRefreshFailed,
+        {
+          jobId: job.id,
+          reason: job.data.reason,
+          errorName: error instanceof Error ? error.name : undefined,
+          errorMessage: error instanceof Error ? error.message : undefined,
+        },
+      );
+      this.observabilityService.recordMetric(
+        GAME_METRICS.leaderboardRefreshFailed,
+      );
+
+      throw error;
+    }
   }
 }

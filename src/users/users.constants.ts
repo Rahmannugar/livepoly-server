@@ -29,4 +29,13 @@ export const USER_EVENTS = {
   deleteRequested: 'UserDeleteRequested',
   deleteFailed: 'UserDeleteFailed',
   deleted: 'UserDeleted',
+  jobCompleted: 'UserJobCompleted',
+  jobSkipped: 'UserJobSkipped',
+  unknownJobReceived: 'UserUnknownJobReceived',
+} as const;
+
+export const USER_METRICS = {
+  jobCompleted: 'Custom/User/Job/Completed',
+  jobSkipped: 'Custom/User/Job/Skipped',
+  unknownJobReceived: 'Custom/User/Job/Unknown',
 } as const;

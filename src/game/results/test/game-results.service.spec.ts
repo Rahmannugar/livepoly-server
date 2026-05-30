@@ -3,6 +3,7 @@ import { GameResultsService } from '../game-results.service';
 import type { GameEngineState } from '../../engine/game-engine.types';
 import { createGameEngineState } from '../../engine/tests/game-engine.test-factory';
 import type { LeaderboardQueueService } from '../../../leaderboards/jobs/leaderboard-queue.service';
+import type { ObservabilityService } from '../../../infra/observability/observability.service';
 
 describe('GameResultsService', () => {
   const gameId = 'game-1';
@@ -55,12 +56,18 @@ describe('GameResultsService', () => {
       enqueueGameFinishedRefresh: jest.fn(),
     };
 
+    const observabilityService = {
+      recordEvent: jest.fn(),
+      recordMetric: jest.fn(),
+    };
+
     const service = new GameResultsService(
       gameResultsRepository as never,
       databaseService as never,
       gameSnapshotService as never,
       gameStatsService as never,
       leaderboardQueueService as unknown as LeaderboardQueueService,
+      observabilityService as unknown as ObservabilityService,
     );
 
     return {
@@ -70,6 +77,7 @@ describe('GameResultsService', () => {
       gameSnapshotService,
       gameStatsService,
       leaderboardQueueService,
+      observabilityService,
     };
   };
 

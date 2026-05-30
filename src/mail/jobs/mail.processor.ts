@@ -1,30 +1,23 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 import { MAIL_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import { MailService } from '../mail.service';
 import type { MailJob } from './mail-jobs.types';
 import { JobsService } from '../../jobs/jobs.service';
+import { MAIL_EVENTS, MAIL_METRICS } from '../mail.constants';
 
 @Processor(QUEUES.mail)
 export class MailProcessor extends WorkerHost {
-  private readonly logger = new Logger(MailProcessor.name);
-
   constructor(
     private readonly mailService: MailService,
     private readonly jobsService: JobsService,
+    private readonly observabilityService: ObservabilityService,
   ) {
     super();
   }
 
   async process(job: Job<MailJob>) {
-    this.logger.log({
-      message: 'Mail job started',
-      jobId: job.id,
-      jobName: job.name,
-      attemptsMade: job.attemptsMade,
-    });
-
     if (job.name === MAIL_JOBS.sendEmailVerificationOtp) {
       if (!('otpCode' in job.data)) {
         throw new Error('Invalid email verification OTP job payload');
@@ -35,8 +28,7 @@ export class MailProcessor extends WorkerHost {
         job.data.otpCode,
       );
 
-      this.logger.log({
-        message: 'Email verification OTP sent',
+      this.recordJobCompleted({
         jobId: job.id,
         jobName: job.name,
       });
@@ -54,8 +46,7 @@ export class MailProcessor extends WorkerHost {
         job.data.otpCode,
       );
 
-      this.logger.log({
-        message: 'Password reset OTP sent',
+      this.recordJobCompleted({
         jobId: job.id,
         jobName: job.name,
       });
@@ -71,9 +62,9 @@ export class MailProcessor extends WorkerHost {
       const startResult = await this.jobsService.start(job.data.jobId);
 
       if (startResult.status !== 'started') {
-        this.logger.log({
-          message: 'Account deleted email skipped',
+        this.recordJobSkipped({
           jobId: job.id,
+          jobName: job.name,
           trackedJobId: job.data.jobId,
           reason: startResult.status,
         });
@@ -89,8 +80,7 @@ export class MailProcessor extends WorkerHost {
 
         await this.jobsService.complete(job.data.jobId);
 
-        this.logger.log({
-          message: 'Account deleted email sent',
+        this.recordJobCompleted({
           jobId: job.id,
           trackedJobId: job.data.jobId,
           jobName: job.name,
@@ -102,10 +92,29 @@ export class MailProcessor extends WorkerHost {
       return;
     }
 
-    this.logger.warn({
-      message: 'Unknown mail job received',
+    this.observabilityService.recordEvent(MAIL_EVENTS.unknownJobReceived, {
       jobId: job.id,
       jobName: job.name,
     });
+    this.observabilityService.recordMetric(MAIL_METRICS.unknownJobReceived);
+  }
+
+  private recordJobCompleted(input: {
+    jobId?: string;
+    jobName: string;
+    trackedJobId?: string;
+  }): void {
+    this.observabilityService.recordEvent(MAIL_EVENTS.jobCompleted, input);
+    this.observabilityService.recordMetric(MAIL_METRICS.jobCompleted);
+  }
+
+  private recordJobSkipped(input: {
+    jobId?: string;
+    jobName: string;
+    trackedJobId?: string;
+    reason: string;
+  }): void {
+    this.observabilityService.recordEvent(MAIL_EVENTS.jobSkipped, input);
+    this.observabilityService.recordMetric(MAIL_METRICS.jobSkipped);
   }
 }

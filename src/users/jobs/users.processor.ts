@@ -1,12 +1,17 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { CacheService } from '../../infra/cache/cache.service';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 import { QUEUES, USER_JOBS } from '../../infra/queue/queue.constants';
 import { StorageService } from '../../infra/storage/storage.service';
 import { MailQueueService } from '../../mail/jobs/mail-queue.service';
 import { UsersMediaRepository } from '../repositories/users-media.repository';
-import { USER_AVATAR, USER_AVATAR_UPLOAD_STATUS } from '../users.constants';
+import {
+  USER_AVATAR,
+  USER_AVATAR_UPLOAD_STATUS,
+  USER_EVENTS,
+  USER_METRICS,
+} from '../users.constants';
 import type { UserAvatarContentType } from '../users.constants';
 import type {
   DeleteAvatarJob,
@@ -18,13 +23,12 @@ type UsersJob = DeletedUserCleanupJob | DeleteAvatarJob | VerifyAvatarUploadJob;
 
 @Processor(QUEUES.users)
 export class UsersProcessor extends WorkerHost {
-  private readonly logger = new Logger(UsersProcessor.name);
-
   constructor(
     private readonly mailQueueService: MailQueueService,
     private readonly cacheService: CacheService,
     private readonly storageService: StorageService,
     private readonly usersMediaRepository: UsersMediaRepository,
+    private readonly observabilityService: ObservabilityService,
   ) {
     super();
   }
@@ -45,21 +49,14 @@ export class UsersProcessor extends WorkerHost {
       return;
     }
 
-    this.logger.warn({
-      message: 'Unknown users job received',
+    this.observabilityService.recordEvent(USER_EVENTS.unknownJobReceived, {
       jobId: job.id,
       jobName: job.name,
     });
+    this.observabilityService.recordMetric(USER_METRICS.unknownJobReceived);
   }
 
   private async processDeletedUserCleanup(job: Job<DeletedUserCleanupJob>) {
-    this.logger.log({
-      message: 'Deleted user cleanup started',
-      jobId: job.id,
-      userId: job.data.userId,
-      username: job.data.username,
-    });
-
     await this.cacheService.withLock({
       key: `lock:users:cleanup-deleted-user:${job.data.userId}`,
       ttlSeconds: 5 * 60,
@@ -80,22 +77,14 @@ export class UsersProcessor extends WorkerHost {
       },
     });
 
-    this.logger.log({
-      message: 'Deleted user cleanup completed',
+    this.recordJobCompleted({
+      jobName: job.name,
       jobId: job.id,
       userId: job.data.userId,
-      username: job.data.username,
     });
   }
 
   private async processDeleteAvatar(job: Job<DeleteAvatarJob>) {
-    this.logger.log({
-      message: 'Avatar delete started',
-      jobId: job.id,
-      userId: job.data.userId,
-      objectKey: job.data.objectKey,
-    });
-
     await this.cacheService.withLock({
       key: `lock:users:delete-avatar:${job.data.objectKey}`,
       ttlSeconds: 5 * 60,
@@ -110,23 +99,14 @@ export class UsersProcessor extends WorkerHost {
       },
     });
 
-    this.logger.log({
-      message: 'Avatar delete completed',
+    this.recordJobCompleted({
+      jobName: job.name,
       jobId: job.id,
       userId: job.data.userId,
-      objectKey: job.data.objectKey,
     });
   }
 
   private async processVerifyAvatarUpload(job: Job<VerifyAvatarUploadJob>) {
-    this.logger.log({
-      message: 'Avatar upload verification started',
-      jobId: job.id,
-      uploadId: job.data.uploadId,
-      userId: job.data.userId,
-      objectKey: job.data.objectKey,
-    });
-
     await this.cacheService.withLock({
       key: `lock:users:verify-avatar-upload:${job.data.uploadId}`,
       ttlSeconds: 5 * 60,
@@ -137,8 +117,8 @@ export class UsersProcessor extends WorkerHost {
         );
 
         if (!upload) {
-          this.logger.log({
-            message: 'Avatar upload verification skipped',
+          this.recordJobSkipped({
+            jobName: job.name,
             reason: 'upload_not_found',
             jobId: job.id,
             uploadId: job.data.uploadId,
@@ -150,8 +130,8 @@ export class UsersProcessor extends WorkerHost {
         }
 
         if (upload.status === USER_AVATAR_UPLOAD_STATUS.confirmed) {
-          this.logger.log({
-            message: 'Avatar upload verification skipped',
+          this.recordJobSkipped({
+            jobName: job.name,
             reason: 'upload_already_confirmed',
             jobId: job.id,
             uploadId: upload.id,
@@ -166,8 +146,8 @@ export class UsersProcessor extends WorkerHost {
           upload.status === USER_AVATAR_UPLOAD_STATUS.cleanedUp ||
           upload.status === USER_AVATAR_UPLOAD_STATUS.expired
         ) {
-          this.logger.log({
-            message: 'Avatar upload verification skipped',
+          this.recordJobSkipped({
+            jobName: job.name,
             reason: 'upload_already_processed',
             jobId: job.id,
             uploadId: upload.id,
@@ -183,8 +163,8 @@ export class UsersProcessor extends WorkerHost {
           upload.userId !== job.data.userId ||
           upload.objectKey !== job.data.objectKey
         ) {
-          this.logger.warn({
-            message: 'Avatar upload verification skipped',
+          this.recordJobSkipped({
+            jobName: job.name,
             reason: 'job_upload_mismatch',
             jobId: job.id,
             uploadId: upload.id,
@@ -210,8 +190,8 @@ export class UsersProcessor extends WorkerHost {
 
           await this.usersMediaRepository.markAvatarUploadExpired(upload.id);
 
-          this.logger.warn({
-            message: 'Avatar upload verification failed',
+          this.recordJobSkipped({
+            jobName: job.name,
             reason: 'object_not_found',
             jobId: job.id,
             uploadId: upload.id,
@@ -252,8 +232,8 @@ export class UsersProcessor extends WorkerHost {
           await this.usersMediaRepository.confirmAvatarUpload(upload.id);
 
         if (!confirmedUpload) {
-          this.logger.log({
-            message: 'Avatar upload verification skipped',
+          this.recordJobSkipped({
+            jobName: job.name,
             reason: 'upload_status_changed',
             jobId: job.id,
             uploadId: upload.id,
@@ -276,8 +256,8 @@ export class UsersProcessor extends WorkerHost {
           });
         }
 
-        this.logger.log({
-          message: 'Avatar upload verification completed',
+        this.recordJobCompleted({
+          jobName: job.name,
           jobId: job.id,
           uploadId: upload.id,
           userId: upload.userId,
@@ -312,8 +292,8 @@ export class UsersProcessor extends WorkerHost {
 
     await this.usersMediaRepository.markAvatarUploadCleanedUp(upload.id);
 
-    this.logger.warn({
-      message: 'Avatar upload verification failed',
+    this.recordJobSkipped({
+      jobName: job.name,
       reason,
       jobId: job.id,
       uploadId: upload.id,
@@ -329,8 +309,8 @@ export class UsersProcessor extends WorkerHost {
     source: string;
   }) {
     if (!input.objectKey) {
-      this.logger.log({
-        message: 'Avatar delete skipped',
+      this.recordJobSkipped({
+        jobName: input.source,
         reason: 'no_avatar',
         jobId: input.jobId,
         userId: input.userId,
@@ -342,8 +322,8 @@ export class UsersProcessor extends WorkerHost {
 
     await this.storageService.deleteObject(input.objectKey);
 
-    this.logger.log({
-      message: 'Avatar delete completed',
+    this.recordJobCompleted({
+      jobName: input.source,
       jobId: input.jobId,
       userId: input.userId,
       objectKey: input.objectKey,
@@ -417,8 +397,8 @@ export class UsersProcessor extends WorkerHost {
   }
 
   private async cleanupFriendships(job: Job<DeletedUserCleanupJob>) {
-    this.logger.log({
-      message: 'Deleted user cleanup stage skipped',
+    this.recordJobSkipped({
+      jobName: job.name,
       stage: 'cleanup_friendships',
       reason: 'handled_by_database_cascade_or_domain_not_connected',
       jobId: job.id,
@@ -427,8 +407,8 @@ export class UsersProcessor extends WorkerHost {
   }
 
   private async cleanupNotifications(job: Job<DeletedUserCleanupJob>) {
-    this.logger.log({
-      message: 'Deleted user cleanup stage skipped',
+    this.recordJobSkipped({
+      jobName: job.name,
       stage: 'cleanup_notifications',
       reason: 'domain_not_connected',
       jobId: job.id,
@@ -437,8 +417,8 @@ export class UsersProcessor extends WorkerHost {
   }
 
   private async cleanupDevices(job: Job<DeletedUserCleanupJob>) {
-    this.logger.log({
-      message: 'Deleted user cleanup stage skipped',
+    this.recordJobSkipped({
+      jobName: job.name,
       stage: 'cleanup_devices',
       reason: 'domain_not_connected',
       jobId: job.id,
@@ -447,8 +427,8 @@ export class UsersProcessor extends WorkerHost {
   }
 
   private async archiveAnalytics(job: Job<DeletedUserCleanupJob>) {
-    this.logger.log({
-      message: 'Deleted user cleanup stage skipped',
+    this.recordJobSkipped({
+      jobName: job.name,
       stage: 'archive_analytics',
       reason: 'domain_not_connected',
       jobId: job.id,
@@ -463,11 +443,28 @@ export class UsersProcessor extends WorkerHost {
       username: job.data.username,
     });
 
-    this.logger.log({
-      message: 'Deleted user cleanup stage completed',
+    this.recordJobCompleted({
+      jobName: job.name,
       stage: 'send_account_deleted_email',
       jobId: job.id,
       userId: job.data.userId,
     });
+  }
+
+  private recordJobCompleted(
+    attributes: Record<string, string | number | boolean | null | undefined>,
+  ): void {
+    this.observabilityService.recordEvent(
+      USER_EVENTS.jobCompleted,
+      attributes,
+    );
+    this.observabilityService.recordMetric(USER_METRICS.jobCompleted);
+  }
+
+  private recordJobSkipped(
+    attributes: Record<string, string | number | boolean | null | undefined>,
+  ): void {
+    this.observabilityService.recordEvent(USER_EVENTS.jobSkipped, attributes);
+    this.observabilityService.recordMetric(USER_METRICS.jobSkipped);
   }
 }

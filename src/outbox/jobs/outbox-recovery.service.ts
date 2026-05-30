@@ -1,4 +1,6 @@
-import { Injectable, Logger, OnApplicationBootstrap } from '@nestjs/common';
+import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
+import { ObservabilityService } from '../../infra/observability/observability.service';
+import { OUTBOX_EVENTS, OUTBOX_METRICS } from '../outbox.constants';
 import { OutboxService } from '../outbox.service';
 import { OutboxQueueService } from './outbox-queue.service';
 
@@ -6,11 +8,10 @@ const OUTBOX_RECOVERY_BATCH_SIZE = 100;
 
 @Injectable()
 export class OutboxRecoveryService implements OnApplicationBootstrap {
-  private readonly logger = new Logger(OutboxRecoveryService.name);
-
   constructor(
     private readonly outboxService: OutboxService,
     private readonly outboxQueueService: OutboxQueueService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -23,15 +24,16 @@ export class OutboxRecoveryService implements OnApplicationBootstrap {
         await this.outboxQueueService.enqueuePublishEvent(candidate.id);
       }
 
-      this.logger.log({
-        message: 'Outbox recovery completed',
+      this.observabilityService.recordEvent(OUTBOX_EVENTS.recoveryCompleted, {
         recoveredCount: candidates.length,
       });
+      this.observabilityService.recordMetric(OUTBOX_METRICS.recoveryCompleted);
     } catch (error) {
-      this.logger.error({
-        message: 'Outbox recovery failed during bootstrap',
-        reason: error instanceof Error ? error.message : 'unknown_error',
+      this.observabilityService.recordEvent(OUTBOX_EVENTS.recoveryFailed, {
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : undefined,
       });
+      this.observabilityService.recordMetric(OUTBOX_METRICS.recoveryFailed);
     }
   }
 }

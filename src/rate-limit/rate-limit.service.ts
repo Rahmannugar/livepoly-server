@@ -1,5 +1,5 @@
 import { randomUUID } from 'crypto';
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CacheService } from '../infra/cache/cache.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
 import { RateLimitException } from './rate-limit.exception';
@@ -86,8 +86,6 @@ return {1, slidingCount + 1, 0}
 
 @Injectable()
 export class RateLimitService {
-  private readonly logger = new Logger(RateLimitService.name);
-
   constructor(
     private readonly cacheService: CacheService,
     private readonly observabilityService: ObservabilityService,
@@ -125,15 +123,6 @@ export class RateLimitService {
     if (allowed === 1) {
       return;
     }
-
-    this.logger.warn({
-      message: 'Rate limit exceeded',
-      scope: input.scope,
-      count,
-      limit: input.limit,
-      burstLimit,
-      retryAfterSeconds,
-    });
 
     this.observabilityService.recordRateLimitExceeded({
       scope: input.scope,

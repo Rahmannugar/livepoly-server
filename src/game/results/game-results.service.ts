@@ -1,4 +1,5 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import {
   calculateNetWorthStandings,
@@ -17,18 +18,21 @@ import type {
 } from './game-results.types';
 import { GameStatsService } from '../stats/game-stats.service';
 import { LeaderboardQueueService } from '../../leaderboards/jobs/leaderboard-queue.service';
-import { DEFAULT_STARTING_CASH } from '../game.constants';
+import {
+  DEFAULT_STARTING_CASH,
+  GAME_EVENTS,
+  GAME_METRICS,
+} from '../game.constants';
 
 @Injectable()
 export class GameResultsService {
-  private readonly logger = new Logger(GameResultsService.name);
-
   constructor(
     private readonly gameResultsRepository: GameResultsRepository,
     private readonly databaseService: DatabaseService,
     private readonly gameSnapshotService: GameSnapshotService,
     private readonly gameStatsService: GameStatsService,
     private readonly leaderboardQueueService: LeaderboardQueueService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   async finalizeFinishedGame(input: FinalizeGameResultInput): Promise<void> {
@@ -194,14 +198,25 @@ export class GameResultsService {
   private async enqueueLeaderboardRefresh(gameId: string): Promise<void> {
     try {
       await this.leaderboardQueueService.enqueueGameFinishedRefresh();
+      this.observabilityService.recordEvent(
+        GAME_EVENTS.leaderboardRefreshQueued,
+        { gameId },
+      );
+      this.observabilityService.recordMetric(
+        GAME_METRICS.leaderboardRefreshQueued,
+      );
     } catch (error) {
-      this.logger.warn({
-        message:
-          'Failed to enqueue leaderboard refresh after game finalization',
-        gameId,
-        errorName: error instanceof Error ? error.name : undefined,
-        errorMessage: error instanceof Error ? error.message : undefined,
-      });
+      this.observabilityService.recordEvent(
+        GAME_EVENTS.leaderboardRefreshQueueFailed,
+        {
+          gameId,
+          errorName: error instanceof Error ? error.name : undefined,
+          errorMessage: error instanceof Error ? error.message : undefined,
+        },
+      );
+      this.observabilityService.recordMetric(
+        GAME_METRICS.leaderboardRefreshQueueFailed,
+      );
     }
   }
 }

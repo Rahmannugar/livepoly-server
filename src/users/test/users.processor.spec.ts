@@ -1,6 +1,6 @@
 import type { Job } from 'bullmq';
-import { Logger } from '@nestjs/common';
 import type { CacheService } from '../../infra/cache/cache.service';
+import type { ObservabilityService } from '../../infra/observability/observability.service';
 import { USER_JOBS } from '../../infra/queue/queue.constants';
 import type { StorageService } from '../../infra/storage/storage.service';
 import type { MailQueueService } from '../../mail/jobs/mail-queue.service';
@@ -28,6 +28,11 @@ type UsersMediaRepositoryMock = {
   restoreAvatarObjectKey: jest.Mock;
   markAvatarUploadExpired: jest.Mock;
   markAvatarUploadCleanedUp: jest.Mock;
+};
+
+type ObservabilityServiceMock = {
+  recordEvent: jest.Mock;
+  recordMetric: jest.Mock;
 };
 
 const userId = '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91';
@@ -70,13 +75,9 @@ describe('UsersProcessor', () => {
   let cacheService: CacheServiceMock;
   let storageService: StorageServiceMock;
   let usersMediaRepository: UsersMediaRepositoryMock;
-  let loggerLogSpy: jest.SpyInstance;
-  let loggerWarnSpy: jest.SpyInstance;
+  let observabilityService: ObservabilityServiceMock;
 
   beforeEach(() => {
-    loggerLogSpy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
-    loggerWarnSpy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
-
     mailQueueService = {
       enqueueAccountDeletedEmail: jest.fn(),
     };
@@ -99,17 +100,18 @@ describe('UsersProcessor', () => {
       markAvatarUploadCleanedUp: jest.fn(),
     };
 
+    observabilityService = {
+      recordEvent: jest.fn(),
+      recordMetric: jest.fn(),
+    };
+
     processor = new UsersProcessor(
       mailQueueService as unknown as MailQueueService,
       cacheService as unknown as CacheService,
       storageService as unknown as StorageService,
       usersMediaRepository as unknown as UsersMediaRepository,
+      observabilityService as unknown as ObservabilityService,
     );
-  });
-
-  afterEach(() => {
-    loggerLogSpy.mockRestore();
-    loggerWarnSpy.mockRestore();
   });
 
   it('confirms a valid uploaded avatar and deletes the previous avatar', async () => {

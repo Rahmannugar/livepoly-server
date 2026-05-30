@@ -1,6 +1,8 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
+import { ObservabilityService } from '../infra/observability/observability.service';
 import { PubSubService } from '../infra/pubsub/pubsub.service';
+import { OUTBOX_EVENTS, OUTBOX_METRICS } from './outbox.constants';
 import { OUTBOX_TOPICS, type OutboxEvent } from './outbox.types';
 import { OutboxService } from './outbox.service';
 
@@ -13,22 +15,23 @@ const notificationCreatedPayloadSchema = z.object({
 
 @Injectable()
 export class OutboxPublisher {
-  private readonly logger = new Logger(OutboxPublisher.name);
-
   constructor(
     private readonly outboxService: OutboxService,
     private readonly pubSubService: PubSubService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   async publishById(eventId: string) {
     const event = await this.outboxService.claimById(eventId);
 
     if (!event) {
-      this.logger.log({
-        message: 'Outbox event publish skipped',
+      this.observabilityService.recordEvent(OUTBOX_EVENTS.eventPublishSkipped, {
         eventId,
         reason: 'not_claimable',
       });
+      this.observabilityService.recordMetric(
+        OUTBOX_METRICS.eventPublishSkipped,
+      );
 
       return;
     }
@@ -48,13 +51,14 @@ export class OutboxPublisher {
     } catch (error) {
       await this.outboxService.fail(event.id, error);
 
-      this.logger.error({
-        message: 'Outbox event publish failed',
+      this.observabilityService.recordEvent(OUTBOX_EVENTS.eventPublishFailed, {
         eventId: event.id,
         eventKey: event.key,
         topic: event.topic,
-        error: error instanceof Error ? error.message : 'Unknown error',
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : undefined,
       });
+      this.observabilityService.recordMetric(OUTBOX_METRICS.eventPublishFailed);
 
       throw error;
     }
@@ -68,11 +72,12 @@ export class OutboxPublisher {
       data: payload,
     });
 
-    this.logger.log({
-      message: 'Outbox notification event published',
+    this.observabilityService.recordEvent(OUTBOX_EVENTS.eventPublished, {
       eventId: event.id,
+      topic: event.topic,
       notificationId: payload.notificationId,
       userId: payload.userId,
     });
+    this.observabilityService.recordMetric(OUTBOX_METRICS.eventPublished);
   }
 }

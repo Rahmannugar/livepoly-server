@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../infra/database/database.service';
 import {
   calculateNetWorthStandings,
@@ -16,16 +16,19 @@ import type {
   SaveRoomPlayerResultInput,
 } from './game-results.types';
 import { GameStatsService } from '../stats/game-stats.service';
-
-const DEFAULT_STARTING_CASH = 1500;
+import { LeaderboardQueueService } from '../../leaderboards/jobs/leaderboard-queue.service';
+import { DEFAULT_STARTING_CASH } from '../game.constants';
 
 @Injectable()
 export class GameResultsService {
+  private readonly logger = new Logger(GameResultsService.name);
+
   constructor(
     private readonly gameResultsRepository: GameResultsRepository,
     private readonly databaseService: DatabaseService,
     private readonly gameSnapshotService: GameSnapshotService,
     private readonly gameStatsService: GameStatsService,
+    private readonly leaderboardQueueService: LeaderboardQueueService,
   ) {}
 
   async finalizeFinishedGame(input: FinalizeGameResultInput): Promise<void> {
@@ -80,6 +83,10 @@ export class GameResultsService {
         tx,
       );
     });
+
+    if (this.shouldRefreshLeaderboards(input.state)) {
+      await this.enqueueLeaderboardRefresh(input.gameId);
+    }
   }
 
   private getCompletedAt(events: GameEngineEvent[]): Date {
@@ -173,5 +180,28 @@ export class GameResultsService {
         bankruptAt: player.bankrupt ? completedAt : null,
       };
     });
+  }
+
+  private shouldRefreshLeaderboards(state: GameEngineState): boolean {
+    return (
+      state.mode === 'ranked' &&
+      state.players.every(
+        (player) => player.playerType === 'human' && player.userId !== null,
+      )
+    );
+  }
+
+  private async enqueueLeaderboardRefresh(gameId: string): Promise<void> {
+    try {
+      await this.leaderboardQueueService.enqueueGameFinishedRefresh();
+    } catch (error) {
+      this.logger.warn({
+        message:
+          'Failed to enqueue leaderboard refresh after game finalization',
+        gameId,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : undefined,
+      });
+    }
   }
 }

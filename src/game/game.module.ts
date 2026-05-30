@@ -23,6 +23,7 @@ import { GameTurnTimerQueueService } from './timers/game-turn-timer-queue.servic
 import { GameRatingService } from './stats/game-rating.service';
 import { GameStatsRepository } from './stats/game-stats.repository';
 import { GameStatsService } from './stats/game-stats.service';
+import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { GameStatsService } from './stats/game-stats.service';
     DatabaseModule,
     ObservabilityModule,
     RealtimeModule,
+    LeaderboardsModule,
   ],
   providers: [
     GameStateService,

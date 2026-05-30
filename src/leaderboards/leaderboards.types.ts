@@ -35,3 +35,9 @@ export type LeaderboardResponse = {
   periodEnd: string;
   entries: LeaderboardResponseEntry[];
 };
+
+export type RefreshLeaderboardSnapshotsJob = {
+  reason: 'game_finished' | 'scheduled';
+};
+
+export type LeaderboardJob = RefreshLeaderboardSnapshotsJob;

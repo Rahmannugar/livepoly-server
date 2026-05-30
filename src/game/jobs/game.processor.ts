@@ -2,7 +2,6 @@ import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ObservabilityService } from '../../infra/observability/observability.service';
-import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import { GameBotService } from '../bots/game-bot.service';
 import type { ExecuteBotTurnJob } from '../bots/game-bot.types';
@@ -13,13 +12,20 @@ import {
   GameEngineError,
   type GameEngineState,
 } from '../engine/game-engine.types';
-import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
+import {
+  GAME_JOBS,
+  LEADERBOARD_JOBS,
+  QUEUES,
+} from '../../infra/queue/queue.constants';
 import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
 import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameTurnTimerPolicyService } from '../timers/game-turn-timer-policy.service';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import type { ExecuteTurnTimeoutJob } from '../timers/game-turn-timer.types';
 import type { GameJob } from './game-jobs.types';
+import { LeaderboardsService } from '../../leaderboards/leaderboards.service';
+import type { RefreshLeaderboardSnapshotsJob } from '../../leaderboards/leaderboards.types';
+import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 
 @Processor(QUEUES.game)
 export class GameProcessor extends WorkerHost {
@@ -34,6 +40,7 @@ export class GameProcessor extends WorkerHost {
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
     private readonly gameTurnTimerPolicyService: GameTurnTimerPolicyService,
     private readonly observabilityService: ObservabilityService,
+    private readonly leaderboardsService: LeaderboardsService,
   ) {
     super();
   }
@@ -46,6 +53,13 @@ export class GameProcessor extends WorkerHost {
 
     if (job.name === GAME_JOBS.executeTurnTimeout) {
       await this.processExecuteTurnTimeout(job as Job<ExecuteTurnTimeoutJob>);
+      return;
+    }
+
+    if (job.name === LEADERBOARD_JOBS.refreshSnapshots) {
+      await this.processRefreshLeaderboards(
+        job as Job<RefreshLeaderboardSnapshotsJob>,
+      );
       return;
     }
 
@@ -192,5 +206,17 @@ export class GameProcessor extends WorkerHost {
     }
 
     return intent.payload.roomPlayerId;
+  }
+
+  private async processRefreshLeaderboards(
+    job: Job<RefreshLeaderboardSnapshotsJob>,
+  ): Promise<void> {
+    await this.leaderboardsService.refreshSnapshots();
+
+    this.logger.log({
+      message: 'Leaderboard snapshots refreshed',
+      jobId: job.id,
+      reason: job.data.reason,
+    });
   }
 }

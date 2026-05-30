@@ -81,6 +81,13 @@ export class LeaderboardsService {
     await this.cacheService.getClient().incr(LEADERBOARD_CACHE.versionKey);
   }
 
+  async refreshSnapshots(): Promise<LeaderboardSnapshot[]> {
+    const snapshots = await this.refreshAll();
+    await this.invalidateCache();
+
+    return snapshots;
+  }
+
   private async getCacheVersion(): Promise<number> {
     const value = await this.cacheService
       .getClient()

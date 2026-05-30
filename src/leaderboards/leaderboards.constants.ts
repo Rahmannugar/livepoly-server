@@ -18,3 +18,8 @@ export const LEADERBOARD_CACHE = {
 } as const;
 
 export const LEADERBOARD_LIMIT = 100;
+
+export const REFRESH_JOB_ID = 'leaderboards:refresh';
+export const REPEAT_REFRESH_JOB_ID = 'leaderboards:refresh:repeat';
+export const REFRESH_DEBOUNCE_MS = 10_000;
+export const REFRESH_EVERY_MS = 5 * 60 * 1000;

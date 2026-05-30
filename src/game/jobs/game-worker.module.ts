@@ -17,6 +17,8 @@ import { GameStateService } from '../state/game-state.service';
 import { GameTurnTimerPolicyService } from '../timers/game-turn-timer-policy.service';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import { GameProcessor } from './game.processor';
+import { LeaderboardsModule } from '../../leaderboards/leaderboards.module';
+import { LeaderboardRefreshScheduler } from '../../leaderboards/jobs/leaderboard-refresh-scheduler.service';
 
 @Module({
   imports: [
@@ -26,6 +28,7 @@ import { GameProcessor } from './game.processor';
     DatabaseModule,
     ObservabilityModule,
     RealtimeModule,
+    LeaderboardsModule,
   ],
   providers: [
     GameStateService,
@@ -39,6 +42,7 @@ import { GameProcessor } from './game.processor';
     GameSnapshotService,
     GameRecoveryService,
     GameProcessor,
+    LeaderboardRefreshScheduler,
   ],
 })
 export class GameWorkerModule {}

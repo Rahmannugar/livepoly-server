@@ -25,3 +25,7 @@ export const GAME_JOBS = {
   executeBotTurn: 'execute-bot-turn',
   executeTurnTimeout: 'execute-turn-timeout',
 } as const;
+
+export const LEADERBOARD_JOBS = {
+  refreshSnapshots: 'refresh-leaderboard-snapshots',
+} as const;

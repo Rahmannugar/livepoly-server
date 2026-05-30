@@ -2,6 +2,8 @@ export const DEFAULT_K_FACTOR = 32;
 export const MIN_RATING = 300;
 export const DEFAULT_RATING = 500;
 
+export const DEFAULT_STARTING_CASH = 1500;
+
 export const GAME_STATE = {
   ttlSeconds: 24 * 60 * 60,
   updateMaxAttempts: 5,

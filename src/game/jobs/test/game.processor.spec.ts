@@ -12,6 +12,7 @@ import type { GameTurnTimerPolicyService } from '../../timers/game-turn-timer-po
 import type { GameTurnTimerQueueService } from '../../timers/game-turn-timer-queue.service';
 import type { GameJob } from '../game-jobs.types';
 import { GameProcessor } from '../game.processor';
+import type { LeaderboardsService } from '../../../leaderboards/leaderboards.service';
 
 type GameRecoveryServiceMock = {
   getOrRecover: jest.Mock;
@@ -46,6 +47,10 @@ type ObservabilityServiceMock = {
   recordMetric: jest.Mock;
 };
 
+type LeaderboardsServiceMock = {
+  refreshSnapshots: jest.Mock;
+};
+
 describe('GameProcessor', () => {
   let processor: GameProcessor;
   let gameRecoveryService: GameRecoveryServiceMock;
@@ -56,6 +61,7 @@ describe('GameProcessor', () => {
   let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
   let gameTurnTimerPolicyService: GameTurnTimerPolicyServiceMock;
   let observabilityService: ObservabilityServiceMock;
+  let leaderboardsService: LeaderboardsServiceMock;
 
   const state = createGameEngineState({
     phase: 'awaiting_roll',
@@ -122,6 +128,10 @@ describe('GameProcessor', () => {
       recordMetric: jest.fn(),
     };
 
+    leaderboardsService = {
+      refreshSnapshots: jest.fn(),
+    };
+
     processor = new GameProcessor(
       gameRecoveryService as unknown as GameRecoveryService,
       gameBotService as unknown as GameBotService,
@@ -131,6 +141,7 @@ describe('GameProcessor', () => {
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
       gameTurnTimerPolicyService as unknown as GameTurnTimerPolicyService,
       observabilityService as unknown as ObservabilityService,
+      leaderboardsService as unknown as LeaderboardsService,
     );
   });
 

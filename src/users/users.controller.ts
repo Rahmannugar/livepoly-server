@@ -23,6 +23,7 @@ import { UsersProfileService } from './services/users-profile.service';
 import { USERS_RATE_LIMIT_RULES } from './users-rate-limit.rules';
 
 @UsersDocs.Controller()
+@UseGuards(AuthGuard, RateLimitGuard)
 @Controller('users')
 export class UsersController {
   constructor(
@@ -31,7 +32,6 @@ export class UsersController {
   ) {}
 
   @UsersDocs.GetMe()
-  @UseGuards(AuthGuard, RateLimitGuard)
   @RateLimit(...USERS_RATE_LIMIT_RULES.getMe)
   @Get('me')
   @HttpCode(HttpStatus.OK)
@@ -40,7 +40,6 @@ export class UsersController {
   }
 
   @UsersDocs.UpdateMe()
-  @UseGuards(AuthGuard, RateLimitGuard)
   @RateLimit(...USERS_RATE_LIMIT_RULES.updateMe)
   @Patch('me')
   @HttpCode(HttpStatus.OK)
@@ -52,7 +51,6 @@ export class UsersController {
   }
 
   @UsersDocs.DeleteMe()
-  @UseGuards(AuthGuard, RateLimitGuard)
   @RateLimit(...USERS_RATE_LIMIT_RULES.deleteMe)
   @Delete('me')
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -61,7 +59,6 @@ export class UsersController {
   }
 
   @UsersDocs.CreateAvatarUploadUrl()
-  @UseGuards(AuthGuard, RateLimitGuard)
   @RateLimit(...USERS_RATE_LIMIT_RULES.updateMe)
   @Post('me/avatar/upload-url')
   @HttpCode(HttpStatus.OK)
@@ -73,7 +70,6 @@ export class UsersController {
   }
 
   @UsersDocs.GetByUsername()
-  @UseGuards(AuthGuard, RateLimitGuard)
   @RateLimit(...USERS_RATE_LIMIT_RULES.getByUsername)
   @Get(':username')
   @HttpCode(HttpStatus.OK)

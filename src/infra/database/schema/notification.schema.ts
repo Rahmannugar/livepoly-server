@@ -8,12 +8,11 @@ import {
   pgTable,
   text,
   timestamp,
-  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { users } from './user.schema';
 import { TABLE_NAMES } from './schema.constants';
-import { createdAt, id, updatedAt } from './schema.helpers';
+import { createdAt, id } from './schema.helpers';
 
 export const notificationTypeEnum = pgEnum('notification_type', [
   'friend_request',

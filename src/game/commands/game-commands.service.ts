@@ -18,6 +18,7 @@ import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameResultsService } from '../results/game-results.service';
 import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameStateService } from '../state/game-state.service';
+import { GameEventsService } from '../events/game-events.service';
 import type {
   EndTurnCommand,
   ExecuteGameIntentCommand,
@@ -34,6 +35,7 @@ export class GameCommandsService {
     private readonly gameSnapshotService: GameSnapshotService,
     private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameResultsService: GameResultsService,
+    private readonly gameEventsService: GameEventsService,
   ) {}
 
   async executeIntent(
@@ -172,8 +174,20 @@ export class GameCommandsService {
     gameId: string,
     result: GameCommandResult,
   ): Promise<void> {
+    await this.appendEventsAfterCommand(gameId, result);
     await this.createSnapshotAfterCommand(gameId, result.state);
     await this.finalizeGameIfFinished(gameId, result);
+  }
+
+  private async appendEventsAfterCommand(
+    gameId: string,
+    result: GameCommandResult,
+  ): Promise<void> {
+    try {
+      await this.gameEventsService.appendEvents(gameId, result.events);
+    } catch {
+      // Event-log failure should not undo a successful Redis state mutation.
+    }
   }
 
   private async createSnapshotAfterCommand(

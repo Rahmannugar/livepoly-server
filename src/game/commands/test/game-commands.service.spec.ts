@@ -101,12 +101,17 @@ describe('GameCommandsService', () => {
       finalizeFinishedGame: jest.fn(),
     };
 
+    const gameEventsService = {
+      appendEvents: jest.fn(),
+    };
+
     const service = new GameCommandsService(
       gameStateService as never,
       observabilityService as never,
       gameSnapshotService as never,
       gameRecoveryService as never,
       gameResultsService as never,
+      gameEventsService as never,
     );
 
     return {
@@ -116,12 +121,18 @@ describe('GameCommandsService', () => {
       gameSnapshotService,
       gameRecoveryService,
       gameResultsService,
+      gameEventsService,
       getStoredState: () => storedState,
     };
   };
 
   it('rolls and moves the current player', async () => {
-    const { service, gameSnapshotService, gameResultsService } = makeService();
+    const {
+      service,
+      gameSnapshotService,
+      gameResultsService,
+      gameEventsService,
+    } = makeService();
 
     const result = await service.rollAndMove({
       gameId,
@@ -152,6 +163,11 @@ describe('GameCommandsService', () => {
       result.state,
     );
     expect(gameResultsService.finalizeFinishedGame).not.toHaveBeenCalled();
+
+    expect(gameEventsService.appendEvents).toHaveBeenCalledWith(
+      gameId,
+      result.events,
+    );
   });
 
   it('ends the current turn', async () => {
@@ -225,12 +241,17 @@ describe('GameCommandsService', () => {
       finalizeFinishedGame: jest.fn(),
     };
 
+    const gameEventsService = {
+      appendEvents: jest.fn(),
+    };
+
     const service = new GameCommandsService(
       gameStateService as never,
       observabilityService as never,
       gameSnapshotService as never,
       gameRecoveryService as never,
       gameResultsService as never,
+      gameEventsService as never,
     );
 
     await service.rollAndMove({

@@ -23,6 +23,7 @@ import {
   GAME_EVENTS,
   GAME_METRICS,
 } from '../game.constants';
+import { UsersStatsService } from '../../users/services/users-stats.service';
 
 @Injectable()
 export class GameResultsService {
@@ -33,6 +34,7 @@ export class GameResultsService {
     private readonly gameStatsService: GameStatsService,
     private readonly leaderboardQueueService: LeaderboardQueueService,
     private readonly observabilityService: ObservabilityService,
+    private readonly usersStatsService: UsersStatsService,
   ) {}
 
   async finalizeFinishedGame(input: FinalizeGameResultInput): Promise<void> {
@@ -91,6 +93,8 @@ export class GameResultsService {
     if (this.shouldRefreshLeaderboards(input.state)) {
       await this.enqueueLeaderboardRefresh(input.gameId);
     }
+
+    await this.invalidateUserMatchHistoryCache(input.gameId, input.state);
   }
 
   private getCompletedAt(events: GameEngineEvent[]): Date {
@@ -216,6 +220,41 @@ export class GameResultsService {
       );
       this.observabilityService.recordMetric(
         GAME_METRICS.leaderboardRefreshQueueFailed,
+      );
+    }
+  }
+
+  private async invalidateUserMatchHistoryCache(
+    gameId: string,
+    state: GameEngineState,
+  ): Promise<void> {
+    const usernames = state.players
+      .filter(
+        (player) =>
+          player.playerType === 'human' &&
+          player.userId !== null &&
+          player.username !== null,
+      )
+      .map((player) => player.username as string);
+
+    if (usernames.length === 0) {
+      return;
+    }
+
+    try {
+      await this.usersStatsService.invalidateMatchHistoryCache(usernames);
+    } catch (error) {
+      this.observabilityService.recordEvent(
+        GAME_EVENTS.userMatchHistoryCacheInvalidationFailed,
+        {
+          gameId,
+          roomId: state.roomId,
+          errorName: error instanceof Error ? error.name : undefined,
+          errorMessage: error instanceof Error ? error.message : undefined,
+        },
+      );
+      this.observabilityService.recordMetric(
+        GAME_METRICS.userMatchHistoryCacheInvalidationFailed,
       );
     }
   }

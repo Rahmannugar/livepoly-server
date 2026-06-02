@@ -114,6 +114,8 @@ export const GAME_EVENTS = {
   leaderboardRefreshQueueFailed: 'GameLeaderboardRefreshQueueFailed',
   leaderboardRefreshSucceeded: 'GameLeaderboardRefreshSucceeded',
   leaderboardRefreshFailed: 'GameLeaderboardRefreshFailed',
+  userMatchHistoryCacheInvalidationFailed:
+    'GameUserMatchHistoryCacheInvalidationFailed',
   socketConnected: 'GameSocketConnected',
   socketDisconnected: 'GameSocketDisconnected',
   socketJoined: 'GameSocketJoined',
@@ -142,6 +144,8 @@ export const GAME_METRICS = {
     'Custom/Game/Leaderboard/Refresh/QueueFailed',
   leaderboardRefreshSucceeded: 'Custom/Game/Leaderboard/Refresh/Succeeded',
   leaderboardRefreshFailed: 'Custom/Game/Leaderboard/Refresh/Failed',
+  userMatchHistoryCacheInvalidationFailed:
+    'Custom/Game/UserMatchHistoryCacheInvalidation/Failed',
   commandSucceeded: (command: string) =>
     `Custom/Game/Command/Succeeded/${command}`,
   commandFailed: (command: string) => `Custom/Game/Command/Failed/${command}`,

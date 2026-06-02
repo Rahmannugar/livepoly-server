@@ -34,8 +34,15 @@ export class UsersStatsService {
     const cursor = this.decodeMatchCursor(dto.cursor);
 
     if (!cursor) {
+      const cacheVersion =
+        await this.getMatchHistoryCacheVersion(normalizedUsername);
+
       return this.cacheService.getOrSet({
-        key: `users:${normalizedUsername}:matches:first:${limit}`,
+        key: this.getMatchHistoryCacheKey({
+          username: normalizedUsername,
+          limit,
+          cacheVersion,
+        }),
         ttlSeconds: USER_MATCH_HISTORY.firstPageTtlSeconds,
         ttlJitterRatio: USER_MATCH_HISTORY.ttlJitterRatio,
         factory: () =>
@@ -51,6 +58,28 @@ export class UsersStatsService {
       limit,
       cursor,
     });
+  }
+
+  async invalidateMatchHistoryCache(usernames: string[]): Promise<void> {
+    const normalizedUsernames = [
+      ...new Set(
+        usernames
+          .map((username) => username.trim().toLowerCase())
+          .filter(Boolean),
+      ),
+    ];
+
+    if (normalizedUsernames.length === 0) {
+      return;
+    }
+
+    const redis = this.cacheService.getClient();
+
+    await Promise.all(
+      normalizedUsernames.map((username) =>
+        redis.incr(this.getMatchHistoryVersionKey(username)),
+      ),
+    );
   }
 
   private async loadMatchHistory(input: {
@@ -89,6 +118,26 @@ export class UsersStatsService {
       durationSeconds: row.durationSeconds,
       completedAt: row.completedAt.toISOString(),
     };
+  }
+
+  private async getMatchHistoryCacheVersion(username: string): Promise<number> {
+    const value = await this.cacheService
+      .getClient()
+      .get(this.getMatchHistoryVersionKey(username));
+
+    return value ? Number(value) : 1;
+  }
+
+  private getMatchHistoryCacheKey(input: {
+    username: string;
+    limit: number;
+    cacheVersion: number;
+  }): string {
+    return `users:${input.username}:matches:v${input.cacheVersion}:first:${input.limit}`;
+  }
+
+  private getMatchHistoryVersionKey(username: string): string {
+    return `users:${username}:matches:version`;
   }
 
   private encodeMatchCursor(row: UserMatchHistoryRow): string {

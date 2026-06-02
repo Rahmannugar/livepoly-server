@@ -38,6 +38,6 @@ import { UsersMediaRepository } from './repositories/users-media.repository';
     UsersStatsRepository,
     UsersQueueService,
   ],
-  exports: [UsersQueueService],
+  exports: [UsersQueueService, UsersStatsService],
 })
 export class UsersModule {}

@@ -24,6 +24,7 @@ import { GameRatingService } from './stats/game-rating.service';
 import { GameStatsRepository } from './stats/game-stats.repository';
 import { GameStatsService } from './stats/game-stats.service';
 import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
+import { UsersModule } from '../users/users.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
     ObservabilityModule,
     RealtimeModule,
     LeaderboardsModule,
+    UsersModule,
   ],
   providers: [
     GameStateService,

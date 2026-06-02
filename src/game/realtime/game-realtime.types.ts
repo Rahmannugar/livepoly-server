@@ -6,6 +6,7 @@ import type {
   GameEngineEvent,
   GameEngineState,
 } from '../engine/game-engine.types';
+import type { GameEventRecoveryResponse } from '../events/game-events.types';
 
 export type AuthenticatedGameSocket = Socket & {
   data: Socket['data'] & {
@@ -28,7 +29,7 @@ export type EndTurnPayload = {
 
 export type GameJoinedEvent = {
   gameId: string;
-  access: 'player' | 'spectator';
+  access: GameLiveAccess;
   roomPlayerId?: string;
   spectatorId?: string;
 };
@@ -54,3 +55,29 @@ export type GameErrorEvent = {
   message: string;
   code?: string;
 };
+
+export type RecoverGameEventsPayload = {
+  gameId: string;
+  cursor?: string;
+};
+
+export type GameEventsRecoveredEvent = GameEventRecoveryResponse & {
+  gameId: string;
+};
+
+export type GameActorInput = {
+  gameId: string;
+  userId: string;
+};
+
+export type RollAndMoveInput = GameActorInput & {
+  dice: DiceRoll;
+};
+
+export const GAME_LIVE_ACCESS = {
+  player: 'player',
+  spectator: 'spectator',
+} as const;
+
+export type GameLiveAccess =
+  (typeof GAME_LIVE_ACCESS)[keyof typeof GAME_LIVE_ACCESS];

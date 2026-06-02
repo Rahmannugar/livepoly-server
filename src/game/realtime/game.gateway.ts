@@ -16,7 +16,9 @@ import { GameEngineError } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_SOCKET_EVENTS } from '../game.constants';
 import { GameRealtimeService } from './game-realtime.service';
 import {
+  GameEventsRecoveredEvent,
   GameJoinedEvent,
+  type RecoverGameEventsPayload,
   type AuthenticatedGameSocket,
   type EndTurnPayload,
   type GameCommandRejectedEvent,
@@ -174,6 +176,33 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         error,
       );
 
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.eventsGet)
+  async recoverEvents(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: RecoverGameEventsPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.recoverEvents({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+        cursor: payload.cursor,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.eventsRecovered,
+        data: {
+          gameId: payload.gameId,
+          ...result,
+        } satisfies GameEventsRecoveredEvent,
+      };
+    } catch (error) {
       throw this.toWsException(error);
     }
   }

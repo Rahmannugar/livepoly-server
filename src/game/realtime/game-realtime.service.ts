@@ -7,21 +7,17 @@ import { ObservabilityService } from '../../infra/observability/observability.se
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import type { GameCommandResult } from '../commands/game-commands.types';
 import { GameCommandsService } from '../commands/game-commands.service';
-import type { DiceRoll } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import { GameAccessRepository } from './game-access.repository';
 import { GameRealtimePublisher } from './game-realtime.publisher';
 import { AuthRepository } from '../../auth/auth.repository';
-
-type GameActorInput = {
-  gameId: string;
-  userId: string;
-};
-
-type RollAndMoveInput = GameActorInput & {
-  dice: DiceRoll;
-};
+import { GameEventsService } from '../events/game-events.service';
+import {
+  GAME_LIVE_ACCESS,
+  GameActorInput,
+  RollAndMoveInput,
+} from './game-realtime.types';
 
 @Injectable()
 export class GameRealtimeService {
@@ -32,6 +28,7 @@ export class GameRealtimeService {
     private readonly gameRealtimePublisher: GameRealtimePublisher,
     private readonly gameBotQueueService: GameBotQueueService,
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
+    private readonly gameEventsService: GameEventsService,
     private readonly observabilityService: ObservabilityService,
   ) {}
 
@@ -78,7 +75,7 @@ export class GameRealtimeService {
 
     if (player) {
       return {
-        access: 'player' as const,
+        access: GAME_LIVE_ACCESS.player,
         roomPlayerId: player.roomPlayerId,
       };
     }
@@ -91,7 +88,7 @@ export class GameRealtimeService {
 
     if (spectator) {
       return {
-        access: 'spectator' as const,
+        access: GAME_LIVE_ACCESS.spectator,
         spectatorId: spectator.spectatorId,
       };
     }
@@ -133,6 +130,15 @@ export class GameRealtimeService {
     await this.afterHumanCommandSucceeded(input.gameId, result);
 
     return result;
+  }
+
+  async recoverEvents(input: GameActorInput & { cursor?: string }) {
+    await this.requireLiveGameAccess(input);
+
+    return this.gameEventsService.listEvents({
+      gameId: input.gameId,
+      cursor: input.cursor,
+    });
   }
 
   private async afterHumanCommandSucceeded(

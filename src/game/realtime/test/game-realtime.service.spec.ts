@@ -4,11 +4,13 @@ import type { ObservabilityService } from '../../../infra/observability/observab
 import type { GameBotQueueService } from '../../bots/game-bot-queue.service';
 import type { GameCommandsService } from '../../commands/game-commands.service';
 import type { GameCommandResult } from '../../commands/game-commands.types';
+import type { GameEngineState } from '../../engine/game-engine.types';
+import type { GameEventsService } from '../../events/game-events.service';
 import type { GameTurnTimerQueueService } from '../../timers/game-turn-timer-queue.service';
 import type { GameAccessRepository } from '../game-access.repository';
 import type { GameRealtimePublisher } from '../game-realtime.publisher';
 import { GameRealtimeService } from '../game-realtime.service';
-import type { GameEngineState } from '../../engine/game-engine.types';
+import { GAME_LIVE_ACCESS } from '../game-realtime.types';
 
 type GameAccessRepositoryMock = {
   findActivePlayerForGame: jest.Mock;
@@ -36,6 +38,10 @@ type GameTurnTimerQueueServiceMock = {
   enqueueTurnTimer: jest.Mock;
 };
 
+type GameEventsServiceMock = {
+  listEvents: jest.Mock;
+};
+
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
   recordMetric: jest.Mock;
@@ -49,6 +55,7 @@ describe('GameRealtimeService', () => {
   let gameRealtimePublisher: GameRealtimePublisherMock;
   let gameBotQueueService: GameBotQueueServiceMock;
   let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
+  let gameEventsService: GameEventsServiceMock;
   let observabilityService: ObservabilityServiceMock;
 
   const playerAccess = {
@@ -101,6 +108,19 @@ describe('GameRealtimeService', () => {
     intentType: 'roll_and_move',
   };
 
+  const recoveredEvents = {
+    items: [
+      {
+        sequence: 1,
+        type: 'player_moved',
+        payload: commandResult.events[0],
+        createdAt: '2026-05-14T12:00:00.000Z',
+      },
+    ],
+    nextCursor: 'cursor-1',
+    hasMore: false,
+  };
+
   beforeEach(() => {
     authRepository = {
       findUserByIdForAuthToken: jest.fn().mockResolvedValue({
@@ -140,6 +160,10 @@ describe('GameRealtimeService', () => {
       enqueueTurnTimer: jest.fn().mockResolvedValue(undefined),
     };
 
+    gameEventsService = {
+      listEvents: jest.fn().mockResolvedValue(recoveredEvents),
+    };
+
     observabilityService = {
       recordEvent: jest.fn(),
       recordMetric: jest.fn(),
@@ -152,6 +176,7 @@ describe('GameRealtimeService', () => {
       gameRealtimePublisher as unknown as GameRealtimePublisher,
       gameBotQueueService as unknown as GameBotQueueService,
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
+      gameEventsService as unknown as GameEventsService,
       observabilityService as unknown as ObservabilityService,
     );
   });
@@ -194,14 +219,14 @@ describe('GameRealtimeService', () => {
         userId: 'user-1',
       }),
     ).resolves.toEqual({
-      access: 'spectator',
+      access: GAME_LIVE_ACCESS.spectator,
       spectatorId: 'spectator-1',
     });
 
     expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
   });
 
-  it('rejects users who are not active game players', async () => {
+  it('rejects users who are not active game players or spectators', async () => {
     gameAccessRepository.findActivePlayerForGame.mockResolvedValue(null);
 
     await expect(
@@ -213,6 +238,34 @@ describe('GameRealtimeService', () => {
 
     expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+  });
+
+  it('recovers events for a user with live game access', async () => {
+    const result = await service.recoverEvents({
+      gameId: 'game-1',
+      userId: 'user-1',
+      cursor: 'cursor-0',
+    });
+
+    expect(gameEventsService.listEvents).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      cursor: 'cursor-0',
+    });
+    expect(result).toEqual(recoveredEvents);
+  });
+
+  it('rejects event recovery without live game access', async () => {
+    gameAccessRepository.findActivePlayerForGame.mockResolvedValue(null);
+    gameAccessRepository.findCurrentSpectatorForGame.mockResolvedValue(null);
+
+    await expect(
+      service.recoverEvents({
+        gameId: 'game-1',
+        userId: 'user-1',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(gameEventsService.listEvents).not.toHaveBeenCalled();
   });
 
   it('rejects spectator gameplay command', async () => {

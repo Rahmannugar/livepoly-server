@@ -85,6 +85,8 @@ export const GAME_SOCKET_EVENTS = {
   endTurn: 'game:end-turn',
   state: 'game:state',
   events: 'game:events',
+  eventsGet: 'game:events:get',
+  eventsRecovered: 'game:events:recovered',
   commandRejected: 'game:command-rejected',
   error: 'game:error',
 } as const;
@@ -140,8 +142,7 @@ export const GAME_METRICS = {
   realtimePublished: 'Custom/Game/Realtime/Published',
   realtimePublishFailed: 'Custom/Game/Realtime/PublishFailed',
   leaderboardRefreshQueued: 'Custom/Game/Leaderboard/Refresh/Queued',
-  leaderboardRefreshQueueFailed:
-    'Custom/Game/Leaderboard/Refresh/QueueFailed',
+  leaderboardRefreshQueueFailed: 'Custom/Game/Leaderboard/Refresh/QueueFailed',
   leaderboardRefreshSucceeded: 'Custom/Game/Leaderboard/Refresh/Succeeded',
   leaderboardRefreshFailed: 'Custom/Game/Leaderboard/Refresh/Failed',
   userMatchHistoryCacheInvalidationFailed:

@@ -30,6 +30,7 @@ type RoomsLobbyRepositoryMock = {
   countCurrentSpectators: jest.Mock;
   createSpectator: jest.Mock;
   endSpectatorSession: jest.Mock;
+  countCurrentSpectatorsForRooms: jest.Mock;
 };
 
 type DatabaseServiceMock = {
@@ -47,11 +48,6 @@ type OutboxQueueServiceMock = {
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
   recordMetric: jest.Mock;
-};
-
-type GameAccessRepositoryMock = {
-  findActivePlayerForGame: jest.Mock;
-  findCurrentSpectatorForGame: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -123,9 +119,10 @@ describe('RoomsLobbyService', () => {
       isSeatUniqueViolation: jest.fn().mockReturnValue(false),
       lockRoomByCode: jest.fn(),
       findCurrentSpectator: jest.fn(),
-      countCurrentSpectators: jest.fn(),
+      countCurrentSpectators: jest.fn().mockResolvedValue(0),
       createSpectator: jest.fn(),
       endSpectatorSession: jest.fn(),
+      countCurrentSpectatorsForRooms: jest.fn().mockResolvedValue([]),
     };
 
     databaseService = {
@@ -238,6 +235,7 @@ describe('RoomsLobbyService', () => {
 
     expect(result).toEqual({
       ...waitingRoom,
+      spectatorCount: 0,
       players: [
         {
           id: 'player-1',
@@ -254,6 +252,64 @@ describe('RoomsLobbyService', () => {
         },
       ],
     });
+  });
+
+  it('lists live rooms with spectator counts', async () => {
+    const secondRoom = {
+      ...activeRoom,
+      id: 'room-2',
+      code: 'XyZ98AbC',
+    };
+
+    roomsLobbyRepository.listLiveRooms.mockResolvedValue([
+      activeRoom,
+      secondRoom,
+    ]);
+    roomsLobbyRepository.listPlayersForRooms.mockResolvedValue([
+      {
+        id: 'player-1',
+        roomId: activeRoom.id,
+        userId: authUser.id,
+        username: authUser.username,
+        playerType: 'human' as const,
+        botDifficulty: null,
+        botName: null,
+        seatNumber: 1,
+        status: 'joined' as const,
+        joinedAt: createdAt,
+        leftAt: null,
+      },
+    ]);
+    roomsLobbyRepository.countCurrentSpectatorsForRooms.mockResolvedValue([
+      { roomId: activeRoom.id, value: 3 },
+    ]);
+
+    const result = await service.listLiveRooms();
+
+    expect(roomsLobbyRepository.listPlayersForRooms).toHaveBeenCalledWith([
+      activeRoom.id,
+      secondRoom.id,
+    ]);
+    expect(
+      roomsLobbyRepository.countCurrentSpectatorsForRooms,
+    ).toHaveBeenCalledWith([activeRoom.id, secondRoom.id]);
+    expect(result).toEqual([
+      {
+        ...activeRoom,
+        spectatorCount: 3,
+        players: [
+          expect.objectContaining({
+            id: 'player-1',
+            roomId: activeRoom.id,
+          }),
+        ],
+      },
+      {
+        ...secondRoom,
+        spectatorCount: 0,
+        players: [],
+      },
+    ]);
   });
 
   it('joins the first free seat', async () => {

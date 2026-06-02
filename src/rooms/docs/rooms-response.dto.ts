@@ -82,6 +82,9 @@ export class RoomResponseDto {
   @ApiProperty({ example: 4 })
   maxPlayers: number;
 
+  @ApiProperty({ example: 3 })
+  spectatorCount: number;
+
   @ApiProperty({ example: 60 })
   durationMinutes: number;
 

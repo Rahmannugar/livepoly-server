@@ -91,13 +91,18 @@ export class RoomsLobbyService {
   async listLiveRooms() {
     const rooms =
       await this.roomsLobbyRepository.listLiveRooms(LIVE_ROOMS_LIMIT);
+    const roomIds = rooms.map((room) => room.id);
 
-    const players = await this.roomsLobbyRepository.listPlayersForRooms(
-      rooms.map((room) => room.id),
+    const players = await this.roomsLobbyRepository.listPlayersForRooms(roomIds);
+    const spectatorCounts =
+      await this.roomsLobbyRepository.countCurrentSpectatorsForRooms(roomIds);
+    const spectatorCountByRoomId = new Map(
+      spectatorCounts.map((item) => [item.roomId, item.value]),
     );
 
     return rooms.map((room) => ({
       ...room,
+      spectatorCount: spectatorCountByRoomId.get(room.id) ?? 0,
       players: players.filter((player) => player.roomId === room.id),
     }));
   }
@@ -442,9 +447,12 @@ export class RoomsLobbyService {
     },
   ) {
     const players = await this.roomsLobbyRepository.listPlayers(roomId);
+    const spectatorCount =
+      await this.roomsLobbyRepository.countCurrentSpectators(roomId);
 
     return {
       ...room,
+      spectatorCount,
       players,
     };
   }

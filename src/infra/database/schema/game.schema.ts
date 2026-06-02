@@ -3,6 +3,7 @@ import {
   check,
   foreignKey,
   index,
+  text,
   integer,
   jsonb,
   pgEnum,
@@ -111,5 +112,31 @@ export const gameSnapshots = pgTable(
     ),
     check('game_snapshots_turn_number_chk', sql`${table.turnNumber} > 0`),
     check('game_snapshots_state_version_chk', sql`${table.stateVersion} > 0`),
+  ],
+);
+
+export const gameEvents = pgTable(
+  TABLE_NAMES.gameEvents,
+  {
+    id: id(),
+    gameId: uuid('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    sequence: integer('sequence').notNull(),
+    type: text('type').notNull(),
+    payload: jsonb('payload').notNull(),
+    createdAt: createdAt(),
+  },
+  (table) => [
+    uniqueIndex('game_events_game_id_sequence_unique_idx').on(
+      table.gameId,
+      table.sequence,
+    ),
+    index('game_events_game_id_sequence_idx').on(table.gameId, table.sequence),
+    index('game_events_game_id_created_at_idx').on(
+      table.gameId,
+      table.createdAt,
+    ),
+    check('game_events_sequence_chk', sql`${table.sequence} > 0`),
   ],
 );

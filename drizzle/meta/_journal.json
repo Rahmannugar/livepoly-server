@@ -134,6 +134,20 @@
       "when": 1780117157211,
       "tag": "0018_update_leaderboard_snapshot_windows",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1780416793673,
+      "tag": "0019_add_game_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1780416979963,
+      "tag": "0020_add_game_event_sequence_check",
+      "breakpoints": true
     }
   ]
 }

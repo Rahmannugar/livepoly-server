@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
@@ -21,6 +22,8 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersMediaService } from './services/users-media.service';
 import { UsersProfileService } from './services/users-profile.service';
 import { USERS_RATE_LIMIT_RULES } from './users-rate-limit.rules';
+import { ListUserMatchesDto } from './dto/list-user-matches.dto';
+import { UsersStatsService } from './services/users-stats.service';
 
 @UsersDocs.Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
@@ -29,6 +32,7 @@ export class UsersController {
   constructor(
     private readonly usersProfileService: UsersProfileService,
     private readonly usersMediaService: UsersMediaService,
+    private readonly usersStatsService: UsersStatsService,
   ) {}
 
   @UsersDocs.GetMe()
@@ -67,6 +71,17 @@ export class UsersController {
     @Body() dto: CreateAvatarUploadUrlDto,
   ) {
     return this.usersMediaService.createAvatarUploadUrl(authUser, dto);
+  }
+
+  @UsersDocs.ListMatches()
+  @RateLimit(...USERS_RATE_LIMIT_RULES.getMatches)
+  @Get(':username/matches')
+  @HttpCode(HttpStatus.OK)
+  listMatches(
+    @Param('username') username: string,
+    @Query() dto: ListUserMatchesDto,
+  ) {
+    return this.usersStatsService.listMatches(username, dto);
   }
 
   @UsersDocs.GetByUsername()

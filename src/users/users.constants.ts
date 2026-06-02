@@ -14,6 +14,13 @@ export const USER_AVATAR_UPLOAD_STATUS = {
   expired: 'expired',
 } as const;
 
+export const USER_MATCH_HISTORY = {
+  defaultLimit: 50,
+  maxLimit: 100,
+  firstPageTtlSeconds: 60,
+  ttlJitterRatio: 0.15,
+} as const;
+
 export type UserAvatarUploadStatus =
   (typeof USER_AVATAR_UPLOAD_STATUS)[keyof typeof USER_AVATAR_UPLOAD_STATUS];
 

@@ -14,6 +14,74 @@ export class UserStatsResponseDto {
   rating: number;
 }
 
+export class UserMatchHistoryItemResponseDto {
+  @ApiProperty({ example: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91' })
+  gameId: string;
+
+  @ApiProperty({ example: '25fc577e-a4a9-4b22-b113-a0efacdc6470' })
+  roomId: string;
+
+  @ApiProperty({ example: 'ABC12345' })
+  roomCode: string;
+
+  @ApiProperty({ enum: ['ranked', 'casual'], example: 'ranked' })
+  mode: 'ranked' | 'casual';
+
+  @ApiProperty({ example: 1 })
+  placement: number;
+
+  @ApiProperty({ example: 4 })
+  playerCount: number;
+
+  @ApiProperty({ example: true })
+  won: boolean;
+
+  @ApiProperty({
+    enum: ['bankruptcy', 'time_elapsed', 'cancelled'],
+    example: 'time_elapsed',
+  })
+  endReason: 'bankruptcy' | 'time_elapsed' | 'cancelled';
+
+  @ApiProperty({ example: 1800 })
+  finalCash: number;
+
+  @ApiProperty({ example: 2350 })
+  finalNetWorth: number;
+
+  @ApiPropertyOptional({
+    example: '2026-05-14T12:40:00.000Z',
+    nullable: true,
+  })
+  bankruptAt: string | null;
+
+  @ApiPropertyOptional({ example: 500, nullable: true })
+  ratingBefore: number | null;
+
+  @ApiPropertyOptional({ example: 532, nullable: true })
+  ratingAfter: number | null;
+
+  @ApiPropertyOptional({ example: 32, nullable: true })
+  ratingDelta: number | null;
+
+  @ApiProperty({ example: 1800 })
+  durationSeconds: number;
+
+  @ApiProperty({ example: '2026-05-14T12:45:00.000Z' })
+  completedAt: string;
+}
+
+export class UserMatchHistoryResponseDto {
+  @ApiProperty({ type: [UserMatchHistoryItemResponseDto] })
+  items: UserMatchHistoryItemResponseDto[];
+
+  @ApiPropertyOptional({
+    example:
+      'eyJ2IjoxLCJjb21wbGV0ZWRBdCI6IjIwMjYtMDUtMTRUMTI6NDU6MDAuMDAwWiIsInJvb21SZXN1bHRJZCI6IjI1ZmM1NzdlLWE0YTktNGIyMi1iMTEzLWEwZWZhY2RjNjQ3MCJ9',
+    nullable: true,
+  })
+  nextCursor: string | null;
+}
+
 export class UserProfileResponseDto {
   @ApiProperty({ example: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91' })
   id: string;

@@ -6,6 +6,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
@@ -13,6 +14,7 @@ import { CreateAvatarUploadUrlDto } from '../dto/avatar.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import {
   AvatarUploadUrlResponseDto,
+  UserMatchHistoryResponseDto,
   UserProfileResponseDto,
 } from './users-response.dto';
 
@@ -104,6 +106,41 @@ export const UsersDocs = {
       ApiResponse({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description: 'Avatar upload request body failed validation',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
+
+  ListMatches: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({ summary: 'List user match history' }),
+      ApiParam({
+        name: 'username',
+        example: 'rahmannugar',
+      }),
+      ApiQuery({
+        name: 'limit',
+        required: false,
+        example: 50,
+        description: 'Page size from 1 to 100',
+      }),
+      ApiQuery({
+        name: 'cursor',
+        required: false,
+        example:
+          'eyJ2IjoxLCJjb21wbGV0ZWRBdCI6IjIwMjYtMDUtMTRUMTI6NDU6MDAuMDAwWiIsInJvb21SZXN1bHRJZCI6IjI1ZmM1NzdlLWE0YTktNGIyMi1iMTEzLWEwZWZhY2RjNjQ3MCJ9',
+      }),
+      ApiOkResponse({ type: UserMatchHistoryResponseDto }),
+      ApiResponse({
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid match history cursor',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Match history query failed validation',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,

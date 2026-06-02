@@ -7,6 +7,7 @@ import { QUEUES } from '../infra/queue/queue.constants';
 import { StorageModule } from '../infra/storage/storage.module';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { SessionModule } from '../session/session.module';
+import { CacheModule } from '../infra/cache/cache.module';
 import { UsersQueueService } from './jobs/users-queue.service';
 import { UsersProfileRepository } from './repositories/users-profile.repository';
 import { UsersStatsRepository } from './repositories/users-stats.repository';
@@ -25,6 +26,7 @@ import { UsersMediaRepository } from './repositories/users-media.repository';
     ObservabilityModule,
     RateLimitModule,
     StorageModule,
+    CacheModule,
   ],
   controllers: [UsersController],
   providers: [

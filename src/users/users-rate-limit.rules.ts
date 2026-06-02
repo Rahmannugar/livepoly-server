@@ -61,4 +61,21 @@ export const USERS_RATE_LIMIT_RULES = {
       burstLimit: 40,
     },
   ],
+
+  getMatches: [
+    {
+      scope: 'users:matches:get:user',
+      identifier: { type: 'user' },
+      limit: 120,
+      windowSeconds: 60,
+      burstLimit: 40,
+    },
+    {
+      scope: 'users:matches:get:ip',
+      identifier: { type: 'ip' },
+      limit: 240,
+      windowSeconds: 60,
+      burstLimit: 80,
+    },
+  ],
 } satisfies Record<string, RateLimitRule[]>;

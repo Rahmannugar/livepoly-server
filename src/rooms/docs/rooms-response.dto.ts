@@ -38,6 +38,31 @@ export class RoomPlayerDto {
   leftAt: Date | null;
 }
 
+export class RoomSpectatorDto {
+  @ApiProperty({ example: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91' })
+  id: string;
+
+  @ApiProperty({ example: '9b4f0ea4-0e76-4dd5-8606-b61dc38b813d' })
+  roomId: string;
+
+  @ApiProperty({ example: '8a68f23e-2d53-41da-a9d8-0f429dbd3734' })
+  userId: string;
+
+  @ApiProperty({ example: '2026-05-14T12:00:00.000Z' })
+  joinedAt: Date;
+
+  @ApiPropertyOptional({ example: null, nullable: true })
+  leftAt: Date | null;
+}
+
+export class RoomSpectatorResponseDto {
+  @ApiProperty({ example: 'Spectating room' })
+  message: string;
+
+  @ApiProperty({ type: RoomSpectatorDto })
+  spectator: RoomSpectatorDto;
+}
+
 export class RoomResponseDto {
   @ApiProperty({ example: '9b4f0ea4-0e76-4dd5-8606-b61dc38b813d' })
   id: string;

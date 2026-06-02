@@ -25,6 +25,11 @@ type RoomsLobbyRepositoryMock = {
   findAcceptedFriendship: jest.Mock;
   isRoomCodeUniqueViolation: jest.Mock;
   isSeatUniqueViolation: jest.Mock;
+  lockRoomByCode: jest.Mock;
+  findCurrentSpectator: jest.Mock;
+  countCurrentSpectators: jest.Mock;
+  createSpectator: jest.Mock;
+  endSpectatorSession: jest.Mock;
 };
 
 type DatabaseServiceMock = {
@@ -44,10 +49,17 @@ type ObservabilityServiceMock = {
   recordMetric: jest.Mock;
 };
 
+type GameAccessRepositoryMock = {
+  findActivePlayerForGame: jest.Mock;
+  findCurrentSpectatorForGame: jest.Mock;
+};
+
 const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
   username: 'playerone',
+  role: 'player',
+  status: 'active',
   sessionId: 'session-1',
   tokenVersion: 0,
 };
@@ -65,6 +77,20 @@ const waitingRoom = {
   createdAt,
   startedAt: null,
   endedAt: null,
+};
+
+const activeRoom = {
+  ...waitingRoom,
+  status: 'active' as const,
+  startedAt: new Date('2026-05-14T12:05:00.000Z'),
+};
+
+const spectator = {
+  id: 'spectator-1',
+  roomId: activeRoom.id,
+  userId: authUser.id,
+  joinedAt: createdAt,
+  leftAt: null,
 };
 
 describe('RoomsLobbyService', () => {
@@ -95,6 +121,11 @@ describe('RoomsLobbyService', () => {
       findAcceptedFriendship: jest.fn(),
       isRoomCodeUniqueViolation: jest.fn().mockReturnValue(false),
       isSeatUniqueViolation: jest.fn().mockReturnValue(false),
+      lockRoomByCode: jest.fn(),
+      findCurrentSpectator: jest.fn(),
+      countCurrentSpectators: jest.fn(),
+      createSpectator: jest.fn(),
+      endSpectatorSession: jest.fn(),
     };
 
     databaseService = {
@@ -341,6 +372,70 @@ describe('RoomsLobbyService', () => {
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(
       ROOM_METRICS.cancelled,
     );
+  });
+
+  it('joins active room as spectator', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue(null);
+    roomsLobbyRepository.findCurrentSpectator.mockResolvedValue(null);
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.countCurrentSpectators.mockResolvedValue(19);
+    roomsLobbyRepository.createSpectator.mockResolvedValue(spectator);
+
+    const result = await service.spectateRoom(authUser, activeRoom.code);
+
+    expect(databaseService.transaction).toHaveBeenCalledTimes(1);
+    expect(roomsLobbyRepository.lockRoomByCode).toHaveBeenCalledWith(
+      activeRoom.code,
+      tx,
+    );
+    expect(roomsLobbyRepository.countCurrentSpectators).toHaveBeenCalledWith(
+      activeRoom.id,
+      tx,
+    );
+    expect(roomsLobbyRepository.createSpectator).toHaveBeenCalledWith(
+      {
+        roomId: activeRoom.id,
+        userId: authUser.id,
+      },
+      tx,
+    );
+    expect(result).toEqual({
+      message: 'Spectating room',
+      spectator,
+    });
+  });
+
+  it('rejects room player spectating same room', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'room-player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined',
+    });
+
+    await expect(
+      service.spectateRoom(authUser, activeRoom.code),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(databaseService.transaction).not.toHaveBeenCalled();
+    expect(roomsLobbyRepository.createSpectator).not.toHaveBeenCalled();
+  });
+
+  it('rejects spectating when room spectator limit is reached', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue(null);
+    roomsLobbyRepository.findCurrentSpectator.mockResolvedValue(null);
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.countCurrentSpectators.mockResolvedValue(20);
+
+    await expect(
+      service.spectateRoom(authUser, activeRoom.code),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(roomsLobbyRepository.createSpectator).not.toHaveBeenCalled();
   });
 
   it('invites a friend to a waiting room through notification outbox', async () => {

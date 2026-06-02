@@ -19,6 +19,8 @@ export const LIVE_ROOMS_LIMIT = 50;
 
 export const ACTIVE_ROOM_STATUSES = ['waiting', 'active'] as const;
 
+export const ROOM_MAX_SPECTATORS = 20;
+
 export const BOT_NAMES = [
   'Atlas',
   'Nova',
@@ -43,6 +45,8 @@ export const ROOM_EVENTS = {
   cancelled: 'RoomCancelled',
   inviteSent: 'RoomInviteSent',
   started: 'RoomStarted',
+  spectatorJoined: 'RoomSpectatorJoined',
+  spectatorLeft: 'RoomSpectatorLeft',
 } as const;
 
 export const ROOM_METRICS = {
@@ -52,4 +56,6 @@ export const ROOM_METRICS = {
   cancelled: 'Custom/Room/Cancelled',
   inviteSent: 'Custom/Room/InviteSent',
   started: (mode: string) => `Custom/Room/Started/${mode}`,
+  spectatorJoined: 'Custom/Room/Spectator/Joined',
+  spectatorLeft: 'Custom/Room/Spectator/Left',
 } as const;

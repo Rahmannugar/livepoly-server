@@ -12,6 +12,7 @@ import type { GameEngineState } from '../../engine/game-engine.types';
 
 type GameAccessRepositoryMock = {
   findActivePlayerForGame: jest.Mock;
+  findCurrentSpectatorForGame: jest.Mock;
 };
 
 type AuthRepositoryMock = {
@@ -116,6 +117,7 @@ describe('GameRealtimeService', () => {
 
     gameAccessRepository = {
       findActivePlayerForGame: jest.fn().mockResolvedValue(playerAccess),
+      findCurrentSpectatorForGame: jest.fn().mockResolvedValue(null),
     };
 
     gameCommandsService = {
@@ -177,6 +179,28 @@ describe('GameRealtimeService', () => {
     expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
   });
 
+  it('allows current spectator to join live game', async () => {
+    gameAccessRepository.findActivePlayerForGame.mockResolvedValue(null);
+    gameAccessRepository.findCurrentSpectatorForGame.mockResolvedValue({
+      gameId: 'game-1',
+      roomId: 'room-1',
+      spectatorId: 'spectator-1',
+      userId: 'user-1',
+    });
+
+    await expect(
+      service.joinGame({
+        gameId: 'game-1',
+        userId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      access: 'spectator',
+      spectatorId: 'spectator-1',
+    });
+
+    expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
+  });
+
   it('rejects users who are not active game players', async () => {
     gameAccessRepository.findActivePlayerForGame.mockResolvedValue(null);
 
@@ -184,6 +208,27 @@ describe('GameRealtimeService', () => {
       service.joinGame({
         gameId: 'game-1',
         userId: 'user-1',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
+    expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+  });
+
+  it('rejects spectator gameplay command', async () => {
+    gameAccessRepository.findActivePlayerForGame.mockResolvedValue(null);
+    gameAccessRepository.findCurrentSpectatorForGame.mockResolvedValue({
+      gameId: 'game-1',
+      roomId: 'room-1',
+      spectatorId: 'spectator-1',
+      userId: 'user-1',
+    });
+
+    await expect(
+      service.rollAndMove({
+        gameId: 'game-1',
+        userId: 'user-1',
+        dice: [3, 4],
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
 

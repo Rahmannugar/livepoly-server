@@ -68,12 +68,44 @@ export class GameRealtimeService {
     }
   }
 
-  async joinGame(input: GameActorInput) {
-    const player = await this.requireActivePlayer(input);
+  private async requireLiveGameAccess(input: GameActorInput) {
+    await this.requireActiveAccount(input.userId);
 
-    return {
-      roomPlayerId: player.roomPlayerId,
-    };
+    const player = await this.gameAccessRepository.findActivePlayerForGame(
+      input.gameId,
+      input.userId,
+    );
+
+    if (player) {
+      return {
+        access: 'player' as const,
+        roomPlayerId: player.roomPlayerId,
+      };
+    }
+
+    const spectator =
+      await this.gameAccessRepository.findCurrentSpectatorForGame(
+        input.gameId,
+        input.userId,
+      );
+
+    if (spectator) {
+      return {
+        access: 'spectator' as const,
+        spectatorId: spectator.spectatorId,
+      };
+    }
+
+    this.observabilityService.recordEvent(GAME_EVENTS.socketAccessDenied, {
+      gameId: input.gameId,
+      userId: input.userId,
+    });
+
+    throw new ForbiddenException('Game access denied');
+  }
+
+  async joinGame(input: GameActorInput) {
+    return this.requireLiveGameAccess(input);
   }
 
   async rollAndMove(input: RollAndMoveInput): Promise<GameCommandResult> {

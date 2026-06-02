@@ -22,6 +22,7 @@ import {
   ROOM_EVENTS,
   ROOM_METRICS,
   ROOM_MAX_PLAYERS,
+  ROOM_MAX_SPECTATORS,
 } from '../rooms.constants';
 
 @Injectable()
@@ -212,6 +213,115 @@ export class RoomsLobbyService {
     this.observabilityService.recordMetric(ROOM_METRICS.left);
 
     return { message: 'Room left' };
+  }
+
+  async spectateRoom(authUser: AuthUser, code: string) {
+    const room = await this.roomsLobbyRepository.findRoomByCode(code);
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    if (room.status !== 'active') {
+      throw new ConflictException('Only active rooms can be spectated');
+    }
+
+    const player = await this.roomsLobbyRepository.findJoinedPlayer(
+      room.id,
+      authUser.id,
+    );
+
+    if (player) {
+      throw new ConflictException(
+        'Room players cannot spectate their own room',
+      );
+    }
+
+    const currentSpectator =
+      await this.roomsLobbyRepository.findCurrentSpectator(
+        room.id,
+        authUser.id,
+      );
+
+    if (currentSpectator) {
+      return {
+        message: 'Already spectating room',
+        spectator: currentSpectator,
+      };
+    }
+
+    const spectator = await this.databaseService.transaction(async (tx) => {
+      const lockedRoom = await this.roomsLobbyRepository.lockRoomByCode(
+        code,
+        tx,
+      );
+
+      if (!lockedRoom) {
+        throw new NotFoundException('Room not found');
+      }
+
+      if (lockedRoom.status !== 'active') {
+        throw new ConflictException('Only active rooms can be spectated');
+      }
+
+      const spectatorCount =
+        await this.roomsLobbyRepository.countCurrentSpectators(
+          lockedRoom.id,
+          tx,
+        );
+
+      if (spectatorCount >= ROOM_MAX_SPECTATORS) {
+        throw new ConflictException('Room spectator limit reached');
+      }
+
+      return this.roomsLobbyRepository.createSpectator(
+        {
+          roomId: lockedRoom.id,
+          userId: authUser.id,
+        },
+        tx,
+      );
+    });
+
+    this.observabilityService.recordEvent(ROOM_EVENTS.spectatorJoined, {
+      roomId: room.id,
+      roomCode: room.code,
+      userId: authUser.id,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.spectatorJoined);
+
+    return {
+      message: 'Spectating room',
+      spectator,
+    };
+  }
+
+  async stopSpectatingRoom(authUser: AuthUser, code: string) {
+    const room = await this.roomsLobbyRepository.findRoomByCode(code);
+
+    if (!room) {
+      throw new NotFoundException('Room not found');
+    }
+
+    const spectator = await this.roomsLobbyRepository.endSpectatorSession({
+      roomId: room.id,
+      userId: authUser.id,
+    });
+
+    if (!spectator) {
+      throw new NotFoundException('Room spectator not found');
+    }
+
+    this.observabilityService.recordEvent(ROOM_EVENTS.spectatorLeft, {
+      roomId: room.id,
+      roomCode: room.code,
+      userId: authUser.id,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.spectatorLeft);
+
+    return {
+      message: 'Stopped spectating room',
+    };
   }
 
   async inviteToRoom(authUser: AuthUser, code: string, dto: InviteRoomDto) {

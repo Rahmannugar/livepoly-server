@@ -15,6 +15,7 @@ import {
   RoomInviteResponseDto,
   RoomMessageResponseDto,
   RoomResponseDto,
+  RoomSpectatorResponseDto,
   StartRoomResponseDto,
 } from './rooms-response.dto';
 
@@ -109,6 +110,47 @@ export const RoomsDocs = {
       ApiResponse({
         status: HttpStatus.NOT_FOUND,
         description: 'Room or room player not found',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
+
+  SpectateRoom: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({
+        summary: 'Spectate active room',
+        description:
+          'Adds the authenticated user as a spectator for an active room. Players in the room cannot spectate their own room.',
+      }),
+      ApiParam({ name: 'code', example: 'AbC23xYz' }),
+      ApiOkResponse({ type: RoomSpectatorResponseDto }),
+      ApiResponse({
+        status: HttpStatus.CONFLICT,
+        description:
+          'Room is not active, user is already a player, or spectator limit has been reached',
+      }),
+      ApiResponse({
+        status: HttpStatus.NOT_FOUND,
+        description: 'Room not found',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
+
+  StopSpectatingRoom: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({ summary: 'Stop spectating room' }),
+      ApiParam({ name: 'code', example: 'AbC23xYz' }),
+      ApiOkResponse({ type: RoomMessageResponseDto }),
+      ApiResponse({
+        status: HttpStatus.NOT_FOUND,
+        description: 'Room or room spectator not found',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,

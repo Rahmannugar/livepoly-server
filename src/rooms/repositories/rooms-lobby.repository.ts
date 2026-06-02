@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, desc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, or } from 'drizzle-orm';
 import { DatabaseService } from '../../infra/database/database.service';
 import type { DatabaseExecutor } from '../../infra/database/database.service';
 import {
@@ -7,6 +7,7 @@ import {
   roomPlayers,
   rooms,
   users,
+  roomSpectators,
 } from '../../infra/database/schema';
 import { ACTIVE_ROOM_STATUSES, ROOM_MAX_PLAYERS } from '../rooms.constants';
 
@@ -345,6 +346,111 @@ export class RoomsLobbyRepository {
       });
 
     return room ?? null;
+  }
+
+  async lockRoomByCode(code: string, executor: DatabaseExecutor) {
+    const [room] = await executor
+      .select({
+        id: rooms.id,
+        code: rooms.code,
+        hostUserId: rooms.hostUserId,
+        status: rooms.status,
+        maxPlayers: rooms.maxPlayers,
+        durationMinutes: rooms.durationMinutes,
+        boardKey: rooms.boardKey,
+        createdAt: rooms.createdAt,
+        startedAt: rooms.startedAt,
+        endedAt: rooms.endedAt,
+      })
+      .from(rooms)
+      .where(eq(rooms.code, code))
+      .limit(1)
+      .for('update');
+
+    return room ?? null;
+  }
+
+  async findCurrentSpectator(roomId: string, userId: string) {
+    const [spectator] = await this.databaseService.db
+      .select({
+        id: roomSpectators.id,
+        roomId: roomSpectators.roomId,
+        userId: roomSpectators.userId,
+        joinedAt: roomSpectators.joinedAt,
+        leftAt: roomSpectators.leftAt,
+      })
+      .from(roomSpectators)
+      .where(
+        and(
+          eq(roomSpectators.roomId, roomId),
+          eq(roomSpectators.userId, userId),
+          isNull(roomSpectators.leftAt),
+        ),
+      )
+      .limit(1);
+
+    return spectator ?? null;
+  }
+
+  async countCurrentSpectators(roomId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    const [result] = await db
+      .select({ value: count() })
+      .from(roomSpectators)
+      .where(
+        and(eq(roomSpectators.roomId, roomId), isNull(roomSpectators.leftAt)),
+      );
+
+    return result?.value ?? 0;
+  }
+
+  async createSpectator(
+    input: {
+      roomId: string;
+      userId: string;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [spectator] = await db
+      .insert(roomSpectators)
+      .values({
+        roomId: input.roomId,
+        userId: input.userId,
+      })
+      .returning({
+        id: roomSpectators.id,
+        roomId: roomSpectators.roomId,
+        userId: roomSpectators.userId,
+        joinedAt: roomSpectators.joinedAt,
+        leftAt: roomSpectators.leftAt,
+      });
+
+    return spectator;
+  }
+
+  async endSpectatorSession(input: { roomId: string; userId: string }) {
+    const [spectator] = await this.databaseService.db
+      .update(roomSpectators)
+      .set({ leftAt: new Date() })
+      .where(
+        and(
+          eq(roomSpectators.roomId, input.roomId),
+          eq(roomSpectators.userId, input.userId),
+          isNull(roomSpectators.leftAt),
+        ),
+      )
+      .returning({
+        id: roomSpectators.id,
+        roomId: roomSpectators.roomId,
+        userId: roomSpectators.userId,
+        joinedAt: roomSpectators.joinedAt,
+        leftAt: roomSpectators.leftAt,
+      });
+
+    return spectator ?? null;
   }
 
   isRoomCodeUniqueViolation(error: unknown) {

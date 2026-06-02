@@ -16,6 +16,7 @@ import { GameEngineError } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_SOCKET_EVENTS } from '../game.constants';
 import { GameRealtimeService } from './game-realtime.service';
 import {
+  GameJoinedEvent,
   type AuthenticatedGameSocket,
   type EndTurnPayload,
   type GameCommandRejectedEvent,
@@ -83,7 +84,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.assertGameId(payload.gameId);
 
     try {
-      const player = await this.gameRealtimeService.joinGame({
+      const access = await this.gameRealtimeService.joinGame({
         gameId: payload.gameId,
         userId: socket.data.user.id,
       });
@@ -100,8 +101,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         event: GAME_SOCKET_EVENTS.joined,
         data: {
           gameId: payload.gameId,
-          roomPlayerId: player.roomPlayerId,
-        },
+          ...access,
+        } satisfies GameJoinedEvent,
       };
     } catch (error) {
       throw this.toWsException(error);

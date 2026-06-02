@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -76,6 +77,28 @@ export class RoomsController {
     @Param('code') code: string,
   ) {
     return this.roomsLobbyService.leaveRoom(authUser, code);
+  }
+
+  @RoomsDocs.SpectateRoom()
+  @RateLimit(...ROOMS_RATE_LIMIT_RULES.mutation)
+  @Post(':code/spectate')
+  @HttpCode(HttpStatus.OK)
+  spectateRoom(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Param('code') code: string,
+  ) {
+    return this.roomsLobbyService.spectateRoom(authUser, code);
+  }
+
+  @RoomsDocs.StopSpectatingRoom()
+  @RateLimit(...ROOMS_RATE_LIMIT_RULES.mutation)
+  @Delete(':code/spectate')
+  @HttpCode(HttpStatus.OK)
+  stopSpectatingRoom(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Param('code') code: string,
+  ) {
+    return this.roomsLobbyService.stopSpectatingRoom(authUser, code);
   }
 
   @RoomsDocs.InviteToRoom()

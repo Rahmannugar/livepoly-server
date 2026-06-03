@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Query,
   HttpCode,
   HttpStatus,
   Param,
@@ -18,6 +19,8 @@ import { FriendsDocs } from './docs/friends.swagger';
 import { CreateFriendRequestDto } from './dto/create-friend-request.dto';
 import { FRIENDS_RATE_LIMIT_RULES } from './friends-rate-limit.rules';
 import { FriendsService } from './friends.service';
+import { ListFriendsDto } from './dto/list-friends.dto';
+import { ListFriendRequestsDto } from './dto/list-friend-requests.dto';
 
 @FriendsDocs.Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
@@ -40,16 +43,22 @@ export class FriendsController {
   @RateLimit(...FRIENDS_RATE_LIMIT_RULES.read)
   @Get()
   @HttpCode(HttpStatus.OK)
-  listFriends(@AuthUserDecorator() authUser: AuthUser) {
-    return this.friendsService.listFriends(authUser);
+  listFriends(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Query() dto: ListFriendsDto,
+  ) {
+    return this.friendsService.listFriends(authUser, dto);
   }
 
   @FriendsDocs.ListRequests()
   @RateLimit(...FRIENDS_RATE_LIMIT_RULES.read)
   @Get('requests')
   @HttpCode(HttpStatus.OK)
-  listRequests(@AuthUserDecorator() authUser: AuthUser) {
-    return this.friendsService.listRequests(authUser);
+  listRequests(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Query() dto: ListFriendRequestsDto,
+  ) {
+    return this.friendsService.listRequests(authUser, dto);
   }
 
   @FriendsDocs.AcceptRequest()

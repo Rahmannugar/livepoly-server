@@ -148,6 +148,13 @@
       "when": 1780416979963,
       "tag": "0020_add_game_event_sequence_check",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1780472121341,
+      "tag": "0021_add_friendship_pagination_indexes",
+      "breakpoints": true
     }
   ]
 }

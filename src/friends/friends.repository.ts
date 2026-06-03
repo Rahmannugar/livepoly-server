@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNull, or } from 'drizzle-orm';
+import { and, desc, eq, isNull, lt, or, sql } from 'drizzle-orm';
+import type {
+  FriendListCursor,
+  FriendRequestSummaryRow,
+  FriendSummaryRow,
+} from './friends.types';
 import { alias } from 'drizzle-orm/pg-core';
 import {
   DatabaseExecutor,
@@ -216,7 +221,11 @@ export class FriendsRepository {
     return friendship ?? null;
   }
 
-  async listFriends(userId: string) {
+  async listFriends(input: {
+    userId: string;
+    limit: number;
+    cursor?: FriendListCursor;
+  }): Promise<FriendSummaryRow[]> {
     return this.databaseService.db
       .select({
         friendshipId: friendships.id,
@@ -232,11 +241,11 @@ export class FriendsRepository {
         friend,
         or(
           and(
-            eq(friendships.requesterId, userId),
+            eq(friendships.requesterId, input.userId),
             eq(friend.id, friendships.addresseeId),
           ),
           and(
-            eq(friendships.addresseeId, userId),
+            eq(friendships.addresseeId, input.userId),
             eq(friend.id, friendships.requesterId),
           ),
         ),
@@ -245,15 +254,53 @@ export class FriendsRepository {
         and(
           eq(friendships.status, 'accepted'),
           or(
-            eq(friendships.requesterId, userId),
-            eq(friendships.addresseeId, userId),
+            eq(friendships.requesterId, input.userId),
+            eq(friendships.addresseeId, input.userId),
           ),
           isNull(friend.deletedAt),
+          input.cursor
+            ? or(
+                lt(friendships.createdAt, input.cursor.createdAt),
+                and(
+                  eq(friendships.createdAt, input.cursor.createdAt),
+                  lt(friendships.id, input.cursor.friendshipId),
+                ),
+              )
+            : undefined,
         ),
-      );
+      )
+      .orderBy(desc(friendships.createdAt), desc(friendships.id))
+      .limit(input.limit + 1);
   }
 
-  async listFriendRequests(userId: string) {
+  async listIncomingFriendRequests(input: {
+    userId: string;
+    limit: number;
+    cursor?: FriendListCursor;
+  }): Promise<FriendRequestSummaryRow[]> {
+    return this.listFriendRequestsByDirection({
+      ...input,
+      direction: 'incoming',
+    });
+  }
+
+  async listOutgoingFriendRequests(input: {
+    userId: string;
+    limit: number;
+    cursor?: FriendListCursor;
+  }): Promise<FriendRequestSummaryRow[]> {
+    return this.listFriendRequestsByDirection({
+      ...input,
+      direction: 'outgoing',
+    });
+  }
+
+  private async listFriendRequestsByDirection(input: {
+    userId: string;
+    limit: number;
+    cursor?: FriendListCursor;
+    direction: 'incoming' | 'outgoing';
+  }): Promise<FriendRequestSummaryRow[]> {
     return this.databaseService.db
       .select({
         friendshipId: friendships.id,
@@ -263,7 +310,7 @@ export class FriendsRepository {
         requesterAvatarObjectKey: requester.avatarObjectKey,
         addresseeUsername: addressee.username,
         addresseeAvatarObjectKey: addressee.avatarObjectKey,
-        status: friendships.status,
+        status: sql<'pending'>`'pending'`,
         createdAt: friendships.createdAt,
         updatedAt: friendships.updatedAt,
       })
@@ -273,14 +320,24 @@ export class FriendsRepository {
       .where(
         and(
           eq(friendships.status, 'pending'),
-          or(
-            eq(friendships.requesterId, userId),
-            eq(friendships.addresseeId, userId),
-          ),
+          input.direction === 'incoming'
+            ? eq(friendships.addresseeId, input.userId)
+            : eq(friendships.requesterId, input.userId),
           isNull(requester.deletedAt),
           isNull(addressee.deletedAt),
+          input.cursor
+            ? or(
+                lt(friendships.createdAt, input.cursor.createdAt),
+                and(
+                  eq(friendships.createdAt, input.cursor.createdAt),
+                  lt(friendships.id, input.cursor.friendshipId),
+                ),
+              )
+            : undefined,
         ),
-      );
+      )
+      .orderBy(desc(friendships.createdAt), desc(friendships.id))
+      .limit(input.limit + 1);
   }
 
   isUniquePairViolation(error: unknown) {

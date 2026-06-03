@@ -84,10 +84,34 @@ export class FriendRequestSummaryDto {
   updatedAt: Date;
 }
 
-export class FriendRequestsResponseDto {
-  @ApiProperty({ type: [FriendRequestSummaryDto] })
-  incoming: FriendRequestSummaryDto[];
+export class FriendsListResponseDto {
+  @ApiProperty({ type: [FriendSummaryDto] })
+  items: FriendSummaryDto[];
 
+  @ApiPropertyOptional({
+    example:
+      'eyJ2IjoxLCJmcmllbmRzaGlwSWQiOiI5YjRmMGVhNC0wZTc2LTRkZDUtODYwNi1iNjFkYzM4YjgxM2QiLCJjcmVhdGVkQXQiOiIyMDI2LTA1LTE0VDEyOjAwOjAwLjAwMFoifQ',
+    nullable: true,
+  })
+  nextCursor: string | null;
+}
+
+export class FriendRequestListResponseDto {
   @ApiProperty({ type: [FriendRequestSummaryDto] })
-  outgoing: FriendRequestSummaryDto[];
+  items: FriendRequestSummaryDto[];
+
+  @ApiPropertyOptional({
+    example:
+      'eyJ2IjoxLCJmcmllbmRzaGlwSWQiOiI5YjRmMGVhNC0wZTc2LTRkZDUtODYwNi1iNjFkYzM4YjgxM2QiLCJjcmVhdGVkQXQiOiIyMDI2LTA1LTE0VDEyOjAwOjAwLjAwMFoifQ',
+    nullable: true,
+  })
+  nextCursor: string | null;
+}
+
+export class FriendRequestsResponseDto {
+  @ApiProperty({ type: FriendRequestListResponseDto })
+  incoming: FriendRequestListResponseDto;
+
+  @ApiProperty({ type: FriendRequestListResponseDto })
+  outgoing: FriendRequestListResponseDto;
 }

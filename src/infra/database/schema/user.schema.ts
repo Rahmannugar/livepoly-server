@@ -92,6 +92,18 @@ export const friendships = pgTable(
       table.addresseeId,
       table.status,
     ),
+    index('friendships_requester_status_created_idx').on(
+      table.requesterId,
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
+    index('friendships_addressee_status_created_idx').on(
+      table.addresseeId,
+      table.status,
+      table.createdAt,
+      table.id,
+    ),
   ],
 );
 

@@ -7,14 +7,15 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
 import { CreateFriendRequestDto } from '../dto/create-friend-request.dto';
 import {
+  FriendsListResponseDto,
   FriendRequestsResponseDto,
   FriendshipResponseDto,
-  FriendSummaryDto,
 } from './friends-response.dto';
 
 export const FriendsDocs = {
@@ -60,7 +61,27 @@ export const FriendsDocs = {
     applyDecorators(
       ApiBearerAuth('accessToken'),
       ApiOperation({ summary: 'List friends' }),
-      ApiOkResponse({ type: [FriendSummaryDto] }),
+      ApiQuery({
+        name: 'limit',
+        required: false,
+        example: 50,
+        description: 'Page size from 1 to 100',
+      }),
+      ApiQuery({
+        name: 'cursor',
+        required: false,
+        example:
+          'eyJ2IjoxLCJmcmllbmRzaGlwSWQiOiI5YjRmMGVhNC0wZTc2LTRkZDUtODYwNi1iNjFkYzM4YjgxM2QiLCJjcmVhdGVkQXQiOiIyMDI2LTA1LTE0VDEyOjAwOjAwLjAwMFoifQ',
+      }),
+      ApiOkResponse({ type: FriendsListResponseDto }),
+      ApiResponse({
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid friends cursor',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Friends query failed validation',
+      }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,
         description: 'Authentication required',
@@ -71,7 +92,33 @@ export const FriendsDocs = {
     applyDecorators(
       ApiBearerAuth('accessToken'),
       ApiOperation({ summary: 'List incoming and outgoing friend requests' }),
+      ApiQuery({
+        name: 'limit',
+        required: false,
+        example: 50,
+        description: 'Page size from 1 to 100 for each request list',
+      }),
+      ApiQuery({
+        name: 'incomingCursor',
+        required: false,
+        example:
+          'eyJ2IjoxLCJmcmllbmRzaGlwSWQiOiI5YjRmMGVhNC0wZTc2LTRkZDUtODYwNi1iNjFkYzM4YjgxM2QiLCJjcmVhdGVkQXQiOiIyMDI2LTA1LTE0VDEyOjAwOjAwLjAwMFoifQ',
+      }),
+      ApiQuery({
+        name: 'outgoingCursor',
+        required: false,
+        example:
+          'eyJ2IjoxLCJmcmllbmRzaGlwSWQiOiI5YjRmMGVhNC0wZTc2LTRkZDUtODYwNi1iNjFkYzM4YjgxM2QiLCJjcmVhdGVkQXQiOiIyMDI2LTA1LTE0VDEyOjAwOjAwLjAwMFoifQ',
+      }),
       ApiOkResponse({ type: FriendRequestsResponseDto }),
+      ApiResponse({
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid friend request cursor',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'Friend request query failed validation',
+      }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,
         description: 'Authentication required',

@@ -15,7 +15,7 @@ export const API_DOCUMENTATION = {
 } as const;
 
 export const SERVER_TIMEOUTS = {
-  requestTimeoutMs: 15_000,
-  headersTimeoutMs: 20_000,
-  keepAliveTimeoutMs: 5_000,
+  requestTimeoutMs: 60_000,
+  headersTimeoutMs: 65_000,
+  keepAliveTimeoutMs: 60_000,
 } as const;

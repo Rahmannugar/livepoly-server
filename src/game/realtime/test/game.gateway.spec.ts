@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthRepository } from '../../../auth/auth.repository';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
+import type { GamePresenceService } from '../../presence/game-presence.service';
 import type { GameRealtimeService } from '../game-realtime.service';
 import type { AuthenticatedGameSocket } from '../game-realtime.types';
 import { GameGateway } from '../game.gateway';
@@ -11,6 +12,12 @@ type GameRealtimeServiceMock = {
   joinGame: jest.Mock;
   rollAndMove: jest.Mock;
   endTurn: jest.Mock;
+};
+
+type GamePresenceServiceMock = {
+  track: jest.Mock;
+  remove: jest.Mock;
+  getSummary: jest.Mock;
 };
 
 type JwtServiceMock = {
@@ -38,6 +45,7 @@ type GameSocketMock = AuthenticatedGameSocket & {
 describe('GameGateway', () => {
   let gateway: GameGateway;
   let gameRealtimeService: GameRealtimeServiceMock;
+  let gamePresenceService: GamePresenceServiceMock;
   let jwtService: JwtServiceMock;
   let configService: ConfigServiceMock;
   let authRepository: AuthRepositoryMock;
@@ -88,10 +96,17 @@ describe('GameGateway', () => {
   beforeEach(() => {
     gameRealtimeService = {
       joinGame: jest.fn().mockResolvedValue({
+        access: 'player',
         roomPlayerId: 'room-player-1',
       }),
       rollAndMove: jest.fn(),
       endTurn: jest.fn(),
+    };
+
+    gamePresenceService = {
+      track: jest.fn().mockResolvedValue(undefined),
+      remove: jest.fn().mockResolvedValue(undefined),
+      getSummary: jest.fn(),
     };
 
     jwtService = {
@@ -112,6 +127,7 @@ describe('GameGateway', () => {
 
     gateway = new GameGateway(
       gameRealtimeService as unknown as GameRealtimeService,
+      gamePresenceService as unknown as GamePresenceService,
       jwtService as unknown as JwtService,
       configService as unknown as ConfigService,
       authRepository as unknown as AuthRepository,
@@ -179,6 +195,7 @@ describe('GameGateway', () => {
       event: GAME_SOCKET_EVENTS.joined,
       data: {
         gameId: 'game-1',
+        access: 'player',
         roomPlayerId: 'room-player-1',
       },
     });

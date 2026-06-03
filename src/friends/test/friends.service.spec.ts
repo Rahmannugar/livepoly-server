@@ -1,5 +1,6 @@
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type { CacheService } from '../../infra/cache/cache.service';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
@@ -38,6 +39,10 @@ type OutboxQueueServiceMock = {
   enqueuePublishEvent: jest.Mock;
 };
 
+type CacheServiceMock = {
+  getClient: jest.Mock;
+};
+
 const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
@@ -52,6 +57,7 @@ describe('FriendsService', () => {
   let observabilityService: ObservabilityServiceMock;
   let databaseService: DatabaseServiceMock;
   let notificationsService: NotificationsServiceMock;
+  let cacheService: CacheServiceMock;
   let outboxQueueService: OutboxQueueServiceMock;
 
   const tx = { tx: true };
@@ -86,6 +92,12 @@ describe('FriendsService', () => {
       createFriendAcceptedNotification: jest.fn(),
     };
 
+    cacheService = {
+      getClient: jest.fn().mockReturnValue({
+        incr: jest.fn().mockResolvedValue(1),
+      }),
+    };
+
     outboxQueueService = {
       enqueuePublishEvent: jest.fn().mockResolvedValue(undefined),
     };
@@ -95,6 +107,7 @@ describe('FriendsService', () => {
       observabilityService as unknown as ObservabilityService,
       databaseService as unknown as DatabaseService,
       notificationsService as unknown as NotificationsService,
+      cacheService as unknown as CacheService,
       outboxQueueService as unknown as OutboxQueueService,
     );
   });

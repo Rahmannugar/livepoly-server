@@ -2,6 +2,7 @@ import { ConflictException, NotFoundException } from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { AuthRepository } from '../../auth/auth.repository';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type { CacheService } from '../../infra/cache/cache.service';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { SessionCacheService } from '../../session/session-cache.service';
@@ -42,6 +43,11 @@ type UsersQueueServiceMock = {
   enqueueDeletedUserCleanup: jest.Mock;
 };
 
+type CacheServiceMock = {
+  getClient: jest.Mock;
+  getOrSet: jest.Mock;
+};
+
 type UsersStatsServiceMock = {
   getStats: jest.Mock;
 };
@@ -72,6 +78,7 @@ describe('UsersProfileService', () => {
   let configService: ConfigServiceMock;
   let observabilityService: ObservabilityServiceMock;
   let usersQueueService: UsersQueueServiceMock;
+  let cacheService: CacheServiceMock;
   let usersStatsService: UsersStatsServiceMock;
 
   beforeEach(() => {
@@ -111,6 +118,13 @@ describe('UsersProfileService', () => {
       enqueueDeletedUserCleanup: jest.fn().mockResolvedValue(undefined),
     };
 
+    cacheService = {
+      getClient: jest.fn().mockReturnValue({
+        get: jest.fn().mockResolvedValue(null),
+      }),
+      getOrSet: jest.fn(),
+    };
+
     service = new UsersProfileService(
       usersProfileRepository as unknown as UsersProfileRepository,
       usersStatsService as unknown as UsersStatsService,
@@ -118,8 +132,9 @@ describe('UsersProfileService', () => {
       sessionCacheService as unknown as SessionCacheService,
       databaseService as unknown as DatabaseService,
       configService as unknown as ConfigService,
-      observabilityService as unknown as ObservabilityService,
       usersQueueService as unknown as UsersQueueService,
+      cacheService as unknown as CacheService,
+      observabilityService as unknown as ObservabilityService,
     );
   });
 

@@ -27,6 +27,7 @@ import { LeaderboardsModule } from '../leaderboards/leaderboards.module';
 import { UsersModule } from '../users/users.module';
 import { GameEventsRepository } from './events/game-events.repository';
 import { GameEventsService } from './events/game-events.service';
+import { GamePresenceService } from './presence/game-presence.service';
 
 @Module({
   imports: [
@@ -59,6 +60,7 @@ import { GameEventsService } from './events/game-events.service';
     GameStatsService,
     GameEventsRepository,
     GameEventsService,
+    GamePresenceService,
   ],
   exports: [
     GameStateService,

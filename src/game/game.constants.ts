@@ -61,6 +61,11 @@ export const GAME_BOTS = {
   },
 } as const;
 
+export const GAME_PRESENCE = {
+  ttlSeconds: 75,
+  heartbeatIntervalSeconds: 25,
+} as const;
+
 export const GAME_COMMANDS = {
   rollAndMove: 'roll_and_move',
   buyProperty: 'buy_property',
@@ -87,6 +92,8 @@ export const GAME_SOCKET_EVENTS = {
   events: 'game:events',
   eventsGet: 'game:events:get',
   eventsRecovered: 'game:events:recovered',
+  heartbeat: 'game:heartbeat',
+  heartbeatAcknowledged: 'game:heartbeat:acknowledged',
   commandRejected: 'game:command-rejected',
   error: 'game:error',
 } as const;

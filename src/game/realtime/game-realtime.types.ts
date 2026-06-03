@@ -11,6 +11,7 @@ import type { GameEventRecoveryResponse } from '../events/game-events.types';
 export type AuthenticatedGameSocket = Socket & {
   data: Socket['data'] & {
     user: AuthUser;
+    gameId?: string;
   };
 };
 
@@ -81,3 +82,13 @@ export const GAME_LIVE_ACCESS = {
 
 export type GameLiveAccess =
   (typeof GAME_LIVE_ACCESS)[keyof typeof GAME_LIVE_ACCESS];
+
+export type GameHeartbeatPayload = {
+  gameId: string;
+};
+
+export type GameHeartbeatAcknowledgedEvent = {
+  gameId: string;
+  receivedAt: string;
+  ttlSeconds: number;
+};

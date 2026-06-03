@@ -1,5 +1,6 @@
 import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
+import { AuthModule } from '../auth/auth.module';
 import { CacheModule } from '../infra/cache/cache.module';
 import { DatabaseModule } from '../infra/database/database.module';
 import { QUEUES } from '../infra/queue/queue.constants';
@@ -12,6 +13,7 @@ import { LeaderboardsService } from './leaderboards.service';
 @Module({
   imports: [
     BullModule.registerQueue({ name: QUEUES.game }),
+    AuthModule,
     CacheModule,
     DatabaseModule,
     RateLimitModule,

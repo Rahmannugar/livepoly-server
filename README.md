@@ -2,7 +2,7 @@
 
 ![LivePoly](./src/assets/livepoly.png)
 
-LivePoly Server is the backend for LivePoly, an online Monopoly-inspired board game where players can create rooms, invite friends, play live turn-based matches, spectate active games, recover smoothly from reconnects, and compete on ranked weekly and monthly leaderboards.
+LivePoly Server is the backend for LivePoly, an online Monopoly-inspired board game where players can create rooms, invite friends, play live turn-based matches, spectate active games, and compete on ranked weekly and monthly leaderboards.
 
 The backend owns the full game lifecycle: authentication, room setup, player turns, dice movement, property buying, rent, auctions, jail, debt, bankruptcy, bots, turn timers, durable snapshots, event recovery, game results, stats, ratings, realtime updates, friends, notifications, avatar uploads, rate limits, and observability.
 

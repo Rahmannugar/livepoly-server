@@ -92,3 +92,21 @@ export type GameHeartbeatAcknowledgedEvent = {
   receivedAt: string;
   ttlSeconds: number;
 };
+
+export type GamePresenceGetPayload = {
+  gameId: string;
+};
+
+export type GamePresenceUser = {
+  userId: string;
+  access: GameLiveAccess;
+  socketCount: number;
+  lastSeenAt: string;
+};
+
+export type GamePresenceEvent = {
+  gameId: string;
+  onlineUsers: GamePresenceUser[];
+  playersOnline: number;
+  spectatorsOnline: number;
+};

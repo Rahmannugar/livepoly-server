@@ -94,6 +94,8 @@ export const GAME_SOCKET_EVENTS = {
   eventsRecovered: 'game:events:recovered',
   heartbeat: 'game:heartbeat',
   heartbeatAcknowledged: 'game:heartbeat:acknowledged',
+  presenceGet: 'game:presence:get',
+  presence: 'game:presence',
   commandRejected: 'game:command-rejected',
   error: 'game:error',
 } as const;

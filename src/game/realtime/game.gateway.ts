@@ -31,6 +31,8 @@ import {
   type RollAndMovePayload,
   type GameHeartbeatPayload,
   type GameHeartbeatAcknowledgedEvent,
+  type GamePresenceEvent,
+  type GamePresenceGetPayload,
 } from './game-realtime.types';
 import { GamePresenceService } from '../presence/game-presence.service';
 
@@ -262,6 +264,31 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           receivedAt: new Date().toISOString(),
           ttlSeconds: GAME_PRESENCE.ttlSeconds,
         } satisfies GameHeartbeatAcknowledgedEvent,
+      };
+    } catch (error) {
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.presenceGet)
+  async getPresence(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: GamePresenceGetPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      await this.gameRealtimeService.joinGame({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+      });
+
+      const summary = await this.gamePresenceService.getSummary(payload.gameId);
+
+      return {
+        event: GAME_SOCKET_EVENTS.presence,
+        data: summary satisfies GamePresenceEvent,
       };
     } catch (error) {
       throw this.toWsException(error);

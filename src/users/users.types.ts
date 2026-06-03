@@ -1,3 +1,25 @@
+export type UserSearchCursor = {
+  username: string;
+  userId: string;
+};
+
+export type UserSearchRow = {
+  id: string;
+  username: string;
+  avatarObjectKey: string | null;
+};
+
+export type UserSearchItem = {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+};
+
+export type UserSearchResponse = {
+  items: UserSearchItem[];
+  nextCursor: string | null;
+};
+
 export type UserMatchCursor = {
   completedAt: Date;
   roomResultId: string;

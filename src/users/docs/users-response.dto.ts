@@ -14,6 +14,32 @@ export class UserStatsResponseDto {
   rating: number;
 }
 
+export class UserSearchItemResponseDto {
+  @ApiProperty({ example: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91' })
+  id: string;
+
+  @ApiProperty({ example: 'rahmannugar' })
+  username: string;
+
+  @ApiPropertyOptional({
+    example: 'https://pub-example.r2.dev/avatars/user-id/avatar.webp',
+    nullable: true,
+  })
+  avatarUrl: string | null;
+}
+
+export class UserSearchResponseDto {
+  @ApiProperty({ type: [UserSearchItemResponseDto] })
+  items: UserSearchItemResponseDto[];
+
+  @ApiPropertyOptional({
+    example:
+      'eyJ2IjoxLCJ1c2VybmFtZSI6InJhaG1hbm51Z2FyIiwidXNlcklkIjoiN2M2ZTBmNGUtN2Y4ZC00YzE4LWEwY2YtOTA2ZjRjOGIyYjkxIn0',
+    nullable: true,
+  })
+  nextCursor: string | null;
+}
+
 export class UserMatchHistoryItemResponseDto {
   @ApiProperty({ example: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91' })
   gameId: string;

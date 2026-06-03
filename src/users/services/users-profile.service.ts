@@ -11,10 +11,18 @@ import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { SessionCacheService } from '../../session/session-cache.service';
 import { UpdateUserDto } from '../dto/update-user.dto';
-import { USER_EVENTS } from '../users.constants';
+import { USER_EVENTS, USER_SEARCH } from '../users.constants';
 import { UsersQueueService } from '../jobs/users-queue.service';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersStatsService } from './users-stats.service';
+import { SearchUsersDto } from '../dto/search-users.dto';
+import { Buffer } from 'buffer';
+import { CacheService } from '../../infra/cache/cache.service';
+import type {
+  UserSearchCursor,
+  UserSearchResponse,
+  UserSearchRow,
+} from '../users.types';
 
 @Injectable()
 export class UsersProfileService {
@@ -25,8 +33,9 @@ export class UsersProfileService {
     private readonly sessionCacheService: SessionCacheService,
     private readonly databaseService: DatabaseService,
     private readonly configService: ConfigService,
-    private readonly observabilityService: ObservabilityService,
     private readonly usersQueueService: UsersQueueService,
+    private readonly cacheService: CacheService,
+    private readonly observabilityService: ObservabilityService,
   ) {}
 
   async getByUsername(username: string) {
@@ -53,6 +62,33 @@ export class UsersProfileService {
     });
 
     return this.profile(user, stats);
+  }
+
+  async searchUsers(dto: SearchUsersDto): Promise<UserSearchResponse> {
+    const query = dto.query.trim().toLowerCase();
+
+    if (query.length < USER_SEARCH.minQueryLength) {
+      return { items: [], nextCursor: null };
+    }
+
+    const limit = Math.min(
+      dto.limit ?? USER_SEARCH.defaultLimit,
+      USER_SEARCH.maxLimit,
+    );
+    const cursor = this.decodeUserSearchCursor(dto.cursor);
+
+    if (!cursor) {
+      const cacheVersion = await this.getUserSearchCacheVersion();
+
+      return this.cacheService.getOrSet({
+        key: `users:search:v${cacheVersion}:${query}:first:${limit}`,
+        ttlSeconds: USER_SEARCH.firstPageTtlSeconds,
+        ttlJitterRatio: USER_SEARCH.ttlJitterRatio,
+        factory: () => this.loadUserSearch({ query, limit }),
+      });
+    }
+
+    return this.loadUserSearch({ query, limit, cursor });
   }
 
   async getMe(authUser: AuthUser) {
@@ -258,5 +294,73 @@ export class UsersProfileService {
     attributes: Record<string, string | number | boolean | null | undefined>,
   ) {
     this.observabilityService.recordSecurityEvent(eventName, attributes);
+  }
+
+  private async loadUserSearch(input: {
+    query: string;
+    limit: number;
+    cursor?: UserSearchCursor;
+  }): Promise<UserSearchResponse> {
+    const rows =
+      await this.usersProfileRepository.searchUsersByUsernamePrefix(input);
+    const items = rows.slice(0, input.limit);
+
+    return {
+      items: items.map((row) => ({
+        id: row.id,
+        username: row.username,
+        avatarUrl: this.resolveAvatarUrl(row.avatarObjectKey),
+      })),
+      nextCursor:
+        rows.length > input.limit
+          ? this.encodeUserSearchCursor(items[items.length - 1])
+          : null,
+    };
+  }
+
+  private async getUserSearchCacheVersion(): Promise<number> {
+    const value = await this.cacheService
+      .getClient()
+      .get('users:search:version');
+    return value ? Number(value) : 1;
+  }
+
+  private encodeUserSearchCursor(row: UserSearchRow): string {
+    return Buffer.from(
+      JSON.stringify({
+        v: 1,
+        username: row.username,
+        userId: row.id,
+      }),
+    ).toString('base64url');
+  }
+
+  private decodeUserSearchCursor(
+    cursor?: string,
+  ): UserSearchCursor | undefined {
+    if (!cursor) {
+      return undefined;
+    }
+
+    try {
+      const decoded = JSON.parse(
+        Buffer.from(cursor, 'base64url').toString('utf8'),
+      ) as {
+        v?: number;
+        username?: string;
+        userId?: string;
+      };
+
+      if (decoded.v !== 1 || !decoded.username || !decoded.userId) {
+        throw new Error('Invalid cursor payload');
+      }
+
+      return {
+        username: decoded.username,
+        userId: decoded.userId,
+      };
+    } catch {
+      throw new BadRequestException('Invalid user search cursor');
+    }
   }
 }

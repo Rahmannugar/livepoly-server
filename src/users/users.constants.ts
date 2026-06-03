@@ -14,6 +14,14 @@ export const USER_AVATAR_UPLOAD_STATUS = {
   expired: 'expired',
 } as const;
 
+export const USER_SEARCH = {
+  defaultLimit: 50,
+  maxLimit: 100,
+  minQueryLength: 2,
+  firstPageTtlSeconds: 30,
+  ttlJitterRatio: 0.15,
+} as const;
+
 export const USER_MATCH_HISTORY = {
   defaultLimit: 50,
   maxLimit: 100,

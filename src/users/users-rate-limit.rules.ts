@@ -78,4 +78,21 @@ export const USERS_RATE_LIMIT_RULES = {
       burstLimit: 80,
     },
   ],
+
+  search: [
+    {
+      scope: 'users:search:user',
+      identifier: { type: 'user' },
+      limit: 120,
+      windowSeconds: 60,
+      burstLimit: 40,
+    },
+    {
+      scope: 'users:search:ip',
+      identifier: { type: 'ip' },
+      limit: 240,
+      windowSeconds: 60,
+      burstLimit: 80,
+    },
+  ],
 } satisfies Record<string, RateLimitRule[]>;

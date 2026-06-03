@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, gte, isNull, lt, or, sql } from 'drizzle-orm';
 import {
   DatabaseExecutor,
   DatabaseService,
 } from '../../infra/database/database.service';
 import { users } from '../../infra/database/schema';
+import type { UserSearchCursor, UserSearchRow } from '../users.types';
+import { getUsernamePrefixUpperBound } from '../users.helpers';
 
 type UpdateUserInput = {
   username?: string;
@@ -63,6 +65,41 @@ export class UsersProfileRepository {
       .limit(1);
 
     return user ?? null;
+  }
+
+  async searchUsersByUsernamePrefix(input: {
+    query: string;
+    limit: number;
+    cursor?: UserSearchCursor;
+  }): Promise<UserSearchRow[]> {
+    const upperBound = getUsernamePrefixUpperBound(input.query);
+
+    return this.databaseService.db
+      .select({
+        id: users.id,
+        username: users.username,
+        avatarObjectKey: users.avatarObjectKey,
+      })
+      .from(users)
+      .where(
+        and(
+          isNull(users.deletedAt),
+          eq(users.status, 'active'),
+          gte(users.username, input.query),
+          upperBound ? lt(users.username, upperBound) : undefined,
+          input.cursor
+            ? or(
+                gt(users.username, input.cursor.username),
+                and(
+                  eq(users.username, input.cursor.username),
+                  gt(users.id, input.cursor.userId),
+                ),
+              )
+            : undefined,
+        ),
+      )
+      .orderBy(asc(users.username), asc(users.id))
+      .limit(input.limit + 1);
   }
 
   async updateUser(

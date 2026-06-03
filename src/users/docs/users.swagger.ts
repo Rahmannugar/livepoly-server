@@ -16,6 +16,7 @@ import {
   AvatarUploadUrlResponseDto,
   UserMatchHistoryResponseDto,
   UserProfileResponseDto,
+  UserSearchResponseDto,
 } from './users-response.dto';
 
 export const UsersDocs = {
@@ -141,6 +142,47 @@ export const UsersDocs = {
       ApiResponse({
         status: HttpStatus.UNPROCESSABLE_ENTITY,
         description: 'Match history query failed validation',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
+
+  Search: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({
+        summary: 'Search users by username prefix',
+        description:
+          'Returns active users whose usernames start with the provided query.',
+      }),
+      ApiQuery({
+        name: 'query',
+        required: true,
+        example: 'rah',
+        description: 'Username prefix to search for',
+      }),
+      ApiQuery({
+        name: 'limit',
+        required: false,
+        example: 50,
+        description: 'Page size from 1 to 100',
+      }),
+      ApiQuery({
+        name: 'cursor',
+        required: false,
+        example:
+          'eyJ2IjoxLCJ1c2VybmFtZSI6InJhaG1hbm51Z2FyIiwidXNlcklkIjoiN2M2ZTBmNGUtN2Y4ZC00YzE4LWEwY2YtOTA2ZjRjOGIyYjkxIn0',
+      }),
+      ApiOkResponse({ type: UserSearchResponseDto }),
+      ApiResponse({
+        status: HttpStatus.BAD_REQUEST,
+        description: 'Invalid user search cursor',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        description: 'User search query failed validation',
       }),
       ApiResponse({
         status: HttpStatus.UNAUTHORIZED,

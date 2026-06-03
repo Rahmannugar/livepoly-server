@@ -24,6 +24,7 @@ import { UsersProfileService } from './services/users-profile.service';
 import { USERS_RATE_LIMIT_RULES } from './users-rate-limit.rules';
 import { ListUserMatchesDto } from './dto/list-user-matches.dto';
 import { UsersStatsService } from './services/users-stats.service';
+import { SearchUsersDto } from './dto/search-users.dto';
 
 @UsersDocs.Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
@@ -90,5 +91,13 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   getByUsername(@Param('username') username: string) {
     return this.usersProfileService.getByUsername(username);
+  }
+
+  @UsersDocs.Search()
+  @RateLimit(...USERS_RATE_LIMIT_RULES.search)
+  @Get('search')
+  @HttpCode(HttpStatus.OK)
+  searchUsers(@Query() dto: SearchUsersDto) {
+    return this.usersProfileService.searchUsers(dto);
   }
 }

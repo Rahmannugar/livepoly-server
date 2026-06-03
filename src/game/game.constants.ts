@@ -66,6 +66,34 @@ export const GAME_PRESENCE = {
   heartbeatIntervalSeconds: 25,
 } as const;
 
+export const GAME_WS_RECONNECT_GUARD = {
+  connection: {
+    limit: 120,
+    windowSeconds: 60,
+    burstLimit: 30,
+  },
+  join: {
+    limit: 60,
+    windowSeconds: 60,
+    burstLimit: 20,
+  },
+  eventRecovery: {
+    limit: 60,
+    windowSeconds: 60,
+    burstLimit: 15,
+  },
+  heartbeat: {
+    limit: 180,
+    windowSeconds: 60,
+    burstLimit: 40,
+  },
+  presence: {
+    limit: 120,
+    windowSeconds: 60,
+    burstLimit: 30,
+  },
+} as const;
+
 export const GAME_COMMANDS = {
   rollAndMove: 'roll_and_move',
   buyProperty: 'buy_property',

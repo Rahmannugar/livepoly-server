@@ -12,11 +12,14 @@ import {
 import { AuthRepository } from '../../auth/auth.repository';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { ObservabilityService } from '../../infra/observability/observability.service';
+import { RateLimitException } from '../../rate-limit/rate-limit.exception';
+import { RateLimitService } from '../../rate-limit/rate-limit.service';
 import { GameEngineError } from '../engine/game-engine.types';
 import {
   GAME_EVENTS,
   GAME_PRESENCE,
   GAME_SOCKET_EVENTS,
+  GAME_WS_RECONNECT_GUARD,
 } from '../game.constants';
 import { GameRealtimeService } from './game-realtime.service';
 import {
@@ -59,10 +62,12 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly configService: ConfigService,
     private readonly authRepository: AuthRepository,
     private readonly observabilityService: ObservabilityService,
+    private readonly rateLimitService: RateLimitService,
   ) {}
 
   async handleConnection(socket: AuthenticatedGameSocket): Promise<void> {
     try {
+      await this.consumeConnectionLimit(socket);
       socket.data.user = await this.authenticate(socket);
 
       this.observabilityService.recordEvent(GAME_EVENTS.socketConnected, {
@@ -70,9 +75,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId: socket.data.user.id,
         username: socket.data.user.username,
       });
-    } catch {
+    } catch (error) {
       socket.emit(GAME_SOCKET_EVENTS.error, {
-        message: 'Authentication required',
+        ...this.toSocketConnectionError(error),
       } satisfies GameErrorEvent);
 
       socket.disconnect(true);
@@ -104,6 +109,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.assertGameId(payload.gameId);
 
     try {
+      await this.consumeUserGameLimit({
+        scope: 'game:ws:join',
+        userId: socket.data.user.id,
+        gameId: payload.gameId,
+        rule: GAME_WS_RECONNECT_GUARD.join,
+      });
+
       const access = await this.gameRealtimeService.joinGame({
         gameId: payload.gameId,
         userId: socket.data.user.id,
@@ -216,6 +228,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.assertGameId(payload.gameId);
 
     try {
+      await this.consumeUserGameLimit({
+        scope: 'game:ws:events:get',
+        userId: socket.data.user.id,
+        gameId: payload.gameId,
+        rule: GAME_WS_RECONNECT_GUARD.eventRecovery,
+      });
+
       const result = await this.gameRealtimeService.recoverEvents({
         gameId: payload.gameId,
         userId: socket.data.user.id,
@@ -243,6 +262,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.assertGameId(payload.gameId);
 
     try {
+      await this.consumeUserGameLimit({
+        scope: 'game:ws:heartbeat',
+        userId: socket.data.user.id,
+        gameId: payload.gameId,
+        rule: GAME_WS_RECONNECT_GUARD.heartbeat,
+      });
+
       const access = await this.gameRealtimeService.joinGame({
         gameId: payload.gameId,
         userId: socket.data.user.id,
@@ -279,6 +305,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.assertGameId(payload.gameId);
 
     try {
+      await this.consumeUserGameLimit({
+        scope: 'game:ws:presence:get',
+        userId: socket.data.user.id,
+        gameId: payload.gameId,
+        rule: GAME_WS_RECONNECT_GUARD.presence,
+      });
+
       await this.gameRealtimeService.joinGame({
         gameId: payload.gameId,
         userId: socket.data.user.id,
@@ -409,6 +442,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private toWsException(error: unknown): WsException {
+    if (error instanceof RateLimitException) {
+      return new WsException({
+        message: 'Too many realtime requests. Try again shortly.',
+        code: 'rate_limited',
+      });
+    }
+
     if (error instanceof GameEngineError) {
       return new WsException({
         message: error.message,
@@ -429,5 +469,59 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private gameRoom(gameId: string): string {
     return `game:${gameId}`;
+  }
+
+  private async consumeConnectionLimit(
+    socket: AuthenticatedGameSocket,
+  ): Promise<void> {
+    await this.rateLimitService.consume({
+      scope: 'game:ws:connect',
+      identifier: this.socketIp(socket),
+      ...GAME_WS_RECONNECT_GUARD.connection,
+    });
+  }
+
+  private async consumeUserGameLimit(input: {
+    scope: string;
+    userId: string;
+    gameId: string;
+    rule: {
+      limit: number;
+      windowSeconds: number;
+      burstLimit: number;
+    };
+  }): Promise<void> {
+    await this.rateLimitService.consume({
+      scope: input.scope,
+      identifier: `${input.userId}:${input.gameId}`,
+      ...input.rule,
+    });
+  }
+
+  private socketIp(socket: AuthenticatedGameSocket): string {
+    const forwardedFor = socket.handshake.headers['x-forwarded-for'];
+
+    if (typeof forwardedFor === 'string' && forwardedFor.trim()) {
+      return forwardedFor.split(',')[0].trim();
+    }
+
+    if (Array.isArray(forwardedFor) && forwardedFor[0]) {
+      return forwardedFor[0];
+    }
+
+    return socket.handshake.address ?? socket.id;
+  }
+
+  private toSocketConnectionError(error: unknown): GameErrorEvent {
+    if (error instanceof RateLimitException) {
+      return {
+        message: 'Too many realtime connection attempts. Try again shortly.',
+        code: 'rate_limited',
+      };
+    }
+
+    return {
+      message: 'Authentication required',
+    };
   }
 }

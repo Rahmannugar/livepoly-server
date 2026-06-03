@@ -97,6 +97,8 @@ Horizontal scaling uses the Socket.IO Redis adapter/emitter:
 
 Presence uses Redis keys with TTL. Heartbeats refresh presence. Presence summary groups multiple sockets/devices by user.
 
+Reconnect pressure is handled with a layered approach. The frontend should reconnect with exponential backoff and jitter, while the backend applies soft Redis-backed guards around expensive websocket reconnect actions such as connection auth, game join, event recovery, heartbeat, and presence summary. These guards are intentionally lenient so real reconnects keep working, but broken clients or outage loops cannot trigger unlimited gateway work.
+
 ## Recovery Model
 
 Live game state is stored in Redis for fast gameplay. Durability is handled separately:
@@ -134,4 +136,3 @@ Current cache targets include:
 - Room/live listing style reads where applicable.
 
 Do not cache authority decisions for money, turns, winner, bankruptcy, game state mutation, result finalization, or rating/stat mutation.
-

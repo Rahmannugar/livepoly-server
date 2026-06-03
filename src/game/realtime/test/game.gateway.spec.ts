@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthRepository } from '../../../auth/auth.repository';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
+import type { RateLimitService } from '../../../rate-limit/rate-limit.service';
 import type { GamePresenceService } from '../../presence/game-presence.service';
 import type { GameRealtimeService } from '../game-realtime.service';
 import type { AuthenticatedGameSocket } from '../game-realtime.types';
@@ -36,6 +37,10 @@ type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
 };
 
+type RateLimitServiceMock = {
+  consume: jest.Mock;
+};
+
 type GameSocketMock = AuthenticatedGameSocket & {
   join: jest.Mock;
   emit: jest.Mock;
@@ -50,6 +55,7 @@ describe('GameGateway', () => {
   let configService: ConfigServiceMock;
   let authRepository: AuthRepositoryMock;
   let observabilityService: ObservabilityServiceMock;
+  let rateLimitService: RateLimitServiceMock;
 
   const authUser = {
     id: 'user-1',
@@ -125,6 +131,10 @@ describe('GameGateway', () => {
       recordEvent: jest.fn(),
     };
 
+    rateLimitService = {
+      consume: jest.fn().mockResolvedValue(undefined),
+    };
+
     gateway = new GameGateway(
       gameRealtimeService as unknown as GameRealtimeService,
       gamePresenceService as unknown as GamePresenceService,
@@ -132,6 +142,7 @@ describe('GameGateway', () => {
       configService as unknown as ConfigService,
       authRepository as unknown as AuthRepository,
       observabilityService as unknown as ObservabilityService,
+      rateLimitService as unknown as RateLimitService,
     );
   });
 

@@ -6,6 +6,7 @@ import { DatabaseModule } from '../infra/database/database.module';
 import { ObservabilityModule } from '../infra/observability/observability.module';
 import { QUEUES } from '../infra/queue/queue.constants';
 import { RealtimeModule } from '../infra/realtime/realtime.module';
+import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { GameBotQueueService } from './bots/game-bot-queue.service';
 import { GameBotService } from './bots/game-bot.service';
 import { GameCommandsService } from './commands/game-commands.service';
@@ -36,6 +37,7 @@ import { GamePresenceService } from './presence/game-presence.service';
     CacheModule,
     DatabaseModule,
     ObservabilityModule,
+    RateLimitModule,
     RealtimeModule,
     LeaderboardsModule,
     UsersModule,

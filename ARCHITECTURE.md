@@ -97,7 +97,7 @@ Horizontal scaling uses the Socket.IO Redis adapter/emitter:
 
 Presence uses Redis keys with TTL. Heartbeats refresh presence. Presence summary groups multiple sockets/devices by user.
 
-Reconnect pressure is handled with a layered approach. The frontend should reconnect with exponential backoff and jitter, while the backend applies soft Redis-backed guards around expensive websocket reconnect actions such as connection auth, game join, event recovery, heartbeat, and presence summary. These guards are intentionally lenient so real reconnects keep working, but broken clients or outage loops cannot trigger unlimited gateway work.
+Reconnect pressure is handled with a layered approach. The frontend reconnects with exponential backoff and jitter, while the backend applies soft Redis-backed guards around expensive websocket reconnect actions such as connection auth, game join, event recovery, heartbeat, and presence summary. These guards are intentionally lenient so real reconnects keep working, but broken clients or outage loops cannot trigger unlimited gateway work.
 
 ## Recovery Model
 

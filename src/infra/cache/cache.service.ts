@@ -29,6 +29,10 @@ export class CacheService implements OnModuleDestroy {
     return this.redis;
   }
 
+  async ping(): Promise<void> {
+    await this.redis.ping();
+  }
+
   async get<T>(key: string): Promise<T | null> {
     const value = await this.redis.get(key);
     return value ? (JSON.parse(value) as T) : null;

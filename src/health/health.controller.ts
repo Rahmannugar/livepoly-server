@@ -1,11 +1,21 @@
-import { Controller, Get, HttpCode, HttpStatus, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  ServiceUnavailableException,
+} from '@nestjs/common';
+import { CacheService } from '../infra/cache/cache.service';
 import { DatabaseService } from '../infra/database/database.service';
 import { HealthDocs } from './docs/health.swagger';
 
 @HealthDocs.Controller()
 @Controller('health')
 export class HealthController {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(
+    private readonly cacheService: CacheService,
+    private readonly databaseService: DatabaseService,
+  ) {}
 
   @HealthDocs.Live()
   @Get('live')
@@ -23,7 +33,10 @@ export class HealthController {
   @HttpCode(HttpStatus.OK)
   async getReadiness() {
     try {
-      await this.databaseService.ping();
+      await Promise.all([
+        this.databaseService.ping(),
+        this.cacheService.ping(),
+      ]);
 
       return {
         status: 'ok',
@@ -31,6 +44,7 @@ export class HealthController {
         checks: {
           app: 'ok',
           database: 'ok',
+          redis: 'ok',
         },
         checkedAt: new Date().toISOString(),
       };

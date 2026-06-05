@@ -19,6 +19,14 @@ import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.servi
 import { GameProcessor } from './game.processor';
 import { LeaderboardsModule } from '../../leaderboards/leaderboards.module';
 import { LeaderboardRefreshScheduler } from '../../leaderboards/jobs/leaderboard-refresh-scheduler.service';
+import { UsersModule } from '../../users/users.module';
+import { GameResultsRepository } from '../results/game-results.repository';
+import { GameResultsService } from '../results/game-results.service';
+import { GameRatingService } from '../stats/game-rating.service';
+import { GameStatsRepository } from '../stats/game-stats.repository';
+import { GameStatsService } from '../stats/game-stats.service';
+import { GameEventsRepository } from '../events/game-events.repository';
+import { GameEventsService } from '../events/game-events.service';
 
 @Module({
   imports: [
@@ -29,6 +37,7 @@ import { LeaderboardRefreshScheduler } from '../../leaderboards/jobs/leaderboard
     ObservabilityModule,
     RealtimeModule,
     LeaderboardsModule,
+    UsersModule,
   ],
   providers: [
     GameStateService,
@@ -42,6 +51,13 @@ import { LeaderboardRefreshScheduler } from '../../leaderboards/jobs/leaderboard
     GameSnapshotService,
     GameRecoveryService,
     GameProcessor,
+    GameResultsRepository,
+    GameResultsService,
+    GameRatingService,
+    GameStatsRepository,
+    GameStatsService,
+    GameEventsRepository,
+    GameEventsService,
     LeaderboardRefreshScheduler,
   ],
 })

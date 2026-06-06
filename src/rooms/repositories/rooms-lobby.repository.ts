@@ -4,6 +4,7 @@ import { DatabaseService } from '../../infra/database/database.service';
 import type { DatabaseExecutor } from '../../infra/database/database.service';
 import {
   friendships,
+  games,
   roomPlayers,
   rooms,
   users,
@@ -209,6 +210,22 @@ export class RoomsLobbyRepository {
       .limit(limit);
   }
 
+  async findActiveGameByRoomId(roomId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    const [game] = await db
+      .select({
+        id: games.id,
+        roomId: games.roomId,
+        status: games.status,
+      })
+      .from(games)
+      .where(and(eq(games.roomId, roomId), eq(games.status, 'active')))
+      .limit(1);
+
+    return game ?? null;
+  }
+
   async listPlayers(roomId: string) {
     return this.databaseService.db
       .select({
@@ -287,6 +304,44 @@ export class RoomsLobbyRepository {
       .limit(1);
 
     return player ?? null;
+  }
+
+  async findPlayer(roomId: string, userId: string) {
+    const [player] = await this.databaseService.db
+      .select({
+        id: roomPlayers.id,
+        roomId: roomPlayers.roomId,
+        userId: roomPlayers.userId,
+        seatNumber: roomPlayers.seatNumber,
+        status: roomPlayers.status,
+      })
+      .from(roomPlayers)
+      .where(
+        and(eq(roomPlayers.roomId, roomId), eq(roomPlayers.userId, userId)),
+      )
+      .limit(1);
+
+    return player ?? null;
+  }
+
+  async countJoinedHumanPlayers(
+    roomId: string,
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [result] = await db
+      .select({ value: count() })
+      .from(roomPlayers)
+      .where(
+        and(
+          eq(roomPlayers.roomId, roomId),
+          eq(roomPlayers.playerType, 'human'),
+          eq(roomPlayers.status, 'joined'),
+        ),
+      );
+
+    return result?.value ?? 0;
   }
 
   async leaveRoom(

@@ -1,5 +1,9 @@
 import { ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type { GameEngineState } from '../../game/engine/game-engine.types';
+import type { GameRecoveryService } from '../../game/recovery/game-recovery.service';
+import type { GameResultsService } from '../../game/results/game-results.service';
+import type { GameStateService } from '../../game/state/game-state.service';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
@@ -18,8 +22,11 @@ type RoomsLobbyRepositoryMock = {
   listPlayersForRooms: jest.Mock;
   listJoinedPlayers: jest.Mock;
   findJoinedPlayer: jest.Mock;
+  findPlayer: jest.Mock;
   leaveRoom: jest.Mock;
   cancelRoom: jest.Mock;
+  countJoinedHumanPlayers: jest.Mock;
+  findActiveGameByRoomId: jest.Mock;
   findActiveUserByUsername: jest.Mock;
   findActiveUserById: jest.Mock;
   findAcceptedFriendship: jest.Mock;
@@ -48,6 +55,18 @@ type OutboxQueueServiceMock = {
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
   recordMetric: jest.Mock;
+};
+
+type GameRecoveryServiceMock = {
+  getOrRecover: jest.Mock;
+};
+
+type GameResultsServiceMock = {
+  finalizeFinishedGame: jest.Mock;
+};
+
+type GameStateServiceMock = {
+  set: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -89,6 +108,67 @@ const spectator = {
   leftAt: null,
 };
 
+const activeGameState: GameEngineState = {
+  version: 1,
+  roomId: activeRoom.id,
+  roomCode: activeRoom.code,
+  boardKey: 'classic',
+  mode: 'casual',
+  startedAt: activeRoom.startedAt.getTime(),
+  durationMinutes: activeRoom.durationMinutes,
+  expiresAt: activeRoom.startedAt.getTime() + 60 * 60 * 1000,
+  phase: 'awaiting_roll',
+  turnNumber: 1,
+  currentTurnRoomPlayerId: 'player-1',
+  consecutiveDoublesCount: 0,
+  shouldCurrentPlayerPlayAgain: false,
+  lastDiceRoll: null,
+  pendingTileKey: null,
+  auction: null,
+  debt: null,
+  decks: {
+    chance: { drawPile: [], discardPile: [] },
+    world_fund: { drawPile: [], discardPile: [] },
+  },
+  players: [
+    {
+      roomPlayerId: 'player-1',
+      userId: authUser.id,
+      username: authUser.username,
+      playerType: 'human',
+      botDifficulty: null,
+      botName: null,
+      seatNumber: 1,
+      cash: 1500,
+      position: 0,
+      inJail: false,
+      jailTurnCount: 0,
+      getOutOfJailFreeCards: 0,
+      consecutiveMissedTurns: 0,
+      lastMissedTurnNumber: null,
+      bankrupt: false,
+    },
+    {
+      roomPlayerId: 'bot-1',
+      userId: null,
+      username: null,
+      playerType: 'bot',
+      botDifficulty: 'normal',
+      botName: 'Nova',
+      seatNumber: 2,
+      cash: 1200,
+      position: 4,
+      inJail: false,
+      jailTurnCount: 0,
+      getOutOfJailFreeCards: 0,
+      consecutiveMissedTurns: 0,
+      lastMissedTurnNumber: null,
+      bankrupt: false,
+    },
+  ],
+  properties: [],
+};
+
 describe('RoomsLobbyService', () => {
   let service: RoomsLobbyService;
   let roomsLobbyRepository: RoomsLobbyRepositoryMock;
@@ -96,6 +176,9 @@ describe('RoomsLobbyService', () => {
   let notificationsService: NotificationsServiceMock;
   let outboxQueueService: OutboxQueueServiceMock;
   let observabilityService: ObservabilityServiceMock;
+  let gameRecoveryService: GameRecoveryServiceMock;
+  let gameResultsService: GameResultsServiceMock;
+  let gameStateService: GameStateServiceMock;
 
   const tx = { tx: true };
 
@@ -110,8 +193,11 @@ describe('RoomsLobbyService', () => {
       listPlayersForRooms: jest.fn().mockResolvedValue([]),
       listJoinedPlayers: jest.fn(),
       findJoinedPlayer: jest.fn(),
+      findPlayer: jest.fn(),
       leaveRoom: jest.fn(),
       cancelRoom: jest.fn(),
+      countJoinedHumanPlayers: jest.fn(),
+      findActiveGameByRoomId: jest.fn(),
       findActiveUserByUsername: jest.fn(),
       findActiveUserById: jest.fn(),
       findAcceptedFriendship: jest.fn(),
@@ -144,12 +230,27 @@ describe('RoomsLobbyService', () => {
       recordMetric: jest.fn(),
     };
 
+    gameRecoveryService = {
+      getOrRecover: jest.fn(),
+    };
+
+    gameResultsService = {
+      finalizeFinishedGame: jest.fn().mockResolvedValue(undefined),
+    };
+
+    gameStateService = {
+      set: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsLobbyService(
       roomsLobbyRepository as unknown as RoomsLobbyRepository,
       databaseService as unknown as DatabaseService,
       notificationsService as unknown as NotificationsService,
       outboxQueueService as unknown as OutboxQueueService,
       observabilityService as unknown as ObservabilityService,
+      gameRecoveryService as unknown as GameRecoveryService,
+      gameResultsService as unknown as GameResultsService,
+      gameStateService as unknown as GameStateService,
     );
   });
 
@@ -427,6 +528,85 @@ describe('RoomsLobbyService', () => {
     );
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(
       ROOM_METRICS.cancelled,
+    );
+  });
+
+  it('returns already left when a former room player leaves again', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue(null);
+    roomsLobbyRepository.findPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'left' as const,
+    });
+
+    const result = await service.leaveRoom(authUser, activeRoom.code);
+
+    expect(result).toEqual({ message: 'Room already left' });
+    expect(databaseService.transaction).not.toHaveBeenCalled();
+    expect(gameResultsService.finalizeFinishedGame).not.toHaveBeenCalled();
+  });
+
+  it('finalizes an active game when the last human player leaves', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined' as const,
+    });
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.leaveRoom.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'left' as const,
+    });
+    roomsLobbyRepository.countJoinedHumanPlayers.mockResolvedValue(0);
+    roomsLobbyRepository.findActiveGameByRoomId.mockResolvedValue({
+      id: 'game-1',
+      roomId: activeRoom.id,
+      status: 'active' as const,
+    });
+    gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
+
+    const result = await service.leaveRoom(authUser, activeRoom.code);
+
+    expect(result).toEqual({ message: 'Room left' });
+    expect(roomsLobbyRepository.lockRoomByCode).toHaveBeenCalledWith(
+      activeRoom.code,
+      tx,
+    );
+    expect(roomsLobbyRepository.countJoinedHumanPlayers).toHaveBeenCalledWith(
+      activeRoom.id,
+      tx,
+    );
+    expect(gameStateService.set).toHaveBeenCalledWith('game-1', {
+      ...activeGameState,
+      phase: 'finished',
+    });
+    expect(gameResultsService.finalizeFinishedGame).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      state: {
+        ...activeGameState,
+        phase: 'finished',
+      },
+      events: [],
+    });
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.finishedAfterLastHumanLeft,
+      {
+        roomId: activeRoom.id,
+        roomCode: activeRoom.code,
+        gameId: 'game-1',
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.finishedAfterLastHumanLeft,
     );
   });
 

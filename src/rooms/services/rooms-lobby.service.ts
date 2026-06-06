@@ -6,6 +6,9 @@ import {
 } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import { GameRecoveryService } from '../../game/recovery/game-recovery.service';
+import { GameResultsService } from '../../game/results/game-results.service';
+import { GameStateService } from '../../game/state/game-state.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -33,6 +36,9 @@ export class RoomsLobbyService {
     private readonly notificationsService: NotificationsService,
     private readonly outboxQueueService: OutboxQueueService,
     private readonly observabilityService: ObservabilityService,
+    private readonly gameRecoveryService: GameRecoveryService,
+    private readonly gameResultsService: GameResultsService,
+    private readonly gameStateService: GameStateService,
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
@@ -179,6 +185,15 @@ export class RoomsLobbyService {
     );
 
     if (!player) {
+      const existingPlayer = await this.roomsLobbyRepository.findPlayer(
+        room.id,
+        authUser.id,
+      );
+
+      if (existingPlayer?.status === 'left') {
+        return { message: 'Room already left' };
+      }
+
       throw new NotFoundException('Room player not found');
     }
 
@@ -205,9 +220,54 @@ export class RoomsLobbyService {
       return { message: 'Room cancelled' };
     }
 
-    await this.roomsLobbyRepository.leaveRoom({
-      roomId: room.id,
-      userId: authUser.id,
+    const leaveResult = await this.databaseService.transaction(async (tx) => {
+      const lockedRoom = await this.roomsLobbyRepository.lockRoomByCode(
+        code,
+        tx,
+      );
+
+      if (!lockedRoom) {
+        throw new NotFoundException('Room not found');
+      }
+
+      const leftPlayer = await this.roomsLobbyRepository.leaveRoom(
+        {
+          roomId: lockedRoom.id,
+          userId: authUser.id,
+        },
+        tx,
+      );
+
+      if (!leftPlayer) {
+        throw new NotFoundException('Room player not found');
+      }
+
+      if (lockedRoom.status !== 'active') {
+        return {
+          activeGameId: null,
+        };
+      }
+
+      const joinedHumanCount =
+        await this.roomsLobbyRepository.countJoinedHumanPlayers(
+          lockedRoom.id,
+          tx,
+        );
+
+      if (joinedHumanCount > 0) {
+        return {
+          activeGameId: null,
+        };
+      }
+
+      const activeGame = await this.roomsLobbyRepository.findActiveGameByRoomId(
+        lockedRoom.id,
+        tx,
+      );
+
+      return {
+        activeGameId: activeGame?.id ?? null,
+      };
     });
 
     this.observabilityService.recordEvent(ROOM_EVENTS.left, {
@@ -217,7 +277,51 @@ export class RoomsLobbyService {
     });
     this.observabilityService.recordMetric(ROOM_METRICS.left);
 
+    if (leaveResult.activeGameId) {
+      await this.finalizeRoomAfterLastHumanLeft({
+        roomId: room.id,
+        roomCode: room.code,
+        gameId: leaveResult.activeGameId,
+      });
+    }
+
     return { message: 'Room left' };
+  }
+
+  private async finalizeRoomAfterLastHumanLeft(input: {
+    roomId: string;
+    roomCode: string;
+    gameId: string;
+  }) {
+    const state = await this.gameRecoveryService.getOrRecover(input.gameId);
+
+    if (state.phase === 'finished') {
+      return;
+    }
+
+    const finishedState = {
+      ...state,
+      phase: 'finished' as const,
+    };
+
+    await this.gameStateService.set(input.gameId, finishedState);
+    await this.gameResultsService.finalizeFinishedGame({
+      gameId: input.gameId,
+      state: finishedState,
+      events: [],
+    });
+
+    this.observabilityService.recordEvent(
+      ROOM_EVENTS.finishedAfterLastHumanLeft,
+      {
+        roomId: input.roomId,
+        roomCode: input.roomCode,
+        gameId: input.gameId,
+      },
+    );
+    this.observabilityService.recordMetric(
+      ROOM_METRICS.finishedAfterLastHumanLeft,
+    );
   }
 
   async spectateRoom(authUser: AuthUser, code: string) {

@@ -10,6 +10,7 @@ import {
   WsException,
 } from '@nestjs/websockets';
 import { AuthRepository } from '../../auth/auth.repository';
+import { AuthTokenVersionCacheService } from '../../auth/auth-token-version-cache.service';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { RateLimitException } from '../../rate-limit/rate-limit.exception';
@@ -61,6 +62,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly authRepository: AuthRepository,
+    private readonly authTokenVersionCacheService: AuthTokenVersionCacheService,
     private readonly observabilityService: ObservabilityService,
     private readonly rateLimitService: RateLimitService,
   ) {}
@@ -372,6 +374,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
 
     const payload = await this.verifyToken(token);
+    const cachedTokenVersion = await this.getValidCachedTokenVersion(
+      payload.sub,
+      payload.tv,
+    );
+
     const user = await this.authRepository.findUserByIdForAuthToken(
       payload.sub,
     );
@@ -383,7 +390,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       user.deletedAt ||
       user.tokenVersion !== payload.tv
     ) {
+      if (user && user.tokenVersion !== payload.tv) {
+        await this.authTokenVersionCacheService.set(
+          user.id,
+          user.tokenVersion,
+        );
+      }
+
       throw new WsException('Authentication required');
+    }
+
+    if (
+      cachedTokenVersion === null ||
+      cachedTokenVersion === undefined ||
+      cachedTokenVersion !== user.tokenVersion
+    ) {
+      await this.authTokenVersionCacheService.set(user.id, user.tokenVersion);
     }
 
     return {
@@ -427,6 +449,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     } catch {
       throw new WsException('Authentication required');
     }
+  }
+
+  private async getValidCachedTokenVersion(
+    userId: string,
+    tokenVersion: number,
+  ): Promise<number | null | undefined> {
+    const cachedTokenVersion =
+      await this.authTokenVersionCacheService.get(userId);
+
+    if (
+      cachedTokenVersion !== null &&
+      cachedTokenVersion !== undefined &&
+      cachedTokenVersion !== tokenVersion
+    ) {
+      throw new WsException('Authentication required');
+    }
+
+    return cachedTokenVersion;
   }
 
   private assertAuthenticated(socket: AuthenticatedGameSocket): void {

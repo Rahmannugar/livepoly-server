@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
 import { AuthRepository } from '../auth.repository';
+import { AuthTokenVersionCacheService } from '../auth-token-version-cache.service';
 import { AuthUser } from '../types/auth-user.type';
 
 type AccessTokenPayload = {
@@ -28,6 +29,7 @@ export class AuthGuard implements CanActivate {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly authRepository: AuthRepository,
+    private readonly authTokenVersionCacheService: AuthTokenVersionCacheService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -39,6 +41,11 @@ export class AuthGuard implements CanActivate {
     }
 
     const payload = await this.verifyToken(token);
+    const cachedTokenVersion = await this.getValidCachedTokenVersion(
+      payload.sub,
+      payload.tv,
+    );
+
     const user = await this.authRepository.findUserByIdForAuthToken(
       payload.sub,
     );
@@ -50,7 +57,22 @@ export class AuthGuard implements CanActivate {
       user.deletedAt ||
       user.tokenVersion !== payload.tv
     ) {
+      if (user && user.tokenVersion !== payload.tv) {
+        await this.authTokenVersionCacheService.set(
+          user.id,
+          user.tokenVersion,
+        );
+      }
+
       throw new UnauthorizedException('Authentication required');
+    }
+
+    if (
+      cachedTokenVersion === null ||
+      cachedTokenVersion === undefined ||
+      cachedTokenVersion !== user.tokenVersion
+    ) {
+      await this.authTokenVersionCacheService.set(user.id, user.tokenVersion);
     }
 
     request.user = {
@@ -90,5 +112,23 @@ export class AuthGuard implements CanActivate {
     } catch {
       throw new UnauthorizedException('Authentication required');
     }
+  }
+
+  private async getValidCachedTokenVersion(
+    userId: string,
+    tokenVersion: number,
+  ): Promise<number | null | undefined> {
+    const cachedTokenVersion =
+      await this.authTokenVersionCacheService.get(userId);
+
+    if (
+      cachedTokenVersion !== null &&
+      cachedTokenVersion !== undefined &&
+      cachedTokenVersion !== tokenVersion
+    ) {
+      throw new UnauthorizedException('Authentication required');
+    }
+
+    return cachedTokenVersion;
   }
 }

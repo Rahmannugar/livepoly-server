@@ -31,6 +31,7 @@ export type EndTurnPayload = {
 export type GameJoinedEvent = {
   gameId: string;
   access: GameLiveAccess;
+  state: GameEngineState;
   roomPlayerId?: string;
   spectatorId?: string;
 };

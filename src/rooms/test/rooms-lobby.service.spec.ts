@@ -130,7 +130,7 @@ const activeGameState: GameEngineState = {
   debt: null,
   decks: {
     chance: { drawPile: [], discardPile: [] },
-    world_fund: { drawPile: [], discardPile: [] },
+    worldFund: { drawPile: [], discardPile: [] },
   },
   players: [
     {

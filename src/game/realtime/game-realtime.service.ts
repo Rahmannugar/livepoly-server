@@ -13,6 +13,7 @@ import { GameAccessRepository } from './game-access.repository';
 import { GameRealtimePublisher } from './game-realtime.publisher';
 import { AuthRepository } from '../../auth/auth.repository';
 import { GameEventsService } from '../events/game-events.service';
+import { GameRecoveryService } from '../recovery/game-recovery.service';
 import {
   GAME_LIVE_ACCESS,
   GameActorInput,
@@ -29,6 +30,7 @@ export class GameRealtimeService {
     private readonly gameBotQueueService: GameBotQueueService,
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
     private readonly gameEventsService: GameEventsService,
+    private readonly gameRecoveryService: GameRecoveryService,
     private readonly observabilityService: ObservabilityService,
   ) {}
 
@@ -102,7 +104,13 @@ export class GameRealtimeService {
   }
 
   async joinGame(input: GameActorInput) {
-    return this.requireLiveGameAccess(input);
+    const access = await this.requireLiveGameAccess(input);
+    const state = await this.gameRecoveryService.getOrRecover(input.gameId);
+
+    return {
+      ...access,
+      state,
+    };
   }
 
   async rollAndMove(input: RollAndMoveInput): Promise<GameCommandResult> {

@@ -6,6 +6,7 @@ import type { GameCommandsService } from '../../commands/game-commands.service';
 import type { GameCommandResult } from '../../commands/game-commands.types';
 import type { GameEngineState } from '../../engine/game-engine.types';
 import type { GameEventsService } from '../../events/game-events.service';
+import type { GameRecoveryService } from '../../recovery/game-recovery.service';
 import type { GameTurnTimerQueueService } from '../../timers/game-turn-timer-queue.service';
 import type { GameAccessRepository } from '../game-access.repository';
 import type { GameRealtimePublisher } from '../game-realtime.publisher';
@@ -42,6 +43,10 @@ type GameEventsServiceMock = {
   listEvents: jest.Mock;
 };
 
+type GameRecoveryServiceMock = {
+  getOrRecover: jest.Mock;
+};
+
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
   recordMetric: jest.Mock;
@@ -56,6 +61,7 @@ describe('GameRealtimeService', () => {
   let gameBotQueueService: GameBotQueueServiceMock;
   let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
   let gameEventsService: GameEventsServiceMock;
+  let gameRecoveryService: GameRecoveryServiceMock;
   let observabilityService: ObservabilityServiceMock;
 
   const playerAccess = {
@@ -164,6 +170,10 @@ describe('GameRealtimeService', () => {
       listEvents: jest.fn().mockResolvedValue(recoveredEvents),
     };
 
+    gameRecoveryService = {
+      getOrRecover: jest.fn().mockResolvedValue(state),
+    };
+
     observabilityService = {
       recordEvent: jest.fn(),
       recordMetric: jest.fn(),
@@ -177,6 +187,7 @@ describe('GameRealtimeService', () => {
       gameBotQueueService as unknown as GameBotQueueService,
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
       gameEventsService as unknown as GameEventsService,
+      gameRecoveryService as unknown as GameRecoveryService,
       observabilityService as unknown as ObservabilityService,
     );
   });
@@ -221,8 +232,10 @@ describe('GameRealtimeService', () => {
     ).resolves.toEqual({
       access: GAME_LIVE_ACCESS.spectator,
       spectatorId: 'spectator-1',
+      state,
     });
 
+    expect(gameRecoveryService.getOrRecover).toHaveBeenCalledWith('game-1');
     expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
   });
 

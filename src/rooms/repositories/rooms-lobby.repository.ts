@@ -226,6 +226,21 @@ export class RoomsLobbyRepository {
     return game ?? null;
   }
 
+  async listActiveGamesForRooms(roomIds: string[]) {
+    if (roomIds.length === 0) {
+      return [];
+    }
+
+    return this.databaseService.db
+      .select({
+        id: games.id,
+        roomId: games.roomId,
+        status: games.status,
+      })
+      .from(games)
+      .where(and(inArray(games.roomId, roomIds), eq(games.status, 'active')));
+  }
+
   async listPlayers(roomId: string) {
     return this.databaseService.db
       .select({

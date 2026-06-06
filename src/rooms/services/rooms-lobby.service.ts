@@ -105,6 +105,11 @@ export class RoomsLobbyService {
     const spectatorCountByRoomId = new Map(
       spectatorCounts.map((item) => [item.roomId, item.value]),
     );
+    const activeGames =
+      await this.roomsLobbyRepository.listActiveGamesForRooms(roomIds);
+    const activeGameIdByRoomId = new Map(
+      activeGames.map((game) => [game.roomId, game.id]),
+    );
 
     const currentSpectators =
       await this.roomsLobbyRepository.listCurrentSpectatorsForUserRoomIds(
@@ -121,6 +126,7 @@ export class RoomsLobbyService {
       return {
         ...room,
         spectatorCount: spectatorCountByRoomId.get(room.id) ?? 0,
+        activeGameId: activeGameIdByRoomId.get(room.id) ?? null,
         currentUserAccess: this.getCurrentUserAccess({
           authUserId: authUser.id,
           players: roomPlayers,
@@ -574,10 +580,15 @@ export class RoomsLobbyService {
       await this.roomsLobbyRepository.countCurrentSpectators(roomId);
     const currentSpectator =
       await this.roomsLobbyRepository.findCurrentSpectator(roomId, authUserId);
+    const activeGame =
+      room.status === 'active'
+        ? await this.roomsLobbyRepository.findActiveGameByRoomId(roomId)
+        : null;
 
     return {
       ...room,
       spectatorCount,
+      activeGameId: activeGame?.id ?? null,
       currentUserAccess: this.getCurrentUserAccess({
         authUserId,
         players,

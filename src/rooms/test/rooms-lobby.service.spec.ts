@@ -20,6 +20,7 @@ type RoomsLobbyRepositoryMock = {
   listLiveRooms: jest.Mock;
   listPlayers: jest.Mock;
   listPlayersForRooms: jest.Mock;
+  listActiveGamesForRooms: jest.Mock;
   listJoinedPlayers: jest.Mock;
   findJoinedPlayer: jest.Mock;
   findPlayer: jest.Mock;
@@ -192,6 +193,7 @@ describe('RoomsLobbyService', () => {
       listLiveRooms: jest.fn(),
       listPlayers: jest.fn().mockResolvedValue([]),
       listPlayersForRooms: jest.fn().mockResolvedValue([]),
+      listActiveGamesForRooms: jest.fn().mockResolvedValue([]),
       listJoinedPlayers: jest.fn(),
       findJoinedPlayer: jest.fn(),
       findPlayer: jest.fn(),
@@ -339,6 +341,7 @@ describe('RoomsLobbyService', () => {
     expect(result).toEqual({
       ...waitingRoom,
       spectatorCount: 0,
+      activeGameId: null,
       currentUserAccess: 'player',
       players: [
         {
@@ -387,6 +390,13 @@ describe('RoomsLobbyService', () => {
     roomsLobbyRepository.countCurrentSpectatorsForRooms.mockResolvedValue([
       { roomId: activeRoom.id, value: 3 },
     ]);
+    roomsLobbyRepository.listActiveGamesForRooms.mockResolvedValue([
+      {
+        id: 'game-1',
+        roomId: activeRoom.id,
+        status: 'active',
+      },
+    ]);
 
     const result = await service.listLiveRooms(authUser);
 
@@ -397,6 +407,10 @@ describe('RoomsLobbyService', () => {
     expect(
       roomsLobbyRepository.countCurrentSpectatorsForRooms,
     ).toHaveBeenCalledWith([activeRoom.id, secondRoom.id]);
+    expect(roomsLobbyRepository.listActiveGamesForRooms).toHaveBeenCalledWith([
+      activeRoom.id,
+      secondRoom.id,
+    ]);
     expect(
       roomsLobbyRepository.listCurrentSpectatorsForUserRoomIds,
     ).toHaveBeenCalledWith(authUser.id, [activeRoom.id, secondRoom.id]);
@@ -404,6 +418,7 @@ describe('RoomsLobbyService', () => {
       {
         ...activeRoom,
         spectatorCount: 3,
+        activeGameId: 'game-1',
         currentUserAccess: 'player',
         players: [
           expect.objectContaining({
@@ -415,6 +430,7 @@ describe('RoomsLobbyService', () => {
       {
         ...secondRoom,
         spectatorCount: 0,
+        activeGameId: null,
         currentUserAccess: 'none',
         players: [],
       },

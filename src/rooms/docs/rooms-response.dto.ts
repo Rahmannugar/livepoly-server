@@ -85,6 +85,12 @@ export class RoomResponseDto {
   @ApiProperty({ example: 3 })
   spectatorCount: number;
 
+  @ApiPropertyOptional({
+    example: '2d53f23e-7c6e-4d8a-a9d8-0f429dbd3734',
+    nullable: true,
+  })
+  activeGameId: string | null;
+
   @ApiProperty({
     example: 'player',
     enum: ['player', 'spectator', 'none'],

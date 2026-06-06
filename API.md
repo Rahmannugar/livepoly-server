@@ -71,6 +71,7 @@ Base path: `/rooms`
 
 - `POST /rooms`
 - `GET /rooms`
+- `GET /rooms/current`
 - `GET /rooms/:code`
 - `POST /rooms/:code/join`
 - `POST /rooms/:code/leave`

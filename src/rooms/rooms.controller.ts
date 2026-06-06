@@ -45,16 +45,19 @@ export class RoomsController {
   @RateLimit(...ROOMS_RATE_LIMIT_RULES.read)
   @Get()
   @HttpCode(HttpStatus.OK)
-  listLiveRooms() {
-    return this.roomsLobbyService.listLiveRooms();
+  listLiveRooms(@AuthUserDecorator() authUser: AuthUser) {
+    return this.roomsLobbyService.listLiveRooms(authUser);
   }
 
   @RoomsDocs.GetRoomByCode()
   @RateLimit(...ROOMS_RATE_LIMIT_RULES.read)
   @Get(':code')
   @HttpCode(HttpStatus.OK)
-  getRoomByCode(@Param('code') code: string) {
-    return this.roomsLobbyService.getRoomByCode(code);
+  getRoomByCode(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Param('code') code: string,
+  ) {
+    return this.roomsLobbyService.getRoomByCode(authUser, code);
   }
 
   @RoomsDocs.JoinRoom()

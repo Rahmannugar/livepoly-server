@@ -85,6 +85,12 @@ export class RoomResponseDto {
   @ApiProperty({ example: 3 })
   spectatorCount: number;
 
+  @ApiProperty({
+    example: 'player',
+    enum: ['player', 'spectator', 'none'],
+  })
+  currentUserAccess: string;
+
   @ApiProperty({ example: 60 })
   durationMinutes: number;
 

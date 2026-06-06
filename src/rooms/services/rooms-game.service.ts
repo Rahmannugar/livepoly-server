@@ -191,6 +191,7 @@ export class RoomsGameService {
     return {
       room: {
         ...result.room,
+        currentUserAccess: 'player',
         players: result.players,
       },
       game: result.game,

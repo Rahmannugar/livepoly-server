@@ -34,6 +34,7 @@ type RoomsLobbyRepositoryMock = {
   isSeatUniqueViolation: jest.Mock;
   lockRoomByCode: jest.Mock;
   findCurrentSpectator: jest.Mock;
+  listCurrentSpectatorsForUserRoomIds: jest.Mock;
   countCurrentSpectators: jest.Mock;
   createSpectator: jest.Mock;
   endSpectatorSession: jest.Mock;
@@ -205,6 +206,7 @@ describe('RoomsLobbyService', () => {
       isSeatUniqueViolation: jest.fn().mockReturnValue(false),
       lockRoomByCode: jest.fn(),
       findCurrentSpectator: jest.fn(),
+      listCurrentSpectatorsForUserRoomIds: jest.fn().mockResolvedValue([]),
       countCurrentSpectators: jest.fn().mockResolvedValue(0),
       createSpectator: jest.fn(),
       endSpectatorSession: jest.fn(),
@@ -337,6 +339,7 @@ describe('RoomsLobbyService', () => {
     expect(result).toEqual({
       ...waitingRoom,
       spectatorCount: 0,
+      currentUserAccess: 'player',
       players: [
         {
           id: 'player-1',
@@ -385,7 +388,7 @@ describe('RoomsLobbyService', () => {
       { roomId: activeRoom.id, value: 3 },
     ]);
 
-    const result = await service.listLiveRooms();
+    const result = await service.listLiveRooms(authUser);
 
     expect(roomsLobbyRepository.listPlayersForRooms).toHaveBeenCalledWith([
       activeRoom.id,
@@ -394,10 +397,14 @@ describe('RoomsLobbyService', () => {
     expect(
       roomsLobbyRepository.countCurrentSpectatorsForRooms,
     ).toHaveBeenCalledWith([activeRoom.id, secondRoom.id]);
+    expect(
+      roomsLobbyRepository.listCurrentSpectatorsForUserRoomIds,
+    ).toHaveBeenCalledWith(authUser.id, [activeRoom.id, secondRoom.id]);
     expect(result).toEqual([
       {
         ...activeRoom,
         spectatorCount: 3,
+        currentUserAccess: 'player',
         players: [
           expect.objectContaining({
             id: 'player-1',
@@ -408,6 +415,7 @@ describe('RoomsLobbyService', () => {
       {
         ...secondRoom,
         spectatorCount: 0,
+        currentUserAccess: 'none',
         players: [],
       },
     ]);

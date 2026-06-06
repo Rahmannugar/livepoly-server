@@ -81,7 +81,7 @@ export class RoomsLobbyService {
         });
         this.observabilityService.recordMetric(ROOM_METRICS.created);
 
-        return this.getRoomPayload(room.id, room);
+        return this.getRoomPayload(room.id, room, authUser.id);
       } catch (error) {
         if (this.roomsLobbyRepository.isRoomCodeUniqueViolation(error)) {
           continue;
@@ -94,7 +94,7 @@ export class RoomsLobbyService {
     throw new ConflictException('Could not create room');
   }
 
-  async listLiveRooms() {
+  async listLiveRooms(authUser: AuthUser) {
     const rooms =
       await this.roomsLobbyRepository.listLiveRooms(LIVE_ROOMS_LIMIT);
     const roomIds = rooms.map((room) => room.id);
@@ -106,21 +106,39 @@ export class RoomsLobbyService {
       spectatorCounts.map((item) => [item.roomId, item.value]),
     );
 
-    return rooms.map((room) => ({
-      ...room,
-      spectatorCount: spectatorCountByRoomId.get(room.id) ?? 0,
-      players: players.filter((player) => player.roomId === room.id),
-    }));
+    const currentSpectators =
+      await this.roomsLobbyRepository.listCurrentSpectatorsForUserRoomIds(
+        authUser.id,
+        roomIds,
+      );
+    const currentSpectatorRoomIds = new Set(
+      currentSpectators.map((spectator) => spectator.roomId),
+    );
+
+    return rooms.map((room) => {
+      const roomPlayers = players.filter((player) => player.roomId === room.id);
+
+      return {
+        ...room,
+        spectatorCount: spectatorCountByRoomId.get(room.id) ?? 0,
+        currentUserAccess: this.getCurrentUserAccess({
+          authUserId: authUser.id,
+          players: roomPlayers,
+          isCurrentSpectator: currentSpectatorRoomIds.has(room.id),
+        }),
+        players: roomPlayers,
+      };
+    });
   }
 
-  async getRoomByCode(code: string) {
+  async getRoomByCode(authUser: AuthUser, code: string) {
     const room = await this.roomsLobbyRepository.findRoomByCode(code);
 
     if (!room) {
       throw new NotFoundException('Room not found');
     }
 
-    return this.getRoomPayload(room.id, room);
+    return this.getRoomPayload(room.id, room, authUser.id);
   }
 
   async joinRoom(authUser: AuthUser, code: string) {
@@ -169,7 +187,7 @@ export class RoomsLobbyService {
     });
     this.observabilityService.recordMetric(ROOM_METRICS.joined);
 
-    return this.getRoomPayload(room.id, room);
+    return this.getRoomPayload(room.id, room, authUser.id);
   }
 
   async leaveRoom(authUser: AuthUser, code: string) {
@@ -549,16 +567,48 @@ export class RoomsLobbyService {
       startedAt: Date | null;
       endedAt: Date | null;
     },
+    authUserId: string,
   ) {
     const players = await this.roomsLobbyRepository.listPlayers(roomId);
     const spectatorCount =
       await this.roomsLobbyRepository.countCurrentSpectators(roomId);
+    const currentSpectator =
+      await this.roomsLobbyRepository.findCurrentSpectator(roomId, authUserId);
 
     return {
       ...room,
       spectatorCount,
+      currentUserAccess: this.getCurrentUserAccess({
+        authUserId,
+        players,
+        isCurrentSpectator: Boolean(currentSpectator),
+      }),
       players,
     };
+  }
+
+  private getCurrentUserAccess(input: {
+    authUserId: string;
+    players: Array<{
+      userId: string | null;
+      status: string;
+    }>;
+    isCurrentSpectator: boolean;
+  }) {
+    const currentPlayer = input.players.find(
+      (player) =>
+        player.userId === input.authUserId && player.status === 'joined',
+    );
+
+    if (currentPlayer) {
+      return 'player';
+    }
+
+    if (input.isCurrentSpectator) {
+      return 'spectator';
+    }
+
+    return 'none';
   }
 
   private findFirstFreeSeat(occupiedSeats: number[]) {

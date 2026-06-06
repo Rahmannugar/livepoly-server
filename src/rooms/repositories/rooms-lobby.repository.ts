@@ -467,6 +467,28 @@ export class RoomsLobbyRepository {
       .groupBy(roomSpectators.roomId);
   }
 
+  async listCurrentSpectatorsForUserRoomIds(
+    userId: string,
+    roomIds: string[],
+  ) {
+    if (roomIds.length === 0) {
+      return [];
+    }
+
+    return this.databaseService.db
+      .select({
+        roomId: roomSpectators.roomId,
+      })
+      .from(roomSpectators)
+      .where(
+        and(
+          eq(roomSpectators.userId, userId),
+          inArray(roomSpectators.roomId, roomIds),
+          isNull(roomSpectators.leftAt),
+        ),
+      );
+  }
+
   async countCurrentSpectators(roomId: string, executor?: DatabaseExecutor) {
     const db = this.executor(executor);
 

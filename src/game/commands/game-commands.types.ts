@@ -25,6 +25,11 @@ export type EndTurnCommand = {
   roomPlayerId: string;
 };
 
+export type RoomPlayerCommand = {
+  gameId: string;
+  roomPlayerId: string;
+};
+
 export type GameCommandResult = {
   state: GameEngineState;
   events: GameEngineEvent[];

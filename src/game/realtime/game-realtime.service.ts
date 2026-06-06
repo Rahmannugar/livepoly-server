@@ -146,6 +146,34 @@ export class GameRealtimeService {
     return result;
   }
 
+  async buyProperty(input: GameActorInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.buyProperty({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async declinePropertyPurchase(
+    input: GameActorInput,
+  ): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.declinePropertyPurchase({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
   async recoverEvents(input: GameActorInput & { cursor?: string }) {
     await this.requireLiveGameAccess(input);
 

@@ -28,6 +28,8 @@ import {
   type GameJoinedEvent,
   type RecoverGameEventsPayload,
   type AuthenticatedGameSocket,
+  type BuyPropertyPayload,
+  type DeclinePropertyPurchasePayload,
   type EndTurnPayload,
   type GameCommandRejectedEvent,
   type GameErrorEvent,
@@ -214,6 +216,74 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         socket,
         payload.gameId,
         GAME_SOCKET_EVENTS.endTurn,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.buyProperty)
+  async buyProperty(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: BuyPropertyPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.buyProperty({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.buyProperty,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.declinePropertyPurchase)
+  async declinePropertyPurchase(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: DeclinePropertyPurchasePayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.declinePropertyPurchase({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.declinePropertyPurchase,
         error,
       );
 

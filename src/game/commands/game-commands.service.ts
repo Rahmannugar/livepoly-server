@@ -24,6 +24,7 @@ import type {
   ExecuteGameIntentCommand,
   GameCommandResult,
   GameCommandSource,
+  RoomPlayerCommand,
   RollAndMoveCommand,
 } from './game-commands.types';
 
@@ -68,6 +69,36 @@ export class GameCommandsService {
       source: 'player',
       intent: {
         type: 'end_turn',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
+  async buyProperty(input: RoomPlayerCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'buy_property',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
+  async declinePropertyPurchase(
+    input: RoomPlayerCommand,
+  ): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'decline_property_purchase',
         payload: {
           roomPlayerId: input.roomPlayerId,
         },

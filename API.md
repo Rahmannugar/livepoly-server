@@ -186,6 +186,22 @@ game:<gameId>
 }
 ```
 
+`game:buy-property`
+
+```ts
+{
+  gameId: string;
+}
+```
+
+`game:decline-property-purchase`
+
+```ts
+{
+  gameId: string;
+}
+```
+
 `game:events:get`
 
 If `cursor` is omitted, the server returns the latest configured recovery window.

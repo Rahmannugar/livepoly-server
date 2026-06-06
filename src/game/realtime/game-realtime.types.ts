@@ -28,6 +28,14 @@ export type EndTurnPayload = {
   gameId: string;
 };
 
+export type BuyPropertyPayload = {
+  gameId: string;
+};
+
+export type DeclinePropertyPurchasePayload = {
+  gameId: string;
+};
+
 export type GameJoinedEvent = {
   gameId: string;
   access: GameLiveAccess;

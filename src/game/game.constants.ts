@@ -115,6 +115,8 @@ export const GAME_SOCKET_EVENTS = {
   join: 'game:join',
   joined: 'game:joined',
   rollAndMove: 'game:roll-and-move',
+  buyProperty: 'game:buy-property',
+  declinePropertyPurchase: 'game:decline-property-purchase',
   endTurn: 'game:end-turn',
   state: 'game:state',
   events: 'game:events',

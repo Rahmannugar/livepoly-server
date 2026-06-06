@@ -61,6 +61,21 @@ export const RoomsDocs = {
       }),
     ),
 
+  GetCurrentRoom: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({
+        summary: 'Get current room',
+        description:
+          'Returns the authenticated user current waiting or active room, or null when the user is not in one.',
+      }),
+      ApiOkResponse({ type: RoomResponseDto }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
+
   GetRoomByCode: () =>
     applyDecorators(
       ApiBearerAuth('accessToken'),

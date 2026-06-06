@@ -49,6 +49,14 @@ export class RoomsController {
     return this.roomsLobbyService.listLiveRooms(authUser);
   }
 
+  @RoomsDocs.GetCurrentRoom()
+  @RateLimit(...ROOMS_RATE_LIMIT_RULES.read)
+  @Get('current')
+  @HttpCode(HttpStatus.OK)
+  getCurrentRoom(@AuthUserDecorator() authUser: AuthUser) {
+    return this.roomsLobbyService.getCurrentRoom(authUser);
+  }
+
   @RoomsDocs.GetRoomByCode()
   @RateLimit(...ROOMS_RATE_LIMIT_RULES.read)
   @Get(':code')

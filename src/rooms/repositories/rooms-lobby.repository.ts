@@ -25,7 +25,14 @@ export class RoomsLobbyRepository {
       .select({
         id: rooms.id,
         code: rooms.code,
+        hostUserId: rooms.hostUserId,
         status: rooms.status,
+        maxPlayers: rooms.maxPlayers,
+        durationMinutes: rooms.durationMinutes,
+        boardKey: rooms.boardKey,
+        createdAt: rooms.createdAt,
+        startedAt: rooms.startedAt,
+        endedAt: rooms.endedAt,
       })
       .from(roomPlayers)
       .innerJoin(rooms, eq(rooms.id, roomPlayers.roomId))

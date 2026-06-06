@@ -137,6 +137,18 @@ export class RoomsLobbyService {
     });
   }
 
+  async getCurrentRoom(authUser: AuthUser) {
+    const room = await this.roomsLobbyRepository.findActiveRoomForUser(
+      authUser.id,
+    );
+
+    if (!room) {
+      return null;
+    }
+
+    return this.getRoomPayload(room.id, room, authUser.id);
+  }
+
   async getRoomByCode(authUser: AuthUser, code: string) {
     const room = await this.roomsLobbyRepository.findRoomByCode(code);
 

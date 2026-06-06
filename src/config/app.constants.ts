@@ -4,6 +4,7 @@ export const SWAGGER_PATH = `${API_PREFIX}/docs`;
 
 export const CORS_ORIGINS = [
   'http://localhost:3000',
+  'http://localhost:3001',
   'http://localhost:5173',
   'https://livepoly.vercel.app',
 ] as const;

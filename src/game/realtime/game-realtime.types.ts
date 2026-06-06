@@ -21,7 +21,7 @@ export type JoinGamePayload = {
 
 export type RollAndMovePayload = {
   gameId: string;
-  dice: DiceRoll;
+  dice?: DiceRoll;
 };
 
 export type EndTurnPayload = {
@@ -73,7 +73,7 @@ export type GameActorInput = {
 };
 
 export type RollAndMoveInput = GameActorInput & {
-  dice: DiceRoll;
+  dice?: DiceRoll;
 };
 
 export const GAME_LIVE_ACCESS = {

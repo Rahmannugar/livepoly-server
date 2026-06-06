@@ -294,7 +294,6 @@ describe('GameRealtimeService', () => {
       service.rollAndMove({
         gameId: 'game-1',
         userId: 'user-1',
-        dice: [3, 4],
       }),
     ).rejects.toBeInstanceOf(ForbiddenException);
 
@@ -306,18 +305,20 @@ describe('GameRealtimeService', () => {
     const result = await service.rollAndMove({
       gameId: 'game-1',
       userId: 'user-1',
-      dice: [3, 4],
     });
 
     expect(gameAccessRepository.findActivePlayerForGame).toHaveBeenCalledWith(
       'game-1',
       'user-1',
     );
-    expect(gameCommandsService.rollAndMove).toHaveBeenCalledWith({
-      gameId: 'game-1',
-      roomPlayerId: 'room-player-1',
-      dice: [3, 4],
-    });
+    const commandInput = gameCommandsService.rollAndMove.mock.calls[0][0];
+    expect(commandInput.gameId).toBe('game-1');
+    expect(commandInput.roomPlayerId).toBe('room-player-1');
+    expect(commandInput.dice).toHaveLength(2);
+    expect(commandInput.dice[0]).toBeGreaterThanOrEqual(1);
+    expect(commandInput.dice[0]).toBeLessThanOrEqual(6);
+    expect(commandInput.dice[1]).toBeGreaterThanOrEqual(1);
+    expect(commandInput.dice[1]).toBeLessThanOrEqual(6);
     expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
       'game-1',
       commandResult,

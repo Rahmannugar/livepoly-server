@@ -3,10 +3,12 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { randomInt } from 'crypto';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import type { GameCommandResult } from '../commands/game-commands.types';
 import { GameCommandsService } from '../commands/game-commands.service';
+import type { DiceRoll } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import { GameAccessRepository } from './game-access.repository';
@@ -119,12 +121,16 @@ export class GameRealtimeService {
     const result = await this.gameCommandsService.rollAndMove({
       gameId: input.gameId,
       roomPlayerId: player.roomPlayerId,
-      dice: input.dice,
+      dice: input.dice ?? this.rollDice(),
     });
 
     await this.afterHumanCommandSucceeded(input.gameId, result);
 
     return result;
+  }
+
+  private rollDice(): DiceRoll {
+    return [randomInt(1, 7), randomInt(1, 7)];
   }
 
   async endTurn(input: GameActorInput): Promise<GameCommandResult> {

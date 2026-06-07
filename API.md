@@ -235,6 +235,24 @@ game:<gameId>
 }
 ```
 
+`game:mortgage-property`
+
+```ts
+{
+  gameId: string;
+  tileKey: string;
+}
+```
+
+`game:unmortgage-property`
+
+```ts
+{
+  gameId: string;
+  tileKey: string;
+}
+```
+
 `game:events:get`
 
 If `cursor` is omitted, the server returns the latest configured recovery window.

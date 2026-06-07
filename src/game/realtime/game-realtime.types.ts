@@ -53,6 +53,16 @@ export type DeclareBankruptcyPayload = {
   gameId: string;
 };
 
+export type MortgagePropertyPayload = {
+  gameId: string;
+  tileKey: string;
+};
+
+export type UnmortgagePropertyPayload = {
+  gameId: string;
+  tileKey: string;
+};
+
 export type GameJoinedEvent = {
   gameId: string;
   access: GameLiveAccess;
@@ -103,6 +113,10 @@ export type RollAndMoveInput = GameActorInput & {
 
 export type PlaceAuctionBidInput = GameActorInput & {
   amount: number;
+};
+
+export type PropertyCommandInput = GameActorInput & {
+  tileKey: string;
 };
 
 export const GAME_LIVE_ACCESS = {

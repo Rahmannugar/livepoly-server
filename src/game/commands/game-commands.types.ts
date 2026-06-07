@@ -34,6 +34,10 @@ export type PlaceAuctionBidCommand = RoomPlayerCommand & {
   amount: number;
 };
 
+export type PropertyCommand = RoomPlayerCommand & {
+  tileKey: string;
+};
+
 export type GameCommandResult = {
   state: GameEngineState;
   events: GameEngineEvent[];

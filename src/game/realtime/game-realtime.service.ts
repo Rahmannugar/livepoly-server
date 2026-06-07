@@ -20,6 +20,7 @@ import {
   GAME_LIVE_ACCESS,
   GameActorInput,
   PlaceAuctionBidInput,
+  PropertyCommandInput,
   RollAndMoveInput,
 } from './game-realtime.types';
 
@@ -223,6 +224,38 @@ export class GameRealtimeService {
     const result = await this.gameCommandsService.declareBankruptcy({
       gameId: input.gameId,
       roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async mortgageProperty(
+    input: PropertyCommandInput,
+  ): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.mortgageProperty({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      tileKey: input.tileKey,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async unmortgageProperty(
+    input: PropertyCommandInput,
+  ): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.unmortgageProperty({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      tileKey: input.tileKey,
     });
 
     await this.afterHumanCommandSucceeded(input.gameId, result);

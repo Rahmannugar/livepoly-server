@@ -25,6 +25,7 @@ import type {
   GameCommandResult,
   GameCommandSource,
   PlaceAuctionBidCommand,
+  PropertyCommand,
   RoomPlayerCommand,
   RollAndMoveCommand,
 } from './game-commands.types';
@@ -163,6 +164,36 @@ export class GameCommandsService {
         type: 'declare_bankruptcy',
         payload: {
           roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
+  async mortgageProperty(input: PropertyCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'mortgage_property',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          tileKey: input.tileKey,
+        },
+      },
+    });
+  }
+
+  async unmortgageProperty(input: PropertyCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'unmortgage_property',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          tileKey: input.tileKey,
         },
       },
     });

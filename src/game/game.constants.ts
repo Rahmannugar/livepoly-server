@@ -120,6 +120,7 @@ export const GAME_SOCKET_EVENTS = {
   placeAuctionBid: 'game:place-auction-bid',
   passAuctionBid: 'game:pass-auction-bid',
   payDebt: 'game:pay-debt',
+  payJailFine: 'game:pay-jail-fine',
   declareBankruptcy: 'game:declare-bankruptcy',
   buildProperty: 'game:build-property',
   sellBuilding: 'game:sell-building',

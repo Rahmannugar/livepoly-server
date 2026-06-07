@@ -153,6 +153,20 @@ export class GameCommandsService {
     });
   }
 
+  async payJailFine(input: RoomPlayerCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'pay_jail_fine',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
   async declareBankruptcy(
     input: RoomPlayerCommand,
   ): Promise<GameCommandResult> {

@@ -35,6 +35,7 @@ import {
   type EndTurnPayload,
   type PassAuctionBidPayload,
   type PayDebtPayload,
+  type PayJailFinePayload,
   type PlaceAuctionBidPayload,
   type SellBuildingPayload,
   type GameCommandRejectedEvent,
@@ -395,6 +396,40 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         socket,
         payload.gameId,
         GAME_SOCKET_EVENTS.payDebt,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.payJailFine)
+  async payJailFine(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: PayJailFinePayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.payJailFine({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.payJailFine,
         error,
       );
 

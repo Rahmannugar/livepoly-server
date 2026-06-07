@@ -227,6 +227,14 @@ game:<gameId>
 }
 ```
 
+`game:pay-jail-fine`
+
+```ts
+{
+  gameId: string;
+}
+```
+
 `game:declare-bankruptcy`
 
 ```ts

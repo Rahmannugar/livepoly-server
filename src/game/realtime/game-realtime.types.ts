@@ -49,6 +49,10 @@ export type PayDebtPayload = {
   gameId: string;
 };
 
+export type PayJailFinePayload = {
+  gameId: string;
+};
+
 export type DeclareBankruptcyPayload = {
   gameId: string;
 };

@@ -218,6 +218,19 @@ export class GameRealtimeService {
     return result;
   }
 
+  async payJailFine(input: GameActorInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.payJailFine({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
   async declareBankruptcy(input: GameActorInput): Promise<GameCommandResult> {
     const player = await this.requireActivePlayer(input);
 

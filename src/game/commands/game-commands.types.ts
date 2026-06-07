@@ -30,6 +30,10 @@ export type RoomPlayerCommand = {
   roomPlayerId: string;
 };
 
+export type PlaceAuctionBidCommand = RoomPlayerCommand & {
+  amount: number;
+};
+
 export type GameCommandResult = {
   state: GameEngineState;
   events: GameEngineEvent[];

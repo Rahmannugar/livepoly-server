@@ -24,6 +24,7 @@ import type {
   ExecuteGameIntentCommand,
   GameCommandResult,
   GameCommandSource,
+  PlaceAuctionBidCommand,
   RoomPlayerCommand,
   RollAndMoveCommand,
 } from './game-commands.types';
@@ -99,6 +100,67 @@ export class GameCommandsService {
       source: 'player',
       intent: {
         type: 'decline_property_purchase',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
+  async placeAuctionBid(
+    input: PlaceAuctionBidCommand,
+  ): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'place_auction_bid',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          amount: input.amount,
+        },
+      },
+    });
+  }
+
+  async passAuctionBid(input: RoomPlayerCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'pass_auction_bid',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
+  async payDebt(input: RoomPlayerCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'pay_debt',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
+  async declareBankruptcy(
+    input: RoomPlayerCommand,
+  ): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'declare_bankruptcy',
         payload: {
           roomPlayerId: input.roomPlayerId,
         },

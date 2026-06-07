@@ -36,6 +36,23 @@ export type DeclinePropertyPurchasePayload = {
   gameId: string;
 };
 
+export type PlaceAuctionBidPayload = {
+  gameId: string;
+  amount: number;
+};
+
+export type PassAuctionBidPayload = {
+  gameId: string;
+};
+
+export type PayDebtPayload = {
+  gameId: string;
+};
+
+export type DeclareBankruptcyPayload = {
+  gameId: string;
+};
+
 export type GameJoinedEvent = {
   gameId: string;
   access: GameLiveAccess;
@@ -82,6 +99,10 @@ export type GameActorInput = {
 
 export type RollAndMoveInput = GameActorInput & {
   dice?: DiceRoll;
+};
+
+export type PlaceAuctionBidInput = GameActorInput & {
+  amount: number;
 };
 
 export const GAME_LIVE_ACCESS = {

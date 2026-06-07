@@ -29,8 +29,12 @@ import {
   type RecoverGameEventsPayload,
   type AuthenticatedGameSocket,
   type BuyPropertyPayload,
+  type DeclareBankruptcyPayload,
   type DeclinePropertyPurchasePayload,
   type EndTurnPayload,
+  type PassAuctionBidPayload,
+  type PayDebtPayload,
+  type PlaceAuctionBidPayload,
   type GameCommandRejectedEvent,
   type GameErrorEvent,
   type JoinGamePayload,
@@ -284,6 +288,143 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         socket,
         payload.gameId,
         GAME_SOCKET_EVENTS.declinePropertyPurchase,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.placeAuctionBid)
+  async placeAuctionBid(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: PlaceAuctionBidPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.placeAuctionBid({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+        amount: payload.amount,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.placeAuctionBid,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.passAuctionBid)
+  async passAuctionBid(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: PassAuctionBidPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.passAuctionBid({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.passAuctionBid,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.payDebt)
+  async payDebt(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: PayDebtPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.payDebt({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.payDebt,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.declareBankruptcy)
+  async declareBankruptcy(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: DeclareBankruptcyPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.declareBankruptcy({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.declareBankruptcy,
         error,
       );
 

@@ -202,6 +202,39 @@ game:<gameId>
 }
 ```
 
+`game:place-auction-bid`
+
+```ts
+{
+  gameId: string;
+  amount: number;
+}
+```
+
+`game:pass-auction-bid`
+
+```ts
+{
+  gameId: string;
+}
+```
+
+`game:pay-debt`
+
+```ts
+{
+  gameId: string;
+}
+```
+
+`game:declare-bankruptcy`
+
+```ts
+{
+  gameId: string;
+}
+```
+
 `game:events:get`
 
 If `cursor` is omitted, the server returns the latest configured recovery window.

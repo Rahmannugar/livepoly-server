@@ -19,6 +19,7 @@ import { GameRecoveryService } from '../recovery/game-recovery.service';
 import {
   GAME_LIVE_ACCESS,
   GameActorInput,
+  PlaceAuctionBidInput,
   RollAndMoveInput,
 } from './game-realtime.types';
 
@@ -165,6 +166,61 @@ export class GameRealtimeService {
     const player = await this.requireActivePlayer(input);
 
     const result = await this.gameCommandsService.declinePropertyPurchase({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async placeAuctionBid(
+    input: PlaceAuctionBidInput,
+  ): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.placeAuctionBid({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      amount: input.amount,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async passAuctionBid(input: GameActorInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.passAuctionBid({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async payDebt(input: GameActorInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.payDebt({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async declareBankruptcy(input: GameActorInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.declareBankruptcy({
       gameId: input.gameId,
       roomPlayerId: player.roomPlayerId,
     });

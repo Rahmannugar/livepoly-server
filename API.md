@@ -235,6 +235,24 @@ game:<gameId>
 }
 ```
 
+`game:build-property`
+
+```ts
+{
+  gameId: string;
+  tileKey: string;
+}
+```
+
+`game:sell-building`
+
+```ts
+{
+  gameId: string;
+  tileKey: string;
+}
+```
+
 `game:mortgage-property`
 
 ```ts

@@ -169,6 +169,36 @@ export class GameCommandsService {
     });
   }
 
+  async buildProperty(input: PropertyCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'build_property',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          tileKey: input.tileKey,
+        },
+      },
+    });
+  }
+
+  async sellBuilding(input: PropertyCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'sell_building',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          tileKey: input.tileKey,
+        },
+      },
+    });
+  }
+
   async mortgageProperty(input: PropertyCommand): Promise<GameCommandResult> {
     return this.executeIntent({
       gameId: input.gameId,

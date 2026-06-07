@@ -53,6 +53,16 @@ export type DeclareBankruptcyPayload = {
   gameId: string;
 };
 
+export type BuildPropertyPayload = {
+  gameId: string;
+  tileKey: string;
+};
+
+export type SellBuildingPayload = {
+  gameId: string;
+  tileKey: string;
+};
+
 export type MortgagePropertyPayload = {
   gameId: string;
   tileKey: string;

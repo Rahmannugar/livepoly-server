@@ -231,6 +231,38 @@ export class GameRealtimeService {
     return result;
   }
 
+  async buildProperty(
+    input: PropertyCommandInput,
+  ): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.buildProperty({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      tileKey: input.tileKey,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async sellBuilding(
+    input: PropertyCommandInput,
+  ): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.sellBuilding({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      tileKey: input.tileKey,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
   async mortgageProperty(
     input: PropertyCommandInput,
   ): Promise<GameCommandResult> {

@@ -28,6 +28,7 @@ import {
   type GameJoinedEvent,
   type RecoverGameEventsPayload,
   type AuthenticatedGameSocket,
+  type BuildPropertyPayload,
   type BuyPropertyPayload,
   type DeclareBankruptcyPayload,
   type DeclinePropertyPurchasePayload,
@@ -35,6 +36,7 @@ import {
   type PassAuctionBidPayload,
   type PayDebtPayload,
   type PlaceAuctionBidPayload,
+  type SellBuildingPayload,
   type GameCommandRejectedEvent,
   type GameErrorEvent,
   type JoinGamePayload,
@@ -427,6 +429,76 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         socket,
         payload.gameId,
         GAME_SOCKET_EVENTS.declareBankruptcy,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.buildProperty)
+  async buildProperty(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: BuildPropertyPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.buildProperty({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+        tileKey: payload.tileKey,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.buildProperty,
+        error,
+      );
+
+      throw this.toWsException(error);
+    }
+  }
+
+  @SubscribeMessage(GAME_SOCKET_EVENTS.sellBuilding)
+  async sellBuilding(
+    @ConnectedSocket() socket: AuthenticatedGameSocket,
+    @MessageBody() payload: SellBuildingPayload,
+  ) {
+    this.assertAuthenticated(socket);
+    this.assertGameId(payload.gameId);
+
+    try {
+      const result = await this.gameRealtimeService.sellBuilding({
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+        tileKey: payload.tileKey,
+      });
+
+      return {
+        event: GAME_SOCKET_EVENTS.state,
+        data: {
+          gameId: payload.gameId,
+          state: result.state,
+          events: result.events,
+        },
+      };
+    } catch (error) {
+      this.emitCommandRejected(
+        socket,
+        payload.gameId,
+        GAME_SOCKET_EVENTS.sellBuilding,
         error,
       );
 

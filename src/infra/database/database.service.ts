@@ -21,7 +21,7 @@ export class DatabaseService implements OnModuleDestroy {
     const databaseUrl = configService.getOrThrow<string>('DATABASE_URL');
 
     this.client = postgres(databaseUrl, {
-      max: 20,
+      max: 10,
       idle_timeout: 30,
       connect_timeout: 5,
       // Supabase transaction pooler does not reliably support prepared statements.

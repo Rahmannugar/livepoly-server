@@ -5,7 +5,10 @@ import { ObservabilityService } from '../../infra/observability/observability.se
 import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import type { GameEngineState } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS, GAME_TURN_TIMER } from '../game.constants';
-import type { ExecuteTurnTimeoutJob } from './game-turn-timer.types';
+import type {
+  ExecuteTurnTimeoutJob,
+  FinishExpiredGameJob,
+} from './game-turn-timer.types';
 import { exponentialBackoffWithJitter } from '../../infra/queue/queue-jitter';
 
 @Injectable()
@@ -39,6 +42,34 @@ export class GameTurnTimerQueueService {
     this.observabilityService.recordEvent(GAME_EVENTS.turnTimerQueued, {
       ...data,
       delay: GAME_TURN_TIMER.timeoutMs,
+    });
+
+    this.observabilityService.recordMetric(GAME_METRICS.turnTimerQueued);
+  }
+
+  async enqueueGameExpiry(gameId: string, expiresAt: number) {
+    if (!Number.isInteger(expiresAt) || expiresAt <= 0) {
+      return;
+    }
+
+    const data: FinishExpiredGameJob = {
+      gameId,
+      expiresAt,
+    };
+
+    await this.gameQueue.add(GAME_JOBS.finishExpiredGame, data, {
+      jobId: ['game-expiry', gameId].join(':'),
+      delay: Math.max(expiresAt - Date.now(), 0),
+      attempts: 3,
+      backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
+      removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
+      removeOnFail: 100,
+    });
+
+    this.observabilityService.recordEvent(GAME_EVENTS.turnTimerQueued, {
+      ...data,
+      delay: Math.max(expiresAt - Date.now(), 0),
+      kind: 'game_expiry',
     });
 
     this.observabilityService.recordMetric(GAME_METRICS.turnTimerQueued);

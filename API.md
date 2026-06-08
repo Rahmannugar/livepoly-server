@@ -82,6 +82,8 @@ Base path: `/rooms`
 
 Room responses include players and spectator count. Spectating is allowed only for active rooms and is capped by application-level capacity.
 
+`POST /rooms/:code/start` returns the started room plus the created game. The game response includes `startedAt`, `expiresAt`, and `finishedAt` so clients can render timers and finished-state UI without reading those values from embedded game state.
+
 ## Friends
 
 Base path: `/friends`

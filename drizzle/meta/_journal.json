@@ -155,6 +155,13 @@
       "when": 1780472121341,
       "tag": "0021_add_friendship_pagination_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1780890000000,
+      "tag": "0022_add_game_expiry",
+      "breakpoints": true
     }
   ]
 }

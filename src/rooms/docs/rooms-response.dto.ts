@@ -152,6 +152,9 @@ export class GameResponseDto {
   @ApiProperty({ example: '2026-05-14T12:00:00.000Z' })
   startedAt: Date;
 
+  @ApiProperty({ example: '2026-05-14T13:00:00.000Z' })
+  expiresAt: Date;
+
   @ApiPropertyOptional({ example: null, nullable: true })
   finishedAt: Date | null;
 

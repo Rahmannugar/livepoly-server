@@ -45,6 +45,7 @@ export const games = pgTable(
     startedAt: timestamp('started_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -56,6 +57,7 @@ export const games = pgTable(
     index('games_current_turn_room_player_id_idx').on(
       table.currentTurnRoomPlayerId,
     ),
+    index('games_status_expires_at_idx').on(table.status, table.expiresAt),
     check('games_turn_number_chk', sql`${table.turnNumber} > 0`),
     check(
       'games_finished_state_chk',

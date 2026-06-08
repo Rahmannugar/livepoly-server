@@ -10,6 +10,7 @@ type CreateGameInput = {
   mode: 'ranked' | 'casual';
   currentTurnRoomPlayerId: string;
   state: unknown;
+  expiresAt: Date;
 };
 
 @Injectable()
@@ -162,6 +163,7 @@ export class RoomsGameRepository {
         mode: input.mode,
         currentTurnRoomPlayerId: input.currentTurnRoomPlayerId,
         state: input.state,
+        expiresAt: input.expiresAt,
       })
       .returning({
         id: games.id,
@@ -172,6 +174,7 @@ export class RoomsGameRepository {
         turnNumber: games.turnNumber,
         state: games.state,
         startedAt: games.startedAt,
+        expiresAt: games.expiresAt,
         finishedAt: games.finishedAt,
         createdAt: games.createdAt,
         updatedAt: games.updatedAt,

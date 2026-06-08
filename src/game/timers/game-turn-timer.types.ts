@@ -6,3 +6,8 @@ export type ExecuteTurnTimeoutJob = {
   phase: GamePhase;
   currentTurnRoomPlayerId: string;
 };
+
+export type FinishExpiredGameJob = {
+  gameId: string;
+  expiresAt: number;
+};

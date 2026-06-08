@@ -20,7 +20,10 @@ import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
 import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameTurnTimerPolicyService } from '../timers/game-turn-timer-policy.service';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
-import type { ExecuteTurnTimeoutJob } from '../timers/game-turn-timer.types';
+import type {
+  ExecuteTurnTimeoutJob,
+  FinishExpiredGameJob,
+} from '../timers/game-turn-timer.types';
 import type { GameJob } from './game-jobs.types';
 import { LeaderboardsService } from '../../leaderboards/leaderboards.service';
 import type { RefreshLeaderboardSnapshotsJob } from '../../leaderboards/leaderboards.types';
@@ -50,6 +53,11 @@ export class GameProcessor extends WorkerHost {
 
     if (job.name === GAME_JOBS.executeTurnTimeout) {
       await this.processExecuteTurnTimeout(job as Job<ExecuteTurnTimeoutJob>);
+      return;
+    }
+
+    if (job.name === GAME_JOBS.finishExpiredGame) {
+      await this.processFinishExpiredGame(job as Job<FinishExpiredGameJob>);
       return;
     }
 
@@ -166,6 +174,86 @@ export class GameProcessor extends WorkerHost {
         jobId: job.id,
         gameId: job.data.gameId,
         intentType: intent.type,
+        errorCode: error instanceof GameEngineError ? error.code : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(GAME_METRICS.turnTimerFailed);
+
+      throw error;
+    }
+  }
+
+  private async processFinishExpiredGame(job: Job<FinishExpiredGameJob>) {
+    const state = await this.gameRecoveryService.getOrRecover(job.data.gameId);
+
+    if (state.phase === 'finished' || state.phase === 'cancelled') {
+      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerSkipped, {
+        jobId: job.id,
+        gameId: job.data.gameId,
+        reason: 'game_already_closed',
+      });
+      return;
+    }
+
+    const now = Date.now();
+    const expiresAt = state.expiresAt ?? job.data.expiresAt;
+
+    if (now < expiresAt) {
+      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerSkipped, {
+        jobId: job.id,
+        gameId: job.data.gameId,
+        reason: 'game_not_expired',
+        expiresAt,
+        now,
+      });
+
+      throw new Error('Game expiry job ran before the game expired');
+    }
+
+    try {
+      const result = await this.gameCommandsService.executeIntent({
+        gameId: job.data.gameId,
+        source: 'timer',
+        intent: {
+          type: 'finish_game_by_time',
+          payload: {
+            finishedAt: now,
+          },
+        },
+      });
+
+      await this.gameRealtimePublisher.publishCommandResult(
+        job.data.gameId,
+        result,
+      );
+
+      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerExecuted, {
+        jobId: job.id,
+        gameId: job.data.gameId,
+        intentType: 'finish_game_by_time',
+        phase: result.state.phase,
+        turnNumber: result.state.turnNumber,
+      });
+
+      this.observabilityService.recordMetric(GAME_METRICS.turnTimerExecuted);
+    } catch (error) {
+      if (
+        error instanceof GameEngineError &&
+        error.code === 'GAME_NOT_ACTIVE'
+      ) {
+        this.observabilityService.recordEvent(GAME_EVENTS.turnTimerSkipped, {
+          jobId: job.id,
+          gameId: job.data.gameId,
+          reason: 'game_already_closed',
+        });
+        return;
+      }
+
+      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerFailed, {
+        jobId: job.id,
+        gameId: job.data.gameId,
+        intentType: 'finish_game_by_time',
         errorCode: error instanceof GameEngineError ? error.code : undefined,
         errorName: error instanceof Error ? error.name : undefined,
       });

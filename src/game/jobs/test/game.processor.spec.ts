@@ -256,6 +256,69 @@ describe('GameProcessor', () => {
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
   });
 
+  it('finishes expired games through the expiry job', async () => {
+    await processor.process(
+      makeJob(GAME_JOBS.finishExpiredGame, {
+        gameId: 'game-1',
+        expiresAt: 1_800_000,
+      }),
+    );
+
+    expect(gameRecoveryService.getOrRecover).toHaveBeenCalledWith('game-1');
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      source: 'timer',
+      intent: {
+        type: 'finish_game_by_time',
+        payload: {
+          finishedAt: expect.any(Number),
+        },
+      },
+    });
+    expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
+      'game-1',
+      commandResult,
+    );
+  });
+
+  it('skips expiry jobs for closed games', async () => {
+    gameRecoveryService.getOrRecover.mockResolvedValueOnce(
+      createGameEngineState({ phase: 'finished' }),
+    );
+
+    await processor.process(
+      makeJob(GAME_JOBS.finishExpiredGame, {
+        gameId: 'game-1',
+        expiresAt: 1_800_000,
+      }),
+    );
+
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
+    expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+  });
+
+  it('does not finish games before their expiry time', async () => {
+    const futureExpiresAt = Date.now() + 60_000;
+
+    gameRecoveryService.getOrRecover.mockResolvedValueOnce(
+      createGameEngineState({
+        expiresAt: futureExpiresAt,
+      }),
+    );
+
+    await expect(
+      processor.process(
+        makeJob(GAME_JOBS.finishExpiredGame, {
+          gameId: 'game-1',
+          expiresAt: futureExpiresAt,
+        }),
+      ),
+    ).rejects.toThrow('Game expiry job ran before the game expired');
+
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
+    expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+  });
+
   it('rethrows recovery failures for retry', async () => {
     const error = new Error('recovery failed');
     gameRecoveryService.getOrRecover.mockRejectedValue(error);

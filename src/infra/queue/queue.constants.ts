@@ -24,6 +24,7 @@ export const OUTBOX_JOBS = {
 export const GAME_JOBS = {
   executeBotTurn: 'execute-bot-turn',
   executeTurnTimeout: 'execute-turn-timeout',
+  finishExpiredGame: 'finish-expired-game',
 } as const;
 
 export const LEADERBOARD_JOBS = {

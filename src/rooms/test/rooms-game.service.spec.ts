@@ -2,6 +2,7 @@ import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { GameSnapshotService } from '../../game/snapshots/game-snapshots.service';
 import type { GameStateService } from '../../game/state/game-state.service';
+import type { GameTurnTimerQueueService } from '../../game/timers/game-turn-timer-queue.service';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
@@ -41,6 +42,11 @@ type ObservabilityServiceMock = {
 
 type GameSnapshotServiceMock = {
   createStartSnapshot: jest.Mock;
+};
+
+type GameTurnTimerQueueServiceMock = {
+  enqueueTurnTimer: jest.Mock;
+  enqueueGameExpiry: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -125,6 +131,7 @@ describe('RoomsGameService', () => {
   let gameStateService: GameStateServiceMock;
   let observabilityService: ObservabilityServiceMock;
   let gameSnapshotService: GameSnapshotServiceMock;
+  let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
 
   const tx = { tx: true };
 
@@ -178,6 +185,11 @@ describe('RoomsGameService', () => {
       createStartSnapshot: jest.fn().mockResolvedValue(undefined),
     };
 
+    gameTurnTimerQueueService = {
+      enqueueTurnTimer: jest.fn().mockResolvedValue(undefined),
+      enqueueGameExpiry: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsGameService(
       roomsGameRepository as unknown as RoomsGameRepository,
       databaseService as unknown as DatabaseService,
@@ -186,6 +198,7 @@ describe('RoomsGameService', () => {
       gameStateService as unknown as GameStateService,
       observabilityService as unknown as ObservabilityService,
       gameSnapshotService as unknown as GameSnapshotService,
+      gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
     );
   });
 
@@ -208,6 +221,7 @@ describe('RoomsGameService', () => {
         mode: 'ranked',
       },
       startedAt: activeRoom.startedAt,
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
       finishedAt: null,
       createdAt,
       updatedAt: createdAt,
@@ -227,6 +241,7 @@ describe('RoomsGameService', () => {
         roomId: waitingRoom.id,
         mode: 'ranked',
         currentTurnRoomPlayerId: humanPlayerOne.id,
+        expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
         state: expect.objectContaining({
           version: 1,
           roomId: waitingRoom.id,
@@ -292,8 +307,21 @@ describe('RoomsGameService', () => {
       }),
     );
 
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        phase: 'awaiting_first_turn',
+        currentTurnRoomPlayerId: humanPlayerOne.id,
+      }),
+    );
+    expect(gameTurnTimerQueueService.enqueueGameExpiry).toHaveBeenCalledWith(
+      'game-1',
+      activeRoom.startedAt.getTime() + 60 * 60 * 1000,
+    );
+
     expect(result.room).toEqual({
       ...activeRoom,
+      currentUserAccess: 'player',
       players,
     });
     expect(result.game).toEqual(
@@ -355,6 +383,7 @@ describe('RoomsGameService', () => {
         mode: 'casual',
       },
       startedAt: activeRoom.startedAt,
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
       finishedAt: null,
       createdAt,
       updatedAt: createdAt,
@@ -378,6 +407,7 @@ describe('RoomsGameService', () => {
       expect.objectContaining({
         mode: 'casual',
         currentTurnRoomPlayerId: humanPlayerOne.id,
+        expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
         state: expect.objectContaining({
           version: 1,
           roomId: waitingRoom.id,
@@ -511,6 +541,7 @@ describe('RoomsGameService', () => {
         mode: 'casual',
       },
       startedAt: activeRoom.startedAt,
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
       finishedAt: null,
       createdAt,
       updatedAt: createdAt,

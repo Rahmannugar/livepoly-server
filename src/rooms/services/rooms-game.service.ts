@@ -10,6 +10,7 @@ import { createInitialPropertyState } from '../../game/engine/game-engine-proper
 import type { GameEngineState } from '../../game/engine/game-engine.types';
 import { GameSnapshotService } from '../../game/snapshots/game-snapshots.service';
 import { GameStateService } from '../../game/state/game-state.service';
+import { GameTurnTimerQueueService } from '../../game/timers/game-turn-timer-queue.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -49,6 +50,7 @@ export class RoomsGameService {
     private readonly gameStateService: GameStateService,
     private readonly observabilityService: ObservabilityService,
     private readonly gameSnapshotService: GameSnapshotService,
+    private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
   ) {}
 
   async startRoom(authUser: AuthUser, code: string) {
@@ -132,6 +134,7 @@ export class RoomsGameService {
           mode,
           currentTurnRoomPlayerId: allPlayers[0].id,
           state: initialState,
+          expiresAt: new Date(initialState.expiresAt ?? Date.now()),
         },
         tx,
       );
@@ -171,6 +174,14 @@ export class RoomsGameService {
     });
 
     await this.gameStateService.set(result.game.id, result.initialState);
+    await this.gameTurnTimerQueueService.enqueueTurnTimer(
+      result.game.id,
+      result.initialState,
+    );
+    await this.gameTurnTimerQueueService.enqueueGameExpiry(
+      result.game.id,
+      result.initialState.expiresAt ?? Date.now(),
+    );
 
     this.observabilityService.recordEvent(ROOM_EVENTS.started, {
       roomId: result.room.id,

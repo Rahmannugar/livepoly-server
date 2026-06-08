@@ -7,6 +7,7 @@ import { GameTurnTimerPolicyService } from '../game-turn-timer-policy.service';
 describe('GameTurnTimerPolicyService', () => {
   let service: GameTurnTimerPolicyService;
   let mathRandomSpy: jest.SpyInstance;
+  let dateNowSpy: jest.SpyInstance;
 
   beforeEach(() => {
     service = new GameTurnTimerPolicyService();
@@ -14,10 +15,12 @@ describe('GameTurnTimerPolicyService', () => {
       .spyOn(Math, 'random')
       .mockReturnValueOnce(0)
       .mockReturnValueOnce(0.99);
+    dateNowSpy = jest.spyOn(Date, 'now').mockReturnValue(1_000);
   });
 
   afterEach(() => {
     mathRandomSpy.mockRestore();
+    dateNowSpy.mockRestore();
   });
 
   it('returns no intent for terminal games', () => {
@@ -73,6 +76,24 @@ describe('GameTurnTimerPolicyService', () => {
       payload: {
         roomPlayerId: 'room-player-1',
         dice: [1, 6],
+      },
+    });
+  });
+
+  it('finishes by time once the match duration has elapsed', () => {
+    dateNowSpy.mockReturnValue(1_801_000);
+
+    const intent = service.chooseTimeoutIntent(
+      createGameEngineState({
+        phase: 'awaiting_roll',
+        expiresAt: 1_800_000,
+      }),
+    );
+
+    expect(intent).toEqual({
+      type: 'finish_game_by_time',
+      payload: {
+        finishedAt: 1_801_000,
       },
     });
   });

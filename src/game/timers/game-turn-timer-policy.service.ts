@@ -15,6 +15,17 @@ export class GameTurnTimerPolicyService {
       return null;
     }
 
+    const now = Date.now();
+
+    if (state.expiresAt && now >= state.expiresAt) {
+      return {
+        type: 'finish_game_by_time',
+        payload: {
+          finishedAt: now,
+        },
+      };
+    }
+
     const currentPlayer = this.findPlayer(state, state.currentTurnRoomPlayerId);
 
     if (!currentPlayer || currentPlayer.bankrupt) {

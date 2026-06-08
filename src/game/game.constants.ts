@@ -112,6 +112,7 @@ export const GAME_COMMANDS = {
 } as const;
 
 export const GAME_SOCKET_EVENTS = {
+  authenticated: 'game:authenticated',
   join: 'game:join',
   joined: 'game:joined',
   rollAndMove: 'game:roll-and-move',

@@ -81,7 +81,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleConnection(socket: AuthenticatedGameSocket): Promise<void> {
     try {
       await this.consumeConnectionLimit(socket);
+      this.debugSocket('connection:auth-start', {
+        socketId: socket.id,
+        hasToken: Boolean(this.getSocketToken(socket)),
+      });
       socket.data.user = await this.authenticate(socket);
+
+      this.debugSocket('connection:auth-success', {
+        socketId: socket.id,
+        userId: socket.data.user.id,
+      });
+
+      socket.emit(GAME_SOCKET_EVENTS.authenticated, {
+        socketId: socket.id,
+        userId: socket.data.user.id,
+      });
 
       this.observabilityService.recordEvent(GAME_EVENTS.socketConnected, {
         socketId: socket.id,
@@ -89,6 +103,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         username: socket.data.user.username,
       });
     } catch (error) {
+      this.debugSocket('connection:auth-failed', {
+        socketId: socket.id,
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+
       socket.emit(GAME_SOCKET_EVENTS.error, {
         ...this.toSocketConnectionError(error),
       } satisfies GameErrorEvent);
@@ -134,6 +153,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId: socket.data.user.id,
       });
 
+      this.debugSocket('join:access-success', {
+        socketId: socket.id,
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+        access: access.access,
+        roomPlayerId: access.roomPlayerId,
+        spectatorId: access.spectatorId,
+      });
+
       await socket.join(this.gameRoom(payload.gameId));
 
       await this.gamePresenceService.track({
@@ -159,6 +187,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         } satisfies GameJoinedEvent,
       };
     } catch (error) {
+      this.debugSocket('join:access-failed', {
+        socketId: socket.id,
+        gameId: payload.gameId,
+        userId: socket.data.user.id,
+        message: error instanceof Error ? error.message : 'unknown',
+      });
+
       throw this.toWsException(error);
     }
   }
@@ -760,10 +795,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const token = this.getSocketToken(socket);
 
     if (!token) {
+      this.debugSocket('authenticate:missing-token', {
+        socketId: socket.id,
+      });
       throw new WsException('Authentication required');
     }
 
     const payload = await this.verifyToken(token);
+    this.debugSocket('authenticate:token-verified', {
+      socketId: socket.id,
+      userId: payload.sub,
+      tokenVersion: payload.tv,
+    });
     const cachedTokenVersion = await this.getValidCachedTokenVersion(
       payload.sub,
       payload.tv,
@@ -780,6 +823,17 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       user.deletedAt ||
       user.tokenVersion !== payload.tv
     ) {
+      this.debugSocket('authenticate:user-invalid', {
+        socketId: socket.id,
+        userId: payload.sub,
+        foundUser: Boolean(user),
+        emailVerified: user?.emailVerified,
+        status: user?.status,
+        deleted: Boolean(user?.deletedAt),
+        databaseTokenVersion: user?.tokenVersion,
+        tokenVersion: payload.tv,
+      });
+
       if (user && user.tokenVersion !== payload.tv) {
         await this.authTokenVersionCacheService.set(
           user.id,
@@ -837,6 +891,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
       });
     } catch {
+      this.debugSocket('authenticate:token-verify-failed');
       throw new WsException('Authentication required');
     }
   }
@@ -853,10 +908,27 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       cachedTokenVersion !== undefined &&
       cachedTokenVersion !== tokenVersion
     ) {
+      this.debugSocket('authenticate:cached-token-version-mismatch', {
+        userId,
+        cachedTokenVersion,
+        tokenVersion,
+      });
       throw new WsException('Authentication required');
     }
 
     return cachedTokenVersion;
+  }
+
+  private debugSocket(
+    event: string,
+    attributes: Record<string, string | number | boolean | null | undefined> = {},
+  ): void {
+    if (process.env.NODE_ENV === 'production') {
+      return;
+    }
+
+    // Temporary local diagnostics for the game socket auth/join path.
+    console.info('[LivePoly game socket]', event, attributes);
   }
 
   private assertAuthenticated(socket: AuthenticatedGameSocket): void {

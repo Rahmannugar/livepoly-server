@@ -121,7 +121,7 @@ BullMQ handles background jobs for:
 
 The outbox is a durable “publish this later” table.
 
-Today, LivePoly uses it for notification-created events. When a feature creates a notification, it saves both the notification row and an outbox event in the same database transaction. A worker later claims the outbox event and publishes it to the user notification channel.
+LivePoly uses it for notification-created events. When a feature creates a notification, it saves both the notification row and an outbox event in the same database transaction. A worker later claims the outbox event and publishes it to the user notification channel.
 
 That means if publishing fails after the database write, the notification event is still stored and can be retried instead of being lost.
 

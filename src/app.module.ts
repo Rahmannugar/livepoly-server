@@ -11,6 +11,7 @@ import { FriendsModule } from './friends/friends.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
+import { GameModule } from './game/game.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { LeaderboardsModule } from './leaderboards/leaderboards.module';
     FriendsModule,
     NotificationsModule,
     RoomsModule,
+    GameModule,
     LeaderboardsModule,
   ],
 })

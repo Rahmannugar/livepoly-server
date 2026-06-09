@@ -33,3 +33,30 @@ export type SaveRoomPlayerResultInput = {
   placement: number;
   bankruptAt: Date | null;
 };
+
+export type GameResultPlayerRow = {
+  roomPlayerId: string;
+  userId: string | null;
+  username: string | null;
+  playerType: 'human' | 'bot';
+  botName: string | null;
+  seatNumber: number;
+  startingCash: number;
+  finalCash: number;
+  finalNetWorth: number;
+  placement: number;
+  bankruptAt: Date | null;
+};
+
+export type GameResultResponse = {
+  gameId: string;
+  roomId: string;
+  roomCode: string;
+  mode: 'ranked' | 'casual';
+  endReason: GameResultEndReason;
+  winnerRoomPlayerId: string | null;
+  winnerUserId: string | null;
+  durationSeconds: number;
+  completedAt: Date;
+  players: GameResultPlayerRow[];
+};

@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 import { DatabaseService } from '../../infra/database/database.service';
 import type { DatabaseExecutor } from '../../infra/database/database.service';
 import {
@@ -8,6 +8,8 @@ import {
   roomResults,
   roomPlayers,
   rooms,
+  roomSpectators,
+  users,
 } from '../../infra/database/schema';
 import type { SaveGameResultsInput } from './game-results.types';
 
@@ -32,6 +34,113 @@ export class GameResultsRepository {
       .limit(1);
 
     return game ?? null;
+  }
+
+  async findGameResultAccess(input: { gameId: string; userId: string }) {
+    const [game] = await this.databaseService.db
+      .select({
+        id: games.id,
+        roomId: games.roomId,
+      })
+      .from(games)
+      .where(eq(games.id, input.gameId))
+      .limit(1);
+
+    if (!game) {
+      return {
+        game: null,
+        hasAccess: false,
+      };
+    }
+
+    const [player] = await this.databaseService.db
+      .select({ id: roomPlayers.id })
+      .from(roomPlayers)
+      .where(
+        and(
+          eq(roomPlayers.roomId, game.roomId),
+          eq(roomPlayers.userId, input.userId),
+        ),
+      )
+      .limit(1);
+
+    if (player) {
+      return {
+        game,
+        hasAccess: true,
+      };
+    }
+
+    const [spectator] = await this.databaseService.db
+      .select({ id: roomSpectators.id })
+      .from(roomSpectators)
+      .where(
+        and(
+          eq(roomSpectators.roomId, game.roomId),
+          eq(roomSpectators.userId, input.userId),
+        ),
+      )
+      .limit(1);
+
+    return {
+      game,
+      hasAccess: Boolean(spectator),
+    };
+  }
+
+  async findResultByGameId(gameId: string) {
+    const [result] = await this.databaseService.db
+      .select({
+        gameId: roomResults.gameId,
+        roomId: roomResults.roomId,
+        roomCode: rooms.code,
+        mode: games.mode,
+        endReason: roomResults.endReason,
+        winnerRoomPlayerId: roomResults.winnerRoomPlayerId,
+        winnerUserId: roomResults.winnerUserId,
+        durationSeconds: roomResults.durationSeconds,
+        completedAt: roomResults.completedAt,
+      })
+      .from(roomResults)
+      .innerJoin(games, eq(games.id, roomResults.gameId))
+      .innerJoin(rooms, eq(rooms.id, roomResults.roomId))
+      .where(eq(roomResults.gameId, gameId))
+      .limit(1);
+
+    if (!result) {
+      return null;
+    }
+
+    const players = await this.databaseService.db
+      .select({
+        roomPlayerId: roomPlayerResults.roomPlayerId,
+        userId: roomPlayerResults.userId,
+        username: users.username,
+        playerType: roomPlayers.playerType,
+        botName: roomPlayers.botName,
+        seatNumber: roomPlayerResults.seatNumber,
+        startingCash: roomPlayerResults.startingCash,
+        finalCash: roomPlayerResults.finalCash,
+        finalNetWorth: roomPlayerResults.finalNetWorth,
+        placement: roomPlayerResults.placement,
+        bankruptAt: roomPlayerResults.bankruptAt,
+      })
+      .from(roomPlayerResults)
+      .innerJoin(
+        roomPlayers,
+        and(
+          eq(roomPlayers.roomId, roomPlayerResults.roomId),
+          eq(roomPlayers.id, roomPlayerResults.roomPlayerId),
+        ),
+      )
+      .leftJoin(users, eq(users.id, roomPlayerResults.userId))
+      .where(eq(roomPlayerResults.roomId, result.roomId))
+      .orderBy(asc(roomPlayerResults.placement), asc(roomPlayerResults.seatNumber));
+
+    return {
+      ...result,
+      players,
+    };
   }
 
   async findWinnerUserId(

@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import {
@@ -13,6 +17,7 @@ import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameResultsRepository } from './game-results.repository';
 import type {
   FinalizeGameResultInput,
+  GameResultResponse,
   GameResultEndReason,
   SaveRoomPlayerResultInput,
 } from './game-results.types';
@@ -95,6 +100,23 @@ export class GameResultsService {
     }
 
     await this.invalidateUserMatchHistoryCache(input.gameId, input.state);
+  }
+
+  async getGameResultForUser(input: {
+    gameId: string;
+    userId: string;
+  }): Promise<GameResultResponse | null> {
+    const access = await this.gameResultsRepository.findGameResultAccess(input);
+
+    if (!access.game) {
+      throw new NotFoundException('Game not found');
+    }
+
+    if (!access.hasAccess) {
+      throw new ForbiddenException('Game result access denied');
+    }
+
+    return this.gameResultsRepository.findResultByGameId(input.gameId);
   }
 
   private getCompletedAt(events: GameEngineEvent[]): Date {

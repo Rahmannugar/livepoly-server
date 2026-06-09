@@ -29,6 +29,7 @@ import { UsersModule } from '../users/users.module';
 import { GameEventsRepository } from './events/game-events.repository';
 import { GameEventsService } from './events/game-events.service';
 import { GamePresenceService } from './presence/game-presence.service';
+import { GameController } from './game.controller';
 
 @Module({
   imports: [
@@ -42,6 +43,7 @@ import { GamePresenceService } from './presence/game-presence.service';
     LeaderboardsModule,
     UsersModule,
   ],
+  controllers: [GameController],
   providers: [
     GameStateService,
     GameCommandsService,

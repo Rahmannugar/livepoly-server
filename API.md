@@ -84,6 +84,14 @@ Room responses include players and spectator count. Spectating is allowed only f
 
 `POST /rooms/:code/start` returns the started room plus the created game. The game response includes `startedAt`, `expiresAt`, and `finishedAt` so clients can render timers and finished-state UI without reading those values from embedded game state.
 
+## Game
+
+Base path: `/games`
+
+- `GET /games/:gameId/result`
+
+The result endpoint is authenticated. It is available to players and spectators for that game. It returns the finalized room result with ordered player placements, or `null` while finalization is still settling after the live game closes.
+
 ## Friends
 
 Base path: `/friends`

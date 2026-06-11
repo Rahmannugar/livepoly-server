@@ -26,8 +26,13 @@ export type GameCardEffectType =
   | 'collect_money'
   | 'pay_money'
   | 'move_to_tile'
+  | 'move_relative'
+  | 'move_to_nearest'
   | 'go_to_jail'
-  | 'get_out_of_jail_free';
+  | 'get_out_of_jail_free'
+  | 'collect_from_each_player'
+  | 'pay_each_player'
+  | 'property_repairs';
 
 export type GameCardEffect =
   | {
@@ -44,10 +49,32 @@ export type GameCardEffect =
       collectPassGo: boolean;
     }
   | {
+      type: 'move_relative';
+      spaces: number;
+    }
+  | {
+      type: 'move_to_nearest';
+      tileKind: OwnableTileKind;
+      collectPassGo: boolean;
+    }
+  | {
       type: 'go_to_jail';
     }
   | {
       type: 'get_out_of_jail_free';
+    }
+  | {
+      type: 'collect_from_each_player';
+      amount: number;
+    }
+  | {
+      type: 'pay_each_player';
+      amount: number;
+    }
+  | {
+      type: 'property_repairs';
+      houseAmount: number;
+      hotelAmount: number;
     };
 
 export type GameEngineCard = {

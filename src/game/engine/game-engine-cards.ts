@@ -5,9 +5,11 @@ import {
   creditPlayer,
   debitPlayerOrCreateDebt,
   findPlayer,
+  transferPlayerCash,
 } from './game-engine-money';
 import { isOwnableTile } from './game-engine-properties';
 import { payRent } from './game-engine-rent';
+import { payTax } from './game-engine-tax';
 import {
   GameEngineError,
   type DrawCardInput,
@@ -29,12 +31,73 @@ export const CHANCE_CARDS = [
     },
   },
   {
+    key: 'chance_chairman_bonus',
+    title: 'Chairman bonus',
+    effect: {
+      type: 'collect_money',
+      amount: 150,
+    },
+  },
+  {
     key: 'chance_advance_to_go',
     title: 'Advance to Go',
     effect: {
       type: 'move_to_tile',
       tileKey: 'go',
       collectPassGo: true,
+    },
+  },
+  {
+    key: 'chance_advance_to_spain',
+    title: 'Advance to Spain',
+    effect: {
+      type: 'move_to_tile',
+      tileKey: 'spain',
+      collectPassGo: true,
+    },
+  },
+  {
+    key: 'chance_advance_to_uk',
+    title: 'Advance to United Kingdom',
+    effect: {
+      type: 'move_to_tile',
+      tileKey: 'uk',
+      collectPassGo: true,
+    },
+  },
+  {
+    key: 'chance_advance_to_lagos_airport',
+    title: 'Advance to Lagos Airport',
+    effect: {
+      type: 'move_to_tile',
+      tileKey: 'lagos_airport',
+      collectPassGo: true,
+    },
+  },
+  {
+    key: 'chance_nearest_airport',
+    title: 'Advance to the nearest Airport',
+    effect: {
+      type: 'move_to_nearest',
+      tileKind: 'airport',
+      collectPassGo: true,
+    },
+  },
+  {
+    key: 'chance_nearest_utility',
+    title: 'Advance to the nearest Utility',
+    effect: {
+      type: 'move_to_nearest',
+      tileKind: 'utility',
+      collectPassGo: true,
+    },
+  },
+  {
+    key: 'chance_go_back_three',
+    title: 'Go back three spaces',
+    effect: {
+      type: 'move_relative',
+      spaces: -3,
     },
   },
   {
@@ -45,10 +108,43 @@ export const CHANCE_CARDS = [
     },
   },
   {
+    key: 'chance_building_repairs',
+    title: 'Make general repairs',
+    effect: {
+      type: 'property_repairs',
+      houseAmount: 25,
+      hotelAmount: 100,
+    },
+  },
+  {
     key: 'chance_pay_school_fees',
     title: 'Pay school fees',
     effect: {
       type: 'pay_money',
+      amount: 50,
+    },
+  },
+  {
+    key: 'chance_speeding_fine',
+    title: 'Speeding fine',
+    effect: {
+      type: 'pay_money',
+      amount: 15,
+    },
+  },
+  {
+    key: 'chance_loan_matures',
+    title: 'Loan matures',
+    effect: {
+      type: 'collect_money',
+      amount: 150,
+    },
+  },
+  {
+    key: 'chance_pay_each_player',
+    title: 'Pay every player',
+    effect: {
+      type: 'pay_each_player',
       amount: 50,
     },
   },
@@ -71,11 +167,84 @@ export const WORLD_FUND_CARDS = [
     },
   },
   {
+    key: 'world_fund_bank_error',
+    title: 'Bank error in your favor',
+    effect: {
+      type: 'collect_money',
+      amount: 200,
+    },
+  },
+  {
+    key: 'world_fund_doctor_fee',
+    title: 'Doctor fee',
+    effect: {
+      type: 'pay_money',
+      amount: 50,
+    },
+  },
+  {
+    key: 'world_fund_sale_of_stock',
+    title: 'Sale of stock',
+    effect: {
+      type: 'collect_money',
+      amount: 50,
+    },
+  },
+  {
     key: 'world_fund_pay_hospital',
     title: 'Pay hospital fees',
     effect: {
       type: 'pay_money',
       amount: 100,
+    },
+  },
+  {
+    key: 'world_fund_life_insurance',
+    title: 'Life insurance matures',
+    effect: {
+      type: 'collect_money',
+      amount: 100,
+    },
+  },
+  {
+    key: 'world_fund_income_tax_refund',
+    title: 'Income tax refund',
+    effect: {
+      type: 'collect_money',
+      amount: 20,
+    },
+  },
+  {
+    key: 'world_fund_birthday',
+    title: 'Birthday gift',
+    effect: {
+      type: 'collect_from_each_player',
+      amount: 10,
+    },
+  },
+  {
+    key: 'world_fund_holiday_fund',
+    title: 'Holiday fund matures',
+    effect: {
+      type: 'collect_money',
+      amount: 100,
+    },
+  },
+  {
+    key: 'world_fund_consultancy_fee',
+    title: 'Consultancy fee',
+    effect: {
+      type: 'collect_money',
+      amount: 25,
+    },
+  },
+  {
+    key: 'world_fund_street_repairs',
+    title: 'Street repairs',
+    effect: {
+      type: 'property_repairs',
+      houseAmount: 40,
+      hotelAmount: 115,
     },
   },
   {
@@ -92,6 +261,22 @@ export const WORLD_FUND_CARDS = [
     title: 'Go to Jail',
     effect: {
       type: 'go_to_jail',
+    },
+  },
+  {
+    key: 'world_fund_beauty_contest',
+    title: 'Beauty contest prize',
+    effect: {
+      type: 'collect_money',
+      amount: 10,
+    },
+  },
+  {
+    key: 'world_fund_inherit',
+    title: 'Inheritance',
+    effect: {
+      type: 'collect_money',
+      amount: 100,
     },
   },
   {
@@ -231,6 +416,18 @@ function applyCardEffect(
     return sendPlayerToJail(state, input.roomPlayerId);
   }
 
+  if (card.effect.type === 'collect_from_each_player') {
+    return collectFromEachPlayer(state, input, card.effect.amount);
+  }
+
+  if (card.effect.type === 'pay_each_player') {
+    return payEachPlayer(state, input, card.effect.amount);
+  }
+
+  if (card.effect.type === 'property_repairs') {
+    return payPropertyRepairs(state, input, card.effect);
+  }
+
   if (card.effect.type === 'get_out_of_jail_free') {
     return {
       state: {
@@ -253,18 +450,127 @@ function applyCardEffect(
   return movePlayerToCardTile(state, input, card.effect);
 }
 
+function collectFromEachPlayer(
+  state: GameEngineState,
+  input: DrawCardInput,
+  amount: number,
+): GameEngineResult {
+  findPlayer(state, input.roomPlayerId);
+
+  const otherPlayers = state.players.filter(
+    (player) => player.roomPlayerId !== input.roomPlayerId && !player.bankrupt,
+  );
+
+  const nextState = otherPlayers.reduce(
+    (currentState, player) =>
+      transferPlayerCash(
+        currentState,
+        player.roomPlayerId,
+        input.roomPlayerId,
+        Math.min(player.cash, amount),
+      ),
+    state,
+  );
+
+  return {
+    state: nextState,
+    events: [],
+  };
+}
+
+function payEachPlayer(
+  state: GameEngineState,
+  input: DrawCardInput,
+  amount: number,
+): GameEngineResult {
+  const payingPlayer = findPlayer(state, input.roomPlayerId);
+  const otherPlayers = state.players.filter(
+    (player) => player.roomPlayerId !== input.roomPlayerId && !player.bankrupt,
+  );
+  const totalAmount = otherPlayers.length * amount;
+
+  if (payingPlayer.cash < totalAmount) {
+    const paymentResult = debitPlayerOrCreateDebt(state, {
+      roomPlayerId: input.roomPlayerId,
+      amount: totalAmount,
+      reason: 'card',
+    });
+
+    return {
+      state: paymentResult.state,
+      events: paymentResult.events,
+    };
+  }
+
+  const nextState = otherPlayers.reduce(
+    (currentState, player) =>
+      transferPlayerCash(
+        currentState,
+        input.roomPlayerId,
+        player.roomPlayerId,
+        amount,
+      ),
+    state,
+  );
+
+  return {
+    state: nextState,
+    events: [],
+  };
+}
+
+function payPropertyRepairs(
+  state: GameEngineState,
+  input: DrawCardInput,
+  effect: {
+    type: 'property_repairs';
+    houseAmount: number;
+    hotelAmount: number;
+  },
+): GameEngineResult {
+  const amount = state.properties
+    .filter((property) => property.ownerRoomPlayerId === input.roomPlayerId)
+    .reduce((total, property) => {
+      if (property.hasHotel) {
+        return total + effect.hotelAmount;
+      }
+
+      return total + property.houseCount * effect.houseAmount;
+    }, 0);
+
+  if (amount === 0) {
+    return {
+      state,
+      events: [],
+    };
+  }
+
+  const paymentResult = debitPlayerOrCreateDebt(state, {
+    roomPlayerId: input.roomPlayerId,
+    amount,
+    reason: 'card',
+  });
+
+  return {
+    state: paymentResult.state,
+    events: paymentResult.events,
+  };
+}
+
 function movePlayerToCardTile(
   state: GameEngineState,
   input: DrawCardInput,
   effect: {
-    type: 'move_to_tile';
-    tileKey: string;
-    collectPassGo: boolean;
+    type: 'move_to_tile' | 'move_relative' | 'move_to_nearest';
+    tileKey?: string;
+    spaces?: number;
+    tileKind?: string;
+    collectPassGo?: boolean;
   },
 ): GameEngineResult {
   const board = getGameBoard(state.boardKey);
   const player = findPlayer(state, input.roomPlayerId);
-  const targetTile = board.tiles.find((tile) => tile.key === effect.tileKey);
+  const targetTile = getCardMoveTargetTile(state, input, effect);
 
   if (!targetTile) {
     throw new GameEngineError(
@@ -274,7 +580,7 @@ function movePlayerToCardTile(
   }
 
   const passedGo =
-    effect.collectPassGo &&
+    Boolean(effect.collectPassGo) &&
     targetTile.index <= player.position &&
     targetTile.index !== player.position;
 
@@ -332,6 +638,18 @@ function movePlayerToCardTile(
     };
   }
 
+  if (targetTile.kind === 'tax') {
+    const taxResult = payTax(nextState, {
+      roomPlayerId: input.roomPlayerId,
+      tileKey: targetTile.key,
+    });
+
+    return {
+      state: taxResult.state,
+      events: [...movedEvents, ...taxResult.events],
+    };
+  }
+
   const property = nextState.properties.find(
     (candidate) => candidate.tileKey === targetTile.key,
   );
@@ -357,6 +675,47 @@ function movePlayerToCardTile(
     state: rentResult.state,
     events: [...movedEvents, ...rentResult.events],
   };
+}
+
+function getCardMoveTargetTile(
+  state: GameEngineState,
+  input: DrawCardInput,
+  effect: {
+    type: 'move_to_tile' | 'move_relative' | 'move_to_nearest';
+    tileKey?: string;
+    spaces?: number;
+    tileKind?: string;
+  },
+) {
+  const board = getGameBoard(state.boardKey);
+  const player = findPlayer(state, input.roomPlayerId);
+
+  if (effect.type === 'move_to_tile') {
+    return board.tiles.find((tile) => tile.key === effect.tileKey);
+  }
+
+  if (effect.type === 'move_relative') {
+    const targetIndex =
+      (player.position + (effect.spaces ?? 0) + board.tiles.length) %
+      board.tiles.length;
+
+    return getTile(board, targetIndex);
+  }
+
+  return (
+    board.tiles
+      .filter((tile) => tile.kind === effect.tileKind)
+      .sort((left, right) => {
+        const leftDistance =
+          (left.index - player.position + board.tiles.length) %
+          board.tiles.length;
+        const rightDistance =
+          (right.index - player.position + board.tiles.length) %
+          board.tiles.length;
+
+        return leftDistance - rightDistance;
+      })[0] ?? null
+  );
 }
 
 function getDeck(

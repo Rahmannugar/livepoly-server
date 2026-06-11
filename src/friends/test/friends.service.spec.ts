@@ -47,6 +47,8 @@ const authUser: AuthUser = {
   id: 'user-1',
   email: 'player@example.com',
   username: 'playerone',
+  role: 'player',
+  status: 'active',
   sessionId: 'session-1',
   tokenVersion: 0,
 };

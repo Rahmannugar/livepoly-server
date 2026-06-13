@@ -28,6 +28,7 @@ export class GameTurnTimerQueueService {
       turnNumber: state.turnNumber,
       phase: state.phase,
       currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
+      actionStateKey: this.getActionStateKey(state),
     };
 
     await this.gameQueue.add(GAME_JOBS.executeTurnTimeout, data, {
@@ -82,6 +83,20 @@ export class GameTurnTimerQueueService {
       data.turnNumber,
       data.phase,
       data.currentTurnRoomPlayerId,
+      data.actionStateKey,
     ].join('__');
+  }
+
+  private getActionStateKey(state: GameEngineState): string {
+    if (state.phase !== 'awaiting_auction_bid' || !state.auction) {
+      return 'turn';
+    }
+
+    return [
+      'auction',
+      state.auction.currentBid,
+      state.auction.highestBidderRoomPlayerId ?? 'none',
+      state.auction.passedRoomPlayerIds.join('-') || 'none',
+    ].join('_');
   }
 }

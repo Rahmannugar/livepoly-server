@@ -145,6 +145,7 @@ export type GameEngineState = {
   startedAt?: number | null;
   durationMinutes?: number | null;
   expiresAt?: number | null;
+  turnExpiresAt?: number | null;
   phase: GamePhase;
   turnNumber: number;
   currentTurnRoomPlayerId: string;

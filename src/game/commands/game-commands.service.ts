@@ -8,12 +8,15 @@ import {
   incrementMissedTurn,
   resetMissedTurn,
 } from '../engine/game-engine-missed-turns';
-import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
+import { GAME_EVENTS, GAME_METRICS, GAME_TURN_TIMER } from '../game.constants';
 import {
   reduceGameEngineIntent,
   type GameEngineIntent,
 } from '../engine/game-engine-intents';
-import { GameEngineError } from '../engine/game-engine.types';
+import {
+  GameEngineError,
+  type GameEngineState,
+} from '../engine/game-engine.types';
 import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameResultsService } from '../results/game-results.service';
 import { GameSnapshotService } from '../snapshots/game-snapshots.service';
@@ -261,13 +264,14 @@ export class GameCommandsService {
           const actorRoomPlayerId = this.getIntentActorRoomPlayerId(
             input.intent,
           );
-          const nextState = this.applyCommandSourceToState(
+          const sourceAppliedState = this.applyCommandSourceToState(
             engineResult.state,
             source,
             actorRoomPlayerId,
             commandTurnRoomPlayerId,
             commandTurnNumber,
           );
+          const nextState = this.applyTurnDeadline(sourceAppliedState);
 
           commandResult = {
             state: nextState,
@@ -336,6 +340,24 @@ export class GameCommandsService {
     }
 
     return state;
+  }
+
+  private applyTurnDeadline(state: GameEngineState): GameEngineState {
+    if (state.phase === 'finished' || state.phase === 'cancelled') {
+      return {
+        ...state,
+        turnExpiresAt: null,
+      };
+    }
+
+    const nextTurnExpiresAt = Date.now() + GAME_TURN_TIMER.timeoutMs;
+
+    return {
+      ...state,
+      turnExpiresAt: state.expiresAt
+        ? Math.min(nextTurnExpiresAt, state.expiresAt)
+        : nextTurnExpiresAt,
+    };
   }
 
   private async afterSuccessfulCommand(

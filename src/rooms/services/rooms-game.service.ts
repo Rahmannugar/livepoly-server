@@ -8,6 +8,7 @@ import type { AuthUser } from '../../auth/types/auth-user.type';
 import { createInitialDeckState } from '../../game/engine/game-engine-cards';
 import { createInitialPropertyState } from '../../game/engine/game-engine-properties';
 import type { GameEngineState } from '../../game/engine/game-engine.types';
+import { GAME_TURN_TIMER } from '../../game/game.constants';
 import { GameSnapshotService } from '../../game/snapshots/game-snapshots.service';
 import { GameStateService } from '../../game/state/game-state.service';
 import { GameTurnTimerQueueService } from '../../game/timers/game-turn-timer-queue.service';
@@ -241,6 +242,7 @@ export class RoomsGameService {
     players: JoinedRoomPlayer[];
   }): GameEngineState {
     const startedAt = input.startedAt?.getTime() ?? Date.now();
+    const expiresAt = startedAt + input.durationMinutes * 60 * 1000;
 
     const state: GameEngineState = {
       version: 1,
@@ -250,7 +252,8 @@ export class RoomsGameService {
       mode: input.mode,
       startedAt,
       durationMinutes: input.durationMinutes,
-      expiresAt: startedAt + input.durationMinutes * 60 * 1000,
+      expiresAt,
+      turnExpiresAt: Math.min(startedAt + GAME_TURN_TIMER.timeoutMs, expiresAt),
       phase: 'awaiting_first_turn',
       turnNumber: 1,
       currentTurnRoomPlayerId: input.players[0].id,

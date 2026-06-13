@@ -36,6 +36,7 @@ export class GameBotQueueService {
           state.turnNumber,
           state.phase,
           decision.roomPlayerId,
+          this.getActionStateKey(state),
         ].join('__'),
         delay,
         attempts: 3,
@@ -60,5 +61,18 @@ export class GameBotQueueService {
     const { min, max } = GAME_BOTS.actionDelayMs;
 
     return Math.round(min + Math.random() * (max - min));
+  }
+
+  private getActionStateKey(state: GameEngineState): string {
+    if (state.phase !== 'awaiting_auction_bid' || !state.auction) {
+      return 'turn';
+    }
+
+    return [
+      'auction',
+      state.auction.currentBid,
+      state.auction.highestBidderRoomPlayerId ?? 'none',
+      state.auction.passedRoomPlayerIds.join('-') || 'none',
+    ].join('_');
   }
 }

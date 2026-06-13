@@ -121,7 +121,7 @@ describe('GameBotQueueService', () => {
       GAME_JOBS.executeBotTurn,
       { gameId: 'game-1' },
       {
-        jobId: 'bot-turn__game-1__3__awaiting_roll__bot-player-1',
+        jobId: 'bot-turn__game-1__3__awaiting_roll__bot-player-1__turn',
         delay: 1350,
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },

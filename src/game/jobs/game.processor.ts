@@ -135,6 +135,7 @@ export class GameProcessor extends WorkerHost {
         currentPhase: state.phase,
         currentTurnNumber: state.turnNumber,
         currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
+        currentActionStateKey: this.getActionStateKey(state),
       });
       return;
     }
@@ -281,8 +282,22 @@ export class GameProcessor extends WorkerHost {
     return (
       data.turnNumber === state.turnNumber &&
       data.phase === state.phase &&
-      data.currentTurnRoomPlayerId === state.currentTurnRoomPlayerId
+      data.currentTurnRoomPlayerId === state.currentTurnRoomPlayerId &&
+      data.actionStateKey === this.getActionStateKey(state)
     );
+  }
+
+  private getActionStateKey(state: GameEngineState): string {
+    if (state.phase !== 'awaiting_auction_bid' || !state.auction) {
+      return 'turn';
+    }
+
+    return [
+      'auction',
+      state.auction.currentBid,
+      state.auction.highestBidderRoomPlayerId ?? 'none',
+      state.auction.passedRoomPlayerIds.join('-') || 'none',
+    ].join('_');
   }
 
   private getIntentRoomPlayerId(intent: GameEngineIntent): string | undefined {

@@ -196,6 +196,7 @@ describe('GameProcessor', () => {
         turnNumber: 7,
         phase: 'awaiting_roll',
         currentTurnRoomPlayerId: 'room-player-1',
+        actionStateKey: 'turn',
       }),
     );
 
@@ -230,6 +231,7 @@ describe('GameProcessor', () => {
         turnNumber: 6,
         phase: 'awaiting_roll',
         currentTurnRoomPlayerId: 'room-player-1',
+        actionStateKey: 'turn',
       }),
     );
 
@@ -249,6 +251,7 @@ describe('GameProcessor', () => {
         turnNumber: 7,
         phase: 'awaiting_roll',
         currentTurnRoomPlayerId: 'room-player-1',
+        actionStateKey: 'turn',
       }),
     );
 

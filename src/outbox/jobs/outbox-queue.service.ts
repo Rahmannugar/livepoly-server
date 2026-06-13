@@ -15,7 +15,7 @@ export class OutboxQueueService {
     const payload: PublishOutboxEventJob = { outboxEventId };
 
     await this.outboxQueue.add(OUTBOX_JOBS.publishEvent, payload, {
-      jobId: `outbox:publish:${outboxEventId}`,
+      jobId: ['outbox-publish', outboxEventId].join('__'),
       attempts: 3,
       backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
       removeOnComplete: true,

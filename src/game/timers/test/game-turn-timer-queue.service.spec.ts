@@ -85,7 +85,7 @@ describe('GameTurnTimerQueueService', () => {
         currentTurnRoomPlayerId: 'room-player-1',
       },
       {
-        jobId: 'turn-timeout:game-1:4:awaiting_roll:room-player-1',
+        jobId: 'turn-timeout__game-1__4__awaiting_roll__room-player-1',
         delay: GAME_TURN_TIMER.timeoutMs,
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },

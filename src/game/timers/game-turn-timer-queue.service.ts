@@ -58,7 +58,7 @@ export class GameTurnTimerQueueService {
     };
 
     await this.gameQueue.add(GAME_JOBS.finishExpiredGame, data, {
-      jobId: ['game-expiry', gameId].join(':'),
+      jobId: ['game-expiry', gameId].join('__'),
       delay: Math.max(expiresAt - Date.now(), 0),
       attempts: 3,
       backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
@@ -82,6 +82,6 @@ export class GameTurnTimerQueueService {
       data.turnNumber,
       data.phase,
       data.currentTurnRoomPlayerId,
-    ].join(':');
+    ].join('__');
   }
 }

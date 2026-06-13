@@ -30,7 +30,13 @@ export class GameBotQueueService {
       GAME_JOBS.executeBotTurn,
       { gameId } satisfies ExecuteBotTurnJob,
       {
-        jobId: `bot-turn:${gameId}:${state.turnNumber}:${state.phase}:${decision.roomPlayerId}`,
+        jobId: [
+          'bot-turn',
+          gameId,
+          state.turnNumber,
+          state.phase,
+          decision.roomPlayerId,
+        ].join('__'),
         delay,
         attempts: 3,
         backoff: exponentialBackoffWithJitter({ delay: 1_000 }),

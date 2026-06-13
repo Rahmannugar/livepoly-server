@@ -225,6 +225,7 @@ export class RoomsLobbyRepository {
         id: games.id,
         roomId: games.roomId,
         status: games.status,
+        expiresAt: games.expiresAt,
       })
       .from(games)
       .where(and(eq(games.roomId, roomId), eq(games.status, 'active')))
@@ -243,6 +244,7 @@ export class RoomsLobbyRepository {
         id: games.id,
         roomId: games.roomId,
         status: games.status,
+        expiresAt: games.expiresAt,
       })
       .from(games)
       .where(and(inArray(games.roomId, roomIds), eq(games.status, 'active')));

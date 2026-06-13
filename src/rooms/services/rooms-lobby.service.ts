@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import { GameCommandsService } from '../../game/commands/game-commands.service';
 import { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import { GameResultsService } from '../../game/results/game-results.service';
 import { GameStateService } from '../../game/state/game-state.service';
@@ -39,6 +40,7 @@ export class RoomsLobbyService {
     private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameResultsService: GameResultsService,
     private readonly gameStateService: GameStateService,
+    private readonly gameCommandsService: GameCommandsService,
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
@@ -98,29 +100,54 @@ export class RoomsLobbyService {
     const rooms =
       await this.roomsLobbyRepository.listLiveRooms(LIVE_ROOMS_LIMIT);
     const roomIds = rooms.map((room) => room.id);
+    const activeGames =
+      await this.roomsLobbyRepository.listActiveGamesForRooms(roomIds);
 
-    const players = await this.roomsLobbyRepository.listPlayersForRooms(roomIds);
+    const expiredActiveGameRoomIds = new Set(
+      activeGames
+        .filter((game) => game.expiresAt.getTime() <= Date.now())
+        .map((game) => game.roomId),
+    );
+
+    if (expiredActiveGameRoomIds.size > 0) {
+      await Promise.all(
+        [...expiredActiveGameRoomIds].map((roomId) =>
+          this.finalizeExpiredRoomGame(roomId),
+        ),
+      );
+    }
+
+    const liveRooms = rooms.filter(
+      (room) => !expiredActiveGameRoomIds.has(room.id),
+    );
+    const liveRoomIds = liveRooms.map((room) => room.id);
+
+    const players =
+      await this.roomsLobbyRepository.listPlayersForRooms(liveRoomIds);
     const spectatorCounts =
-      await this.roomsLobbyRepository.countCurrentSpectatorsForRooms(roomIds);
+      await this.roomsLobbyRepository.countCurrentSpectatorsForRooms(
+        liveRoomIds,
+      );
     const spectatorCountByRoomId = new Map(
       spectatorCounts.map((item) => [item.roomId, item.value]),
     );
-    const activeGames =
-      await this.roomsLobbyRepository.listActiveGamesForRooms(roomIds);
+    const currentActiveGames = activeGames.filter(
+      (game) => !expiredActiveGameRoomIds.has(game.roomId),
+    );
     const activeGameIdByRoomId = new Map(
-      activeGames.map((game) => [game.roomId, game.id]),
+      currentActiveGames.map((game) => [game.roomId, game.id]),
     );
 
     const currentSpectators =
       await this.roomsLobbyRepository.listCurrentSpectatorsForUserRoomIds(
         authUser.id,
-        roomIds,
+        liveRoomIds,
       );
     const currentSpectatorRoomIds = new Set(
       currentSpectators.map((spectator) => spectator.roomId),
     );
 
-    return rooms.map((room) => {
+    return liveRooms.map((room) => {
       const roomPlayers = players.filter((player) => player.roomId === room.id);
 
       return {
@@ -138,12 +165,20 @@ export class RoomsLobbyService {
   }
 
   async getCurrentRoom(authUser: AuthUser) {
-    const room = await this.roomsLobbyRepository.findActiveRoomForUser(
+    let room = await this.roomsLobbyRepository.findActiveRoomForUser(
       authUser.id,
     );
 
     if (!room) {
       return null;
+    }
+
+    if (await this.finalizeExpiredRoomGame(room.id)) {
+      room = await this.roomsLobbyRepository.findActiveRoomForUser(authUser.id);
+
+      if (!room) {
+        return null;
+      }
     }
 
     return this.getRoomPayload(room.id, room, authUser.id);
@@ -563,12 +598,80 @@ export class RoomsLobbyService {
   }
 
   private async ensureUserHasNoActiveRoom(userId: string) {
-    const activeRoom =
+    let activeRoom =
       await this.roomsLobbyRepository.findActiveRoomForUser(userId);
+
+    if (
+      activeRoom &&
+      (await this.finalizeExpiredRoomGame(activeRoom.id))
+    ) {
+      activeRoom = await this.roomsLobbyRepository.findActiveRoomForUser(userId);
+    }
 
     if (activeRoom) {
       throw new ConflictException('You are already in an active room');
     }
+  }
+
+  private async finalizeExpiredRoomGame(roomId: string): Promise<boolean> {
+    const activeGame =
+      await this.roomsLobbyRepository.findActiveGameByRoomId(roomId);
+
+    if (!activeGame) {
+      return false;
+    }
+
+    const state = await this.gameRecoveryService.getOrRecover(activeGame.id);
+    const expiresAt = state.expiresAt ?? activeGame.expiresAt.getTime();
+    const now = Date.now();
+
+    if (now < expiresAt) {
+      return false;
+    }
+
+    const finishedAt = Math.max(now, expiresAt);
+
+    if (state.phase === 'finished') {
+      await this.gameResultsService.finalizeExpiredFinishedGame({
+        gameId: activeGame.id,
+        state,
+        finishedAt,
+      });
+      return true;
+    }
+
+    if (state.phase === 'cancelled') {
+      return false;
+    }
+
+    try {
+      await this.gameCommandsService.executeIntent({
+        gameId: activeGame.id,
+        source: 'timer',
+        intent: {
+          type: 'finish_game_by_time',
+          payload: {
+            finishedAt,
+          },
+        },
+      });
+    } catch (error) {
+      const repairedState = await this.gameRecoveryService.getOrRecover(
+        activeGame.id,
+      );
+
+      if (repairedState.phase !== 'finished') {
+        throw error;
+      }
+
+      await this.gameResultsService.finalizeExpiredFinishedGame({
+        gameId: activeGame.id,
+        state: repairedState,
+        finishedAt,
+      });
+    }
+
+    return true;
   }
 
   private async getRoomPayload(

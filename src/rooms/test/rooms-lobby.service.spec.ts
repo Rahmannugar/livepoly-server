@@ -1,5 +1,6 @@
 import { ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type { GameCommandsService } from '../../game/commands/game-commands.service';
 import type { GameEngineState } from '../../game/engine/game-engine.types';
 import type { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import type { GameResultsService } from '../../game/results/game-results.service';
@@ -65,10 +66,15 @@ type GameRecoveryServiceMock = {
 
 type GameResultsServiceMock = {
   finalizeFinishedGame: jest.Mock;
+  finalizeExpiredFinishedGame: jest.Mock;
 };
 
 type GameStateServiceMock = {
   set: jest.Mock;
+};
+
+type GameCommandsServiceMock = {
+  executeIntent: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -181,6 +187,7 @@ describe('RoomsLobbyService', () => {
   let gameRecoveryService: GameRecoveryServiceMock;
   let gameResultsService: GameResultsServiceMock;
   let gameStateService: GameStateServiceMock;
+  let gameCommandsService: GameCommandsServiceMock;
 
   const tx = { tx: true };
 
@@ -240,10 +247,15 @@ describe('RoomsLobbyService', () => {
 
     gameResultsService = {
       finalizeFinishedGame: jest.fn().mockResolvedValue(undefined),
+      finalizeExpiredFinishedGame: jest.fn().mockResolvedValue(undefined),
     };
 
     gameStateService = {
       set: jest.fn().mockResolvedValue(undefined),
+    };
+
+    gameCommandsService = {
+      executeIntent: jest.fn().mockResolvedValue(undefined),
     };
 
     service = new RoomsLobbyService(
@@ -255,6 +267,7 @@ describe('RoomsLobbyService', () => {
       gameRecoveryService as unknown as GameRecoveryService,
       gameResultsService as unknown as GameResultsService,
       gameStateService as unknown as GameStateService,
+      gameCommandsService as unknown as GameCommandsService,
     );
   });
 
@@ -395,6 +408,7 @@ describe('RoomsLobbyService', () => {
         id: 'game-1',
         roomId: activeRoom.id,
         status: 'active',
+        expiresAt: new Date('2099-05-14T13:05:00.000Z'),
       },
     ]);
 

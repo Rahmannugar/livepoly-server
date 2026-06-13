@@ -5,6 +5,7 @@ import { createGameEngineState } from '../../engine/tests/game-engine.test-facto
 import type { LeaderboardQueueService } from '../../../leaderboards/jobs/leaderboard-queue.service';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import type { UsersStatsService } from '../../../users/services/users-stats.service';
+import type { GameRecoveryService } from '../../recovery/game-recovery.service';
 
 describe('GameResultsService', () => {
   const gameId = 'game-1';
@@ -66,6 +67,10 @@ describe('GameResultsService', () => {
       invalidateMatchHistoryCache: jest.fn(),
     };
 
+    const gameRecoveryService = {
+      getOrRecover: jest.fn(),
+    };
+
     const service = new GameResultsService(
       gameResultsRepository as never,
       databaseService as never,
@@ -74,6 +79,7 @@ describe('GameResultsService', () => {
       leaderboardQueueService as unknown as LeaderboardQueueService,
       observabilityService as unknown as ObservabilityService,
       usersStatsService as unknown as UsersStatsService,
+      gameRecoveryService as unknown as GameRecoveryService,
     );
 
     return {
@@ -85,6 +91,7 @@ describe('GameResultsService', () => {
       leaderboardQueueService,
       observabilityService,
       usersStatsService,
+      gameRecoveryService,
     };
   };
 

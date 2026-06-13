@@ -29,7 +29,6 @@ import {
   GAME_METRICS,
 } from '../game.constants';
 import { UsersStatsService } from '../../users/services/users-stats.service';
-import { GameRecoveryService } from '../recovery/game-recovery.service';
 
 @Injectable()
 export class GameResultsService {
@@ -41,7 +40,6 @@ export class GameResultsService {
     private readonly leaderboardQueueService: LeaderboardQueueService,
     private readonly observabilityService: ObservabilityService,
     private readonly usersStatsService: UsersStatsService,
-    private readonly gameRecoveryService: GameRecoveryService,
   ) {}
 
   async finalizeFinishedGame(input: FinalizeGameResultInput): Promise<void> {
@@ -148,36 +146,7 @@ export class GameResultsService {
       throw new ForbiddenException('Game result access denied');
     }
 
-    const result = await this.gameResultsRepository.findResultByGameId(
-      input.gameId,
-    );
-
-    if (result) {
-      return result;
-    }
-
-    await this.tryFinalizeMissingExpiredResult(input.gameId);
-
     return this.gameResultsRepository.findResultByGameId(input.gameId);
-  }
-
-  private async tryFinalizeMissingExpiredResult(gameId: string): Promise<void> {
-    try {
-      const state = await this.gameRecoveryService.getOrRecover(gameId);
-      const expiresAt = state.expiresAt;
-
-      if (!expiresAt || Date.now() < expiresAt || state.phase !== 'finished') {
-        return;
-      }
-
-      await this.finalizeExpiredFinishedGame({
-        gameId,
-        state,
-        finishedAt: expiresAt,
-      });
-    } catch {
-      // Result reads should not become harder failures when repair state is gone.
-    }
   }
 
   private getCompletedAt(events: GameEngineEvent[]): Date {

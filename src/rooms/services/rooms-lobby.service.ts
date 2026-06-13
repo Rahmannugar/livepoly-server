@@ -109,14 +109,6 @@ export class RoomsLobbyService {
         .map((game) => game.roomId),
     );
 
-    if (expiredActiveGameRoomIds.size > 0) {
-      await Promise.all(
-        [...expiredActiveGameRoomIds].map((roomId) =>
-          this.finalizeExpiredRoomGame(roomId),
-        ),
-      );
-    }
-
     const liveRooms = rooms.filter(
       (room) => !expiredActiveGameRoomIds.has(room.id),
     );
@@ -165,7 +157,7 @@ export class RoomsLobbyService {
   }
 
   async getCurrentRoom(authUser: AuthUser) {
-    let room = await this.roomsLobbyRepository.findActiveRoomForUser(
+    const room = await this.roomsLobbyRepository.findActiveRoomForUser(
       authUser.id,
     );
 
@@ -173,12 +165,8 @@ export class RoomsLobbyService {
       return null;
     }
 
-    if (await this.finalizeExpiredRoomGame(room.id)) {
-      room = await this.roomsLobbyRepository.findActiveRoomForUser(authUser.id);
-
-      if (!room) {
-        return null;
-      }
+    if (await this.isActiveRoomExpired(room.id)) {
+      return null;
     }
 
     return this.getRoomPayload(room.id, room, authUser.id);
@@ -611,6 +599,13 @@ export class RoomsLobbyService {
     if (activeRoom) {
       throw new ConflictException('You are already in an active room');
     }
+  }
+
+  private async isActiveRoomExpired(roomId: string): Promise<boolean> {
+    const activeGame =
+      await this.roomsLobbyRepository.findActiveGameByRoomId(roomId);
+
+    return Boolean(activeGame && activeGame.expiresAt.getTime() <= Date.now());
   }
 
   private async finalizeExpiredRoomGame(roomId: string): Promise<boolean> {

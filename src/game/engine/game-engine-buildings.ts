@@ -9,12 +9,13 @@ import {
   type GameEngineState,
   type SellBuildingInput,
 } from './game-engine.types';
+import { assertCurrentTurn } from './game-engine-assertions';
 
 export function buildProperty(
   state: GameEngineState,
   input: BuildPropertyInput,
 ): GameEngineResult {
-  assertCanManageBuildings(state);
+  assertCanManageBuildings(state, input.roomPlayerId);
 
   if (state.phase === 'awaiting_debt_resolution' || state.debt) {
     throw new GameEngineError(
@@ -88,7 +89,7 @@ export function sellBuilding(
   state: GameEngineState,
   input: SellBuildingInput,
 ): GameEngineResult {
-  assertCanManageBuildings(state);
+  assertCanManageBuildings(state, input.roomPlayerId);
 
   const board = getGameBoard(state.boardKey);
   const tile = getPropertyTileByKey(board, input.tileKey);
@@ -148,20 +149,22 @@ export function sellBuilding(
   };
 }
 
-function assertCanManageBuildings(state: GameEngineState): void {
+function assertCanManageBuildings(
+  state: GameEngineState,
+  roomPlayerId: string,
+): void {
   if (state.phase === 'finished' || state.phase === 'cancelled') {
     throw new GameEngineError('GAME_NOT_ACTIVE', 'Game is not active');
   }
 
-  if (
-    state.phase === 'awaiting_property_decision' ||
-    state.phase === 'awaiting_auction_bid'
-  ) {
+  if (state.phase !== 'awaiting_turn_end') {
     throw new GameEngineError(
       'BUILDING_NOT_ALLOWED',
       'Buildings cannot be managed during this phase',
     );
   }
+
+  assertCurrentTurn(state, roomPlayerId);
 }
 
 function assertCanBuildHouseEvenly(

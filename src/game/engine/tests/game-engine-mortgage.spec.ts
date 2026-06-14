@@ -14,7 +14,7 @@ describe('game-engine-mortgage', () => {
 
   it('mortgages owned property', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -52,7 +52,7 @@ describe('game-engine-mortgage', () => {
 
   it('mortgages airports and utilities', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (
           property.tileKey === TEST_BOARD_TILES.airport ||
@@ -97,7 +97,7 @@ describe('game-engine-mortgage', () => {
 
   it('rejects mortgage when player is not owner', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -120,7 +120,7 @@ describe('game-engine-mortgage', () => {
 
   it('rejects mortgage on sets with buildings', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -151,7 +151,7 @@ describe('game-engine-mortgage', () => {
 
   it('unmortgages owned property', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -190,7 +190,7 @@ describe('game-engine-mortgage', () => {
 
   it('rejects unmortgage when property is not mortgaged', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -215,6 +215,53 @@ describe('game-engine-mortgage', () => {
   it('rejects mortgage actions during property decision', () => {
     const state = createGameEngineState({
       phase: 'awaiting_property_decision',
+      properties: createGameEngineState().properties.map((property) => {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-1',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    expect(() =>
+      service.mortgageProperty(state, {
+        roomPlayerId: 'room-player-1',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
+      }),
+    ).toThrow(GameEngineError);
+  });
+
+  it('rejects mortgage actions outside the current turn end window', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_roll',
+      properties: createGameEngineState().properties.map((property) => {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-1',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    expect(() =>
+      service.mortgageProperty(state, {
+        roomPlayerId: 'room-player-1',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
+      }),
+    ).toThrow(GameEngineError);
+  });
+
+  it('rejects mortgage actions for a non-current owner', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_turn_end',
+      currentTurnRoomPlayerId: 'room-player-2',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {

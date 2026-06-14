@@ -27,6 +27,7 @@ describe('game-engine-auctions', () => {
         tileKey: TEST_BOARD_TILES.cheapProperty,
         currentBid: 0,
         highestBidderRoomPlayerId: null,
+        currentBidderRoomPlayerId: 'room-player-1',
         activeRoomPlayerIds: [
           'room-player-1',
           'room-player-2',
@@ -65,19 +66,20 @@ describe('game-engine-auctions', () => {
     ).state;
 
     const result = placeAuctionBid(auctionState, {
-      roomPlayerId: 'room-player-2',
+      roomPlayerId: 'room-player-1',
       amount: 75,
     });
 
     expect(result.state.auction).toMatchObject({
       tileKey: TEST_BOARD_TILES.cheapProperty,
       currentBid: 75,
-      highestBidderRoomPlayerId: 'room-player-2',
+      highestBidderRoomPlayerId: 'room-player-1',
+      currentBidderRoomPlayerId: 'room-player-2',
     });
     expect(result.events).toEqual([
       {
         type: 'auction_bid_placed',
-        roomPlayerId: 'room-player-2',
+        roomPlayerId: 'room-player-1',
         tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 75,
       },
@@ -96,14 +98,14 @@ describe('game-engine-auctions', () => {
         },
       ).state,
       {
-        roomPlayerId: 'room-player-2',
+        roomPlayerId: 'room-player-1',
         amount: 75,
       },
     ).state;
 
     expect(() =>
       placeAuctionBid(auctionState, {
-        roomPlayerId: 'room-player-3',
+        roomPlayerId: 'room-player-2',
         amount: 75,
       }),
     ).toThrow(
@@ -153,13 +155,13 @@ describe('game-engine-auctions', () => {
         },
       ).state,
       {
-        roomPlayerId: 'room-player-2',
+        roomPlayerId: 'room-player-1',
         amount: 75,
       },
     ).state;
 
     const afterFirstPass = passAuctionBid(auctionState, {
-      roomPlayerId: 'room-player-1',
+      roomPlayerId: 'room-player-2',
     }).state;
 
     const result = passAuctionBid(afterFirstPass, {
@@ -170,13 +172,13 @@ describe('game-engine-auctions', () => {
       phase: 'awaiting_turn_end',
       auction: null,
     });
-    expect(result.state.players[1].cash).toBe(1425);
+    expect(result.state.players[0].cash).toBe(1425);
     expect(
       result.state.properties.find(
         (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
       ),
     ).toMatchObject({
-      ownerRoomPlayerId: 'room-player-2',
+      ownerRoomPlayerId: 'room-player-1',
     });
     expect(result.events).toEqual([
       {
@@ -186,7 +188,7 @@ describe('game-engine-auctions', () => {
       },
       {
         type: 'auction_won',
-        roomPlayerId: 'room-player-2',
+        roomPlayerId: 'room-player-1',
         tileKey: TEST_BOARD_TILES.cheapProperty,
         amount: 75,
       },
@@ -254,6 +256,30 @@ describe('game-engine-auctions', () => {
       new GameEngineError(
         'AUCTION_PLAYER_NOT_ACTIVE',
         'Player is not active in this auction',
+      ),
+    );
+  });
+
+  it('rejects bids from players out of auction order', () => {
+    const auctionState = declinePropertyPurchase(
+      createGameEngineState({
+        phase: 'awaiting_property_decision',
+        pendingTileKey: TEST_BOARD_TILES.cheapProperty,
+      }),
+      {
+        roomPlayerId: 'room-player-1',
+      },
+    ).state;
+
+    expect(() =>
+      placeAuctionBid(auctionState, {
+        roomPlayerId: 'room-player-2',
+        amount: 75,
+      }),
+    ).toThrow(
+      new GameEngineError(
+        'AUCTION_PLAYER_NOT_CURRENT',
+        "It is not this player's auction turn",
       ),
     );
   });

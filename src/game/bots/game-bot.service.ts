@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { getGameBoard } from '../engine/game-board';
+import { getCurrentAuctionBidderRoomPlayerId } from '../engine/game-engine-auctions';
 import type {
   AirportTile,
   GameTile,
@@ -96,13 +97,14 @@ export class GameBotService {
     }
 
     if (state.phase === 'awaiting_auction_bid' && state.auction) {
-      const botRoomPlayerId = state.auction.activeRoomPlayerIds.find(
-        (roomPlayerId) =>
-          !state.auction?.passedRoomPlayerIds.includes(roomPlayerId) &&
-          this.findPlayer(state, roomPlayerId)?.playerType === 'bot',
+      const botRoomPlayerId = getCurrentAuctionBidderRoomPlayerId(
+        state.auction,
       );
+      const bot = botRoomPlayerId
+        ? this.findPlayer(state, botRoomPlayerId)
+        : null;
 
-      return botRoomPlayerId ? this.findPlayer(state, botRoomPlayerId) : null;
+      return bot?.playerType === 'bot' ? bot : null;
     }
 
     const currentPlayer = this.findPlayer(state, state.currentTurnRoomPlayerId);

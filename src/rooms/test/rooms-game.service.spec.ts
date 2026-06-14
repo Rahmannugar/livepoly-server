@@ -503,6 +503,77 @@ describe('RoomsGameService', () => {
     );
   });
 
+  it('uses requested bot difficulty when filling casual seats', async () => {
+    const players = [humanPlayerOne];
+
+    const botTwo = {
+      id: 'bot-player-2',
+      roomId: waitingRoom.id,
+      userId: null,
+      username: null,
+      playerType: 'bot' as const,
+      botDifficulty: 'hard' as const,
+      botName: 'Nova',
+      seatNumber: 2,
+      status: 'joined' as const,
+      joinedAt: createdAt,
+      leftAt: null,
+    };
+
+    const botThree = {
+      ...botTwo,
+      id: 'bot-player-3',
+      botName: 'Midas',
+      seatNumber: 3,
+    };
+
+    const botFour = {
+      ...botTwo,
+      id: 'bot-player-4',
+      botName: 'Echo',
+      seatNumber: 4,
+    };
+
+    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
+    roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
+    roomsGameRepository.addBotPlayer
+      .mockResolvedValueOnce(botTwo)
+      .mockResolvedValueOnce(botThree)
+      .mockResolvedValueOnce(botFour);
+    roomsGameRepository.startRoom.mockResolvedValue(activeRoom);
+    roomsGameRepository.createGame.mockResolvedValue({
+      id: 'game-1',
+      roomId: waitingRoom.id,
+      mode: 'casual' as const,
+      status: 'active' as const,
+      currentTurnRoomPlayerId: humanPlayerOne.id,
+      turnNumber: 1,
+      state: {
+        version: 1,
+        mode: 'casual',
+      },
+      startedAt: activeRoom.startedAt,
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
+      finishedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    await service.startRoom(authUser, waitingRoom.code, {
+      botDifficulty: 'hard',
+    });
+
+    expect(roomsGameRepository.addBotPlayer).toHaveBeenCalledWith(
+      expect.objectContaining({
+        seatNumber: 2,
+        botName: 'Nova',
+        botDifficulty: 'hard',
+      }),
+      tx,
+    );
+  });
+
   it('starts casual game when joined players already include a bot', async () => {
     const botPlayer = {
       id: 'bot-player-4',

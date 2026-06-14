@@ -16,9 +16,11 @@ import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
+import type { StartRoomDto } from '../dto/start-room.dto';
 import { RoomsGameRepository } from '../repositories/rooms-game.repository';
 import {
   BOT_NAMES,
+  type BotDifficulty,
   DEFAULT_BOT_DIFFICULTY,
   ROOM_BOARD_KEY,
   ROOM_EVENTS,
@@ -38,7 +40,7 @@ type BotPlayerInput = {
   roomId: string;
   seatNumber: number;
   botName: string;
-  botDifficulty: typeof DEFAULT_BOT_DIFFICULTY;
+  botDifficulty: BotDifficulty;
 };
 
 @Injectable()
@@ -54,7 +56,7 @@ export class RoomsGameService {
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
   ) {}
 
-  async startRoom(authUser: AuthUser, code: string) {
+  async startRoom(authUser: AuthUser, code: string, dto: StartRoomDto = {}) {
     const room = await this.roomsGameRepository.findRoomByCode(code);
 
     if (!room) {
@@ -99,8 +101,11 @@ export class RoomsGameService {
         ? 'ranked'
         : 'casual';
 
+    const botDifficulty = dto.botDifficulty ?? DEFAULT_BOT_DIFFICULTY;
     const botPlayers =
-      mode === 'casual' ? this.buildBotPlayers(room.id, joinedPlayers) : [];
+      mode === 'casual'
+        ? this.buildBotPlayers(room.id, joinedPlayers, botDifficulty)
+        : [];
 
     const result = await this.databaseService.transaction(async (tx) => {
       const createdBots: JoinedRoomPlayer[] = [];
@@ -213,6 +218,7 @@ export class RoomsGameService {
   private buildBotPlayers(
     roomId: string,
     joinedPlayers: JoinedRoomPlayer[],
+    botDifficulty: BotDifficulty,
   ): BotPlayerInput[] {
     const occupiedSeats = new Set(
       joinedPlayers.map((player) => player.seatNumber),
@@ -226,7 +232,7 @@ export class RoomsGameService {
         roomId,
         seatNumber,
         botName: BOT_NAMES[(seatNumber - 1) % BOT_NAMES.length],
-        botDifficulty: DEFAULT_BOT_DIFFICULTY,
+        botDifficulty,
       });
     }
 

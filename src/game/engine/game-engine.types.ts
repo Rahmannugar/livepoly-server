@@ -123,6 +123,7 @@ export type GameEngineAuction = {
   tileKey: string;
   currentBid: number;
   highestBidderRoomPlayerId: string | null;
+  currentBidderRoomPlayerId: string | null;
   activeRoomPlayerIds: string[];
   passedRoomPlayerIds: string[];
 };
@@ -462,6 +463,7 @@ export type GameEngineErrorCode =
   | 'INSUFFICIENT_FUNDS'
   | 'INVALID_AUCTION_BID'
   | 'AUCTION_PLAYER_NOT_ACTIVE'
+  | 'AUCTION_PLAYER_NOT_CURRENT'
   | 'PLAYER_NOT_IN_JAIL'
   | 'CARD_NOT_FOUND'
   | 'CARD_DECK_EMPTY'

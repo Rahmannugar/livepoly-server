@@ -572,6 +572,7 @@ describe('RoomsLobbyService', () => {
   it('returns already left when a former room player leaves again', async () => {
     roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
     roomsLobbyRepository.findJoinedPlayer.mockResolvedValue(null);
+    roomsLobbyRepository.findCurrentSpectator.mockResolvedValue(null);
     roomsLobbyRepository.findPlayer.mockResolvedValue({
       id: 'player-1',
       roomId: activeRoom.id,
@@ -585,6 +586,25 @@ describe('RoomsLobbyService', () => {
     expect(result).toEqual({ message: 'Room already left' });
     expect(databaseService.transaction).not.toHaveBeenCalled();
     expect(gameResultsService.finalizeFinishedGame).not.toHaveBeenCalled();
+  });
+
+  it('ends spectator session when a former player leaves after spectating', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue(null);
+    roomsLobbyRepository.findCurrentSpectator.mockResolvedValue(spectator);
+    roomsLobbyRepository.endSpectatorSession.mockResolvedValue({
+      ...spectator,
+      leftAt: new Date('2026-05-14T12:10:00.000Z'),
+    });
+
+    const result = await service.leaveRoom(authUser, activeRoom.code);
+
+    expect(result).toEqual({ message: 'Room left' });
+    expect(roomsLobbyRepository.endSpectatorSession).toHaveBeenCalledWith({
+      roomId: activeRoom.id,
+      userId: authUser.id,
+    });
+    expect(databaseService.transaction).not.toHaveBeenCalled();
   });
 
   it('finalizes an active game when the last human player leaves', async () => {

@@ -56,6 +56,7 @@ export function declinePropertyPurchase(
     tileKey: tile.key,
     currentBid: 0,
     highestBidderRoomPlayerId: null,
+    currentBidderRoomPlayerId: activeRoomPlayerIds[0] ?? null,
     activeRoomPlayerIds,
     passedRoomPlayerIds: [],
   };
@@ -89,6 +90,7 @@ export function placeAuctionBid(
   const auction = assertActiveAuction(state);
 
   assertAuctionPlayerActive(auction, input.roomPlayerId);
+  assertAuctionPlayerCanAct(auction, input.roomPlayerId);
 
   if (!Number.isInteger(input.amount) || input.amount <= auction.currentBid) {
     throw new GameEngineError(
@@ -119,6 +121,10 @@ export function placeAuctionBid(
         ...auction,
         currentBid: input.amount,
         highestBidderRoomPlayerId: input.roomPlayerId,
+        currentBidderRoomPlayerId: getNextAuctionBidderRoomPlayerId(
+          auction,
+          input.roomPlayerId,
+        ),
       },
     },
     events: [
@@ -139,6 +145,7 @@ export function passAuctionBid(
   const auction = assertActiveAuction(state);
 
   assertAuctionPlayerActive(auction, input.roomPlayerId);
+  assertAuctionPlayerCanAct(auction, input.roomPlayerId);
 
   const nextAuction: GameEngineAuction = {
     ...auction,
@@ -146,6 +153,10 @@ export function passAuctionBid(
       new Set([...auction.passedRoomPlayerIds, input.roomPlayerId]),
     ),
   };
+  nextAuction.currentBidderRoomPlayerId = getNextAuctionBidderRoomPlayerId(
+    nextAuction,
+    input.roomPlayerId,
+  );
 
   const passEvent: GameEngineEvent = {
     type: 'auction_bid_passed',
@@ -253,6 +264,26 @@ function assertActiveAuction(state: GameEngineState): GameEngineAuction {
   return state.auction;
 }
 
+export function getCurrentAuctionBidderRoomPlayerId(
+  auction: GameEngineAuction | null | undefined,
+): string | null {
+  if (!auction) {
+    return null;
+  }
+
+  if (
+    auction.currentBidderRoomPlayerId &&
+    auction.activeRoomPlayerIds.includes(auction.currentBidderRoomPlayerId) &&
+    !auction.passedRoomPlayerIds.includes(auction.currentBidderRoomPlayerId)
+  ) {
+    return auction.currentBidderRoomPlayerId;
+  }
+
+  return auction.activeRoomPlayerIds.find(
+    (roomPlayerId) => !auction.passedRoomPlayerIds.includes(roomPlayerId),
+  ) ?? null;
+}
+
 function assertAuctionPlayerActive(
   auction: GameEngineAuction,
   roomPlayerId: string,
@@ -266,4 +297,55 @@ function assertAuctionPlayerActive(
       'Player is not active in this auction',
     );
   }
+}
+
+function assertAuctionPlayerCanAct(
+  auction: GameEngineAuction,
+  roomPlayerId: string,
+): void {
+  if (getCurrentAuctionBidderRoomPlayerId(auction) !== roomPlayerId) {
+    throw new GameEngineError(
+      'AUCTION_PLAYER_NOT_CURRENT',
+      "It is not this player's auction turn",
+    );
+  }
+}
+
+function getNextAuctionBidderRoomPlayerId(
+  auction: GameEngineAuction,
+  currentRoomPlayerId: string,
+): string | null {
+  const activeBidders = auction.activeRoomPlayerIds.filter(
+    (roomPlayerId) => !auction.passedRoomPlayerIds.includes(roomPlayerId),
+  );
+
+  if (activeBidders.length === 0) {
+    return null;
+  }
+
+  const currentIndex = auction.activeRoomPlayerIds.indexOf(currentRoomPlayerId);
+
+  for (let offset = 1; offset <= auction.activeRoomPlayerIds.length; offset++) {
+    const candidate =
+      auction.activeRoomPlayerIds[
+        (currentIndex + offset + auction.activeRoomPlayerIds.length) %
+          auction.activeRoomPlayerIds.length
+      ];
+
+    if (!candidate || auction.passedRoomPlayerIds.includes(candidate)) {
+      continue;
+    }
+
+    if (
+      auction.highestBidderRoomPlayerId &&
+      activeBidders.length <= 1 &&
+      candidate === auction.highestBidderRoomPlayerId
+    ) {
+      return null;
+    }
+
+    return candidate;
+  }
+
+  return null;
 }

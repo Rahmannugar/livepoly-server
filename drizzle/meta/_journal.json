@@ -162,6 +162,13 @@
       "when": 1780890000000,
       "tag": "0022_add_game_expiry",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1781322000000,
+      "tag": "0023_update_room_duration_options",
+      "breakpoints": true
     }
   ]
 }

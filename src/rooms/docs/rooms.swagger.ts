@@ -11,6 +11,7 @@ import {
 } from '@nestjs/swagger';
 import { CreateRoomDto } from '../dto/create-room.dto';
 import { InviteRoomDto } from '../dto/invite-room.dto';
+import { StartRoomDto } from '../dto/start-room.dto';
 import {
   RoomInviteResponseDto,
   RoomMessageResponseDto,
@@ -224,6 +225,16 @@ export const RoomsDocs = {
           'Starts a waiting room. Three or more human players start ranked. Fewer than three human players are filled with bots and start casual.',
       }),
       ApiParam({ name: 'code', example: 'AbC23xYz' }),
+      ApiBody({
+        type: StartRoomDto,
+        required: false,
+        examples: {
+          casualBotFill: {
+            summary: 'Fill open seats with normal bots',
+            value: { botDifficulty: 'normal' },
+          },
+        },
+      }),
       ApiOkResponse({ type: StartRoomResponseDto }),
       ApiResponse({
         status: HttpStatus.FORBIDDEN,

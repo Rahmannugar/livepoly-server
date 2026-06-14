@@ -17,6 +17,7 @@ import { RateLimitGuard } from '../rate-limit/rate-limit.guard';
 import { RoomsDocs } from './docs/rooms.swagger';
 import { CreateRoomDto } from './dto/create-room.dto';
 import { InviteRoomDto } from './dto/invite-room.dto';
+import { StartRoomDto } from './dto/start-room.dto';
 import { ROOMS_RATE_LIMIT_RULES } from './rooms-rate-limit.rules';
 import { RoomsGameService } from './services/rooms-game.service';
 import { RoomsLobbyService } from './services/rooms-lobby.service';
@@ -131,7 +132,8 @@ export class RoomsController {
   startRoom(
     @AuthUserDecorator() authUser: AuthUser,
     @Param('code') code: string,
+    @Body() dto: StartRoomDto,
   ) {
-    return this.roomsGameService.startRoom(authUser, code);
+    return this.roomsGameService.startRoom(authUser, code, dto);
   }
 }

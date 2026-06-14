@@ -1,4 +1,4 @@
-export const ROOM_DURATIONS = [30, 60, 120, 180] as const;
+export const ROOM_DURATIONS = [60, 90, 120, 180] as const;
 
 export type RoomDurationMinutes = (typeof ROOM_DURATIONS)[number];
 
@@ -43,6 +43,7 @@ export const ROOM_EVENTS = {
   joined: 'RoomJoined',
   left: 'RoomLeft',
   finishedAfterLastHumanLeft: 'RoomFinishedAfterLastHumanLeft',
+  finishAfterLastHumanLeftFailed: 'RoomFinishAfterLastHumanLeftFailed',
   cancelled: 'RoomCancelled',
   inviteSent: 'RoomInviteSent',
   started: 'RoomStarted',
@@ -55,6 +56,8 @@ export const ROOM_METRICS = {
   joined: 'Custom/Room/Joined',
   left: 'Custom/Room/Left',
   finishedAfterLastHumanLeft: 'Custom/Room/FinishedAfterLastHumanLeft',
+  finishAfterLastHumanLeftFailed:
+    'Custom/Room/FinishAfterLastHumanLeftFailed',
   cancelled: 'Custom/Room/Cancelled',
   inviteSent: 'Custom/Room/InviteSent',
   started: (mode: string) => `Custom/Room/Started/${mode}`,

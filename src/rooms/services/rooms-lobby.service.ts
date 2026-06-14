@@ -244,6 +244,21 @@ export class RoomsLobbyService {
     );
 
     if (!player) {
+      const currentSpectator =
+        await this.roomsLobbyRepository.findCurrentSpectator(
+          room.id,
+          authUser.id,
+        );
+
+      if (currentSpectator) {
+        await this.roomsLobbyRepository.endSpectatorSession({
+          roomId: room.id,
+          userId: authUser.id,
+        });
+
+        return { message: 'Room left' };
+      }
+
       const existingPlayer = await this.roomsLobbyRepository.findPlayer(
         room.id,
         authUser.id,
@@ -298,7 +313,9 @@ export class RoomsLobbyService {
       );
 
       if (!leftPlayer) {
-        throw new NotFoundException('Room player not found');
+        return {
+          activeGameId: null,
+        };
       }
 
       if (lockedRoom.status !== 'active') {
@@ -337,11 +354,26 @@ export class RoomsLobbyService {
     this.observabilityService.recordMetric(ROOM_METRICS.left);
 
     if (leaveResult.activeGameId) {
-      await this.finalizeRoomAfterLastHumanLeft({
-        roomId: room.id,
-        roomCode: room.code,
-        gameId: leaveResult.activeGameId,
-      });
+      try {
+        await this.finalizeRoomAfterLastHumanLeft({
+          roomId: room.id,
+          roomCode: room.code,
+          gameId: leaveResult.activeGameId,
+        });
+      } catch (error) {
+        this.observabilityService.recordEvent(
+          ROOM_EVENTS.finishAfterLastHumanLeftFailed,
+          {
+            roomId: room.id,
+            roomCode: room.code,
+            gameId: leaveResult.activeGameId,
+            message: error instanceof Error ? error.message : 'Unknown error',
+          },
+        );
+        this.observabilityService.recordMetric(
+          ROOM_METRICS.finishAfterLastHumanLeftFailed,
+        );
+      }
     }
 
     return { message: 'Room left' };

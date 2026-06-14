@@ -15,6 +15,7 @@ import {
   type MortgagePropertyInput,
   type UnmortgagePropertyInput,
 } from './game-engine.types';
+import { assertCurrentTurn } from './game-engine-assertions';
 
 type MortgageableTile = PropertyTile | AirportTile | UtilityTile;
 
@@ -22,7 +23,7 @@ export function mortgageProperty(
   state: GameEngineState,
   input: MortgagePropertyInput,
 ): GameEngineResult {
-  assertCanManageMortgage(state);
+  assertCanManageMortgage(state, input.roomPlayerId);
 
   const board = getGameBoard(state.boardKey);
   const tile = getMortgageableTileByKey(board, input.tileKey);
@@ -64,7 +65,7 @@ export function unmortgageProperty(
   state: GameEngineState,
   input: UnmortgagePropertyInput,
 ): GameEngineResult {
-  assertCanManageMortgage(state);
+  assertCanManageMortgage(state, input.roomPlayerId);
 
   const board = getGameBoard(state.boardKey);
   const tile = getMortgageableTileByKey(board, input.tileKey);
@@ -97,20 +98,22 @@ export function unmortgageProperty(
   };
 }
 
-function assertCanManageMortgage(state: GameEngineState): void {
+function assertCanManageMortgage(
+  state: GameEngineState,
+  roomPlayerId: string,
+): void {
   if (state.phase === 'finished' || state.phase === 'cancelled') {
     throw new GameEngineError('GAME_NOT_ACTIVE', 'Game is not active');
   }
 
-  if (
-    state.phase === 'awaiting_property_decision' ||
-    state.phase === 'awaiting_auction_bid'
-  ) {
+  if (state.phase !== 'awaiting_turn_end') {
     throw new GameEngineError(
       'MORTGAGE_NOT_ALLOWED',
       'Mortgage cannot be managed during this phase',
     );
   }
+
+  assertCurrentTurn(state, roomPlayerId);
 }
 
 function assertOwnedBy(

@@ -96,6 +96,7 @@ export class GameTurnTimerQueueService {
       'auction',
       state.auction.currentBid,
       state.auction.highestBidderRoomPlayerId ?? 'none',
+      state.auction.currentBidderRoomPlayerId ?? 'none',
       state.auction.passedRoomPlayerIds.join('-') || 'none',
     ].join('_');
   }

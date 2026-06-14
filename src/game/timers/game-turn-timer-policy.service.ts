@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { getCurrentAuctionBidderRoomPlayerId } from '../engine/game-engine-auctions';
 import type { GameEngineIntent } from '../engine/game-engine-intents';
 import { getConsecutiveMissedTurns } from '../engine/game-engine-missed-turns';
 import type {
@@ -124,12 +125,7 @@ export class GameTurnTimerPolicyService {
       return null;
     }
 
-    return (
-      state.auction.activeRoomPlayerIds.find(
-        (roomPlayerId) =>
-          !state.auction?.passedRoomPlayerIds.includes(roomPlayerId),
-      ) ?? null
-    );
+    return getCurrentAuctionBidderRoomPlayerId(state.auction);
   }
 
   private findPlayer(

@@ -14,7 +14,7 @@ describe('game-engine-buildings', () => {
 
   it('builds a house when player owns the full set', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (
           property.tileKey === TEST_BOARD_TILES.cheapProperty ||
@@ -57,7 +57,7 @@ describe('game-engine-buildings', () => {
 
   it('rejects building without full set ownership', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -80,7 +80,7 @@ describe('game-engine-buildings', () => {
 
   it('rejects uneven house building', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -112,7 +112,7 @@ describe('game-engine-buildings', () => {
 
   it('upgrades four houses to a hotel', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (
           property.tileKey === TEST_BOARD_TILES.cheapProperty ||
@@ -155,7 +155,7 @@ describe('game-engine-buildings', () => {
 
   it('sells a house and credits half the build cost', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (
           property.tileKey === TEST_BOARD_TILES.cheapProperty ||
@@ -199,7 +199,7 @@ describe('game-engine-buildings', () => {
 
   it('sells a hotel back to four houses', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -248,7 +248,7 @@ describe('game-engine-buildings', () => {
 
   it('rejects buildings on airports and utilities', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
     });
 
     expect(() =>
@@ -268,7 +268,7 @@ describe('game-engine-buildings', () => {
 
   it('rejects building on mortgaged sets', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {
@@ -293,6 +293,59 @@ describe('game-engine-buildings', () => {
       service.buildProperty(state, {
         roomPlayerId: 'room-player-1',
         tileKey: TEST_BOARD_TILES.cheapPropertyPair,
+      }),
+    ).toThrow(GameEngineError);
+  });
+
+  it('rejects building outside the current turn end window', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_roll',
+      properties: createGameEngineState().properties.map((property) => {
+        if (
+          property.tileKey === TEST_BOARD_TILES.cheapProperty ||
+          property.tileKey === TEST_BOARD_TILES.cheapPropertyPair
+        ) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-1',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    expect(() =>
+      service.buildProperty(state, {
+        roomPlayerId: 'room-player-1',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
+      }),
+    ).toThrow(GameEngineError);
+  });
+
+  it('rejects building for a non-current owner', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_turn_end',
+      currentTurnRoomPlayerId: 'room-player-2',
+      properties: createGameEngineState().properties.map((property) => {
+        if (
+          property.tileKey === TEST_BOARD_TILES.cheapProperty ||
+          property.tileKey === TEST_BOARD_TILES.cheapPropertyPair
+        ) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-1',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    expect(() =>
+      service.buildProperty(state, {
+        roomPlayerId: 'room-player-1',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
       }),
     ).toThrow(GameEngineError);
   });

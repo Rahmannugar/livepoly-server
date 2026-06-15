@@ -28,9 +28,11 @@ import type {
   GameCommandResult,
   GameCommandSource,
   PlaceAuctionBidCommand,
+  ProposeTradeCommand,
   PropertyCommand,
   RoomPlayerCommand,
   RollAndMoveCommand,
+  TradeDecisionCommand,
 } from './game-commands.types';
 
 @Injectable()
@@ -170,6 +172,22 @@ export class GameCommandsService {
     });
   }
 
+  async useGetOutOfJailCard(
+    input: RoomPlayerCommand,
+  ): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'use_get_out_of_jail_card',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+        },
+      },
+    });
+  }
+
   async declareBankruptcy(
     input: RoomPlayerCommand,
   ): Promise<GameCommandResult> {
@@ -246,6 +264,70 @@ export class GameCommandsService {
     });
   }
 
+  async proposeTrade(input: ProposeTradeCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'propose_trade',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          toRoomPlayerId: input.toRoomPlayerId,
+          offeredCash: input.offeredCash,
+          requestedCash: input.requestedCash,
+          offeredPropertyKeys: input.offeredPropertyKeys,
+          requestedPropertyKeys: input.requestedPropertyKeys,
+        },
+      },
+    });
+  }
+
+  async acceptTrade(input: TradeDecisionCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'accept_trade',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          tradeId: input.tradeId,
+        },
+      },
+    });
+  }
+
+  async rejectTrade(input: TradeDecisionCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'reject_trade',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          tradeId: input.tradeId,
+        },
+      },
+    });
+  }
+
+  async cancelTrade(input: TradeDecisionCommand): Promise<GameCommandResult> {
+    return this.executeIntent({
+      gameId: input.gameId,
+      roomPlayerId: input.roomPlayerId,
+      source: 'player',
+      intent: {
+        type: 'cancel_trade',
+        payload: {
+          roomPlayerId: input.roomPlayerId,
+          tradeId: input.tradeId,
+        },
+      },
+    });
+  }
+
   private async executeIntentWithRecovery(
     input: ExecuteGameIntentCommand,
     recovered: boolean,
@@ -260,9 +342,13 @@ export class GameCommandsService {
         (state) => {
           const commandTurnNumber = state.turnNumber;
           const commandTurnRoomPlayerId = state.currentTurnRoomPlayerId;
-          const engineResult = reduceGameEngineIntent(state, input.intent);
-          const actorRoomPlayerId = this.getIntentActorRoomPlayerId(
+          const intent = this.getEffectiveIntentForCurrentTime(
+            state,
             input.intent,
+          );
+          const engineResult = reduceGameEngineIntent(state, intent);
+          const actorRoomPlayerId = this.getIntentActorRoomPlayerId(
+            intent,
           );
           const sourceAppliedState = this.applyCommandSourceToState(
             engineResult.state,
@@ -271,12 +357,15 @@ export class GameCommandsService {
             commandTurnRoomPlayerId,
             commandTurnNumber,
           );
-          const nextState = this.applyTurnDeadline(sourceAppliedState);
+          const nextState = this.applyTurnDeadline(
+            state,
+            sourceAppliedState,
+          );
 
           commandResult = {
             state: nextState,
             events: engineResult.events,
-            intentType: input.intent.type,
+            intentType: intent.type,
           };
 
           return nextState;
@@ -290,7 +379,7 @@ export class GameCommandsService {
       };
 
       this.recordCommandSucceeded(
-        input.intent.type,
+        result.intentType,
         input.gameId,
         input.roomPlayerId,
         result,
@@ -314,6 +403,33 @@ export class GameCommandsService {
 
       throw error;
     }
+  }
+
+  private getEffectiveIntentForCurrentTime(
+    state: GameEngineState,
+    intent: GameEngineIntent,
+  ): GameEngineIntent {
+    if (
+      intent.type === 'finish_game_by_time' ||
+      state.phase === 'finished' ||
+      state.phase === 'cancelled' ||
+      !state.expiresAt
+    ) {
+      return intent;
+    }
+
+    const now = Date.now();
+
+    if (now < state.expiresAt) {
+      return intent;
+    }
+
+    return {
+      type: 'finish_game_by_time',
+      payload: {
+        finishedAt: now,
+      },
+    };
   }
 
   private applyCommandSourceToState(
@@ -342,20 +458,42 @@ export class GameCommandsService {
     return state;
   }
 
-  private applyTurnDeadline(state: GameEngineState): GameEngineState {
-    if (state.phase === 'finished' || state.phase === 'cancelled') {
+  private applyTurnDeadline(
+    previousState: GameEngineState,
+    nextState: GameEngineState,
+  ): GameEngineState {
+    if (nextState.phase === 'finished' || nextState.phase === 'cancelled') {
       return {
-        ...state,
+        ...nextState,
         turnExpiresAt: null,
+      };
+    }
+
+    const now = Date.now();
+    const isSameTurn =
+      previousState.turnNumber === nextState.turnNumber &&
+      previousState.currentTurnRoomPlayerId ===
+        nextState.currentTurnRoomPlayerId;
+    const previousDeadlineIsValid =
+      previousState.turnExpiresAt !== null &&
+      previousState.turnExpiresAt !== undefined &&
+      previousState.turnExpiresAt > now;
+
+    if (isSameTurn && previousDeadlineIsValid) {
+      return {
+        ...nextState,
+        turnExpiresAt: nextState.expiresAt
+          ? Math.min(previousState.turnExpiresAt, nextState.expiresAt)
+          : previousState.turnExpiresAt,
       };
     }
 
     const nextTurnExpiresAt = Date.now() + GAME_TURN_TIMER.timeoutMs;
 
     return {
-      ...state,
-      turnExpiresAt: state.expiresAt
-        ? Math.min(nextTurnExpiresAt, state.expiresAt)
+      ...nextState,
+      turnExpiresAt: nextState.expiresAt
+        ? Math.min(nextTurnExpiresAt, nextState.expiresAt)
         : nextTurnExpiresAt,
     };
   }
@@ -431,13 +569,19 @@ export class GameCommandsService {
       case 'sell_building':
       case 'mortgage_property':
       case 'unmortgage_property':
+      case 'propose_trade':
+      case 'accept_trade':
+      case 'reject_trade':
+      case 'cancel_trade':
       case 'declare_bankruptcy':
       case 'pay_debt':
       case 'pay_jail_fine':
+      case 'use_get_out_of_jail_card':
       case 'end_turn':
         return intent.payload.roomPlayerId;
 
       case 'finish_game_by_time':
+      case 'finish_game_after_last_human_left':
         return null;
     }
   }

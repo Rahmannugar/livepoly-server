@@ -2,6 +2,7 @@ import {
   calculateNetWorthStandings,
   getNetWorthWinners,
 } from './game-engine-derived-state';
+import { returnGetOutOfJailCardToDeck } from './game-engine-cards';
 import {
   GameEngineError,
   type DeclareBankruptcyInput,
@@ -155,9 +156,23 @@ function liquidatePlayerAssets(
   state: GameEngineState,
   input: DeclareBankruptcyInput,
 ): GameEngineState {
+  const bankruptPlayer = findPlayer(state, input.roomPlayerId);
+  const heldCardKeys =
+    bankruptPlayer.getOutOfJailFreeCardKeys?.length
+      ? bankruptPlayer.getOutOfJailFreeCardKeys
+      : Array.from(
+          { length: bankruptPlayer.getOutOfJailFreeCards },
+          () => 'chance_get_out_of_jail_free',
+        );
+  const stateWithReturnedCards = heldCardKeys.reduce(
+    (currentState, cardKey) =>
+      returnGetOutOfJailCardToDeck(currentState, cardKey),
+    state,
+  );
+
   return {
-    ...state,
-    players: state.players.map((player) => {
+    ...stateWithReturnedCards,
+    players: stateWithReturnedCards.players.map((player) => {
       if (player.roomPlayerId !== input.roomPlayerId) {
         return player;
       }
@@ -168,13 +183,17 @@ function liquidatePlayerAssets(
         inJail: false,
         jailTurnCount: 0,
         getOutOfJailFreeCards: 0,
+        getOutOfJailFreeCardKeys: [],
         bankrupt: true,
       };
     }),
-    properties: state.properties.map((property) =>
+    properties: stateWithReturnedCards.properties.map((property) =>
       liquidateProperty(property, input),
     ),
-    debt: state.debt?.roomPlayerId === input.roomPlayerId ? null : state.debt,
+    debt:
+      stateWithReturnedCards.debt?.roomPlayerId === input.roomPlayerId
+        ? null
+        : stateWithReturnedCards.debt,
   };
 }
 

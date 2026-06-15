@@ -53,7 +53,7 @@ export class GameResultResponseDto {
 
   @ApiProperty({
     example: 'time_elapsed',
-    enum: ['bankruptcy', 'time_elapsed', 'cancelled'],
+    enum: ['bankruptcy', 'time_elapsed', 'abandoned', 'cancelled'],
   })
   endReason: string;
 

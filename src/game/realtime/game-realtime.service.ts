@@ -20,8 +20,10 @@ import {
   GAME_LIVE_ACCESS,
   GameActorInput,
   PlaceAuctionBidInput,
+  ProposeTradeInput,
   PropertyCommandInput,
   RollAndMoveInput,
+  TradeDecisionInput,
 } from './game-realtime.types';
 
 @Injectable()
@@ -231,6 +233,21 @@ export class GameRealtimeService {
     return result;
   }
 
+  async useGetOutOfJailCard(
+    input: GameActorInput,
+  ): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.useGetOutOfJailCard({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
   async declareBankruptcy(input: GameActorInput): Promise<GameCommandResult> {
     const player = await this.requireActivePlayer(input);
 
@@ -301,6 +318,66 @@ export class GameRealtimeService {
       gameId: input.gameId,
       roomPlayerId: player.roomPlayerId,
       tileKey: input.tileKey,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async proposeTrade(input: ProposeTradeInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.proposeTrade({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      toRoomPlayerId: input.toRoomPlayerId,
+      offeredCash: input.offeredCash,
+      requestedCash: input.requestedCash,
+      offeredPropertyKeys: input.offeredPropertyKeys,
+      requestedPropertyKeys: input.requestedPropertyKeys,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async acceptTrade(input: TradeDecisionInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.acceptTrade({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      tradeId: input.tradeId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async rejectTrade(input: TradeDecisionInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.rejectTrade({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      tradeId: input.tradeId,
+    });
+
+    await this.afterHumanCommandSucceeded(input.gameId, result);
+
+    return result;
+  }
+
+  async cancelTrade(input: TradeDecisionInput): Promise<GameCommandResult> {
+    const player = await this.requireActivePlayer(input);
+
+    const result = await this.gameCommandsService.cancelTrade({
+      gameId: input.gameId,
+      roomPlayerId: player.roomPlayerId,
+      tradeId: input.tradeId,
     });
 
     await this.afterHumanCommandSucceeded(input.gameId, result);

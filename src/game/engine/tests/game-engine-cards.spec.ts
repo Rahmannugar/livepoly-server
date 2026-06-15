@@ -266,10 +266,13 @@ describe('game-engine-cards', () => {
     });
 
     expect(result.state.players[0].getOutOfJailFreeCards).toBe(1);
+    expect(result.state.players[0].getOutOfJailFreeCardKeys).toEqual([
+      'chance_get_out_of_jail_free',
+    ]);
     expect(result.state.decks.chance.discardPile).toEqual([]);
   });
 
-  it('reshuffles discard pile when draw pile is empty', () => {
+  it('draws from returned bottom cards when draw pile is empty', () => {
     const state = createGameEngineState();
 
     state.decks.chance.drawPile = [];

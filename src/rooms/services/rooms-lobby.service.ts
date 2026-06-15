@@ -9,7 +9,7 @@ import type { AuthUser } from '../../auth/types/auth-user.type';
 import { GameCommandsService } from '../../game/commands/game-commands.service';
 import { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import { GameResultsService } from '../../game/results/game-results.service';
-import { GameStateService } from '../../game/state/game-state.service';
+import { GameRealtimePublisher } from '../../game/realtime/game-realtime.publisher';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -39,8 +39,8 @@ export class RoomsLobbyService {
     private readonly observabilityService: ObservabilityService,
     private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameResultsService: GameResultsService,
-    private readonly gameStateService: GameStateService,
     private readonly gameCommandsService: GameCommandsService,
+    private readonly gameRealtimePublisher: GameRealtimePublisher,
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
@@ -109,13 +109,22 @@ export class RoomsLobbyService {
         .map((game) => game.roomId),
     );
 
-    const liveRooms = rooms.filter(
+    const nonExpiredRooms = rooms.filter(
       (room) => !expiredActiveGameRoomIds.has(room.id),
     );
-    const liveRoomIds = liveRooms.map((room) => room.id);
+    const nonExpiredRoomIds = nonExpiredRooms.map((room) => room.id);
 
     const players =
-      await this.roomsLobbyRepository.listPlayersForRooms(liveRoomIds);
+      await this.roomsLobbyRepository.listPlayersForRooms(nonExpiredRoomIds);
+    const liveRooms = nonExpiredRooms.filter((room) =>
+      players.some(
+        (player) =>
+          player.roomId === room.id &&
+          player.playerType === 'human' &&
+          player.status === 'joined',
+      ),
+    );
+    const liveRoomIds = liveRooms.map((room) => room.id);
     const spectatorCounts =
       await this.roomsLobbyRepository.countCurrentSpectatorsForRooms(
         liveRoomIds,
@@ -385,22 +394,27 @@ export class RoomsLobbyService {
     gameId: string;
   }) {
     const state = await this.gameRecoveryService.getOrRecover(input.gameId);
+    const finishedAt = Date.now();
 
     if (state.phase === 'finished') {
       return;
     }
 
-    const finishedState = {
-      ...state,
-      phase: 'finished' as const,
-    };
-
-    await this.gameStateService.set(input.gameId, finishedState);
-    await this.gameResultsService.finalizeFinishedGame({
+    const result = await this.gameCommandsService.executeIntent({
       gameId: input.gameId,
-      state: finishedState,
-      events: [],
+      source: 'timer',
+      intent: {
+        type: 'finish_game_after_last_human_left',
+        payload: {
+          finishedAt,
+        },
+      },
     });
+
+    await this.gameRealtimePublisher.publishCommandResult(
+      input.gameId,
+      result,
+    );
 
     this.observabilityService.recordEvent(
       ROOM_EVENTS.finishedAfterLastHumanLeft,
@@ -633,13 +647,6 @@ export class RoomsLobbyService {
     }
   }
 
-  private async isActiveRoomExpired(roomId: string): Promise<boolean> {
-    const activeGame =
-      await this.roomsLobbyRepository.findActiveGameByRoomId(roomId);
-
-    return Boolean(activeGame && activeGame.expiresAt.getTime() <= Date.now());
-  }
-
   private async finalizeExpiredRoomGame(roomId: string): Promise<boolean> {
     const activeGame =
       await this.roomsLobbyRepository.findActiveGameByRoomId(roomId);
@@ -701,6 +708,13 @@ export class RoomsLobbyService {
     return true;
   }
 
+  private async isActiveRoomExpired(roomId: string): Promise<boolean> {
+    const activeGame =
+      await this.roomsLobbyRepository.findActiveGameByRoomId(roomId);
+
+    return Boolean(activeGame && activeGame.expiresAt.getTime() <= Date.now());
+  }
+
   private async getRoomPayload(
     roomId: string,
     room: {
@@ -726,11 +740,13 @@ export class RoomsLobbyService {
       room.status === 'active'
         ? await this.roomsLobbyRepository.findActiveGameByRoomId(roomId)
         : null;
+    const activeGameIsCurrent =
+      activeGame && activeGame.expiresAt.getTime() > Date.now();
 
     return {
       ...room,
       spectatorCount,
-      activeGameId: activeGame?.id ?? null,
+      activeGameId: activeGameIsCurrent ? activeGame.id : null,
       currentUserAccess: this.getCurrentUserAccess({
         authUserId,
         players,

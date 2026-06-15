@@ -21,6 +21,7 @@ import { rooms, roomPlayers } from './room.schema';
 export const gameEndReasonEnum = pgEnum('game_end_reason', [
   'bankruptcy',
   'time_elapsed',
+  'abandoned',
   'cancelled',
 ]);
 
@@ -66,7 +67,7 @@ export const roomResults = pgTable(
         )
         or
         (
-          ${table.endReason} in ('bankruptcy', 'time_elapsed')
+          ${table.endReason} in ('bankruptcy', 'time_elapsed', 'abandoned')
           and ${table.winnerRoomPlayerId} is not null
         )
       `,

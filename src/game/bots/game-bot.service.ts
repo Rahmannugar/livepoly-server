@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { getGameBoard } from '../engine/game-board';
-import { getCurrentAuctionBidderRoomPlayerId } from '../engine/game-engine-auctions';
+import {
+  getCurrentAuctionBidderRoomPlayerId,
+  getMinimumAuctionBid,
+} from '../engine/game-engine-auctions';
 import type {
   AirportTile,
   GameTile,
@@ -155,7 +158,7 @@ export class GameBotService {
     }
 
     const maxBid = this.getMaxAuctionBid(bot, tile);
-    const nextBid = auction.currentBid === 0 ? 10 : auction.currentBid + 10;
+    const nextBid = getMinimumAuctionBid(auction);
 
     if (nextBid > maxBid || nextBid > bot.cash - this.cashReserve(bot)) {
       return {

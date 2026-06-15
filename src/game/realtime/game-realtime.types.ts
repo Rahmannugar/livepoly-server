@@ -53,6 +53,10 @@ export type PayJailFinePayload = {
   gameId: string;
 };
 
+export type UseGetOutOfJailCardPayload = {
+  gameId: string;
+};
+
 export type DeclareBankruptcyPayload = {
   gameId: string;
 };
@@ -75,6 +79,20 @@ export type MortgagePropertyPayload = {
 export type UnmortgagePropertyPayload = {
   gameId: string;
   tileKey: string;
+};
+
+export type ProposeTradePayload = {
+  gameId: string;
+  toRoomPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredPropertyKeys: string[];
+  requestedPropertyKeys: string[];
+};
+
+export type TradeDecisionPayload = {
+  gameId: string;
+  tradeId: string;
 };
 
 export type GameJoinedEvent = {
@@ -131,6 +149,18 @@ export type PlaceAuctionBidInput = GameActorInput & {
 
 export type PropertyCommandInput = GameActorInput & {
   tileKey: string;
+};
+
+export type ProposeTradeInput = GameActorInput & {
+  toRoomPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredPropertyKeys: string[];
+  requestedPropertyKeys: string[];
+};
+
+export type TradeDecisionInput = GameActorInput & {
+  tradeId: string;
 };
 
 export const GAME_LIVE_ACCESS = {

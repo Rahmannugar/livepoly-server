@@ -1,6 +1,7 @@
 import { getGameBoard } from './game-board';
 import { debitPlayer } from './game-engine-money';
 import { isOwnableTile } from './game-engine-properties';
+import { GAME_TURN_TIMER } from '../game.constants';
 import {
   GameEngineError,
   type DeclinePropertyInput,
@@ -11,6 +12,9 @@ import {
   type PassAuctionBidInput,
   type PlaceAuctionBidInput,
 } from './game-engine.types';
+
+const MINIMUM_AUCTION_BID = 10;
+const AUCTION_BID_INCREMENT = 10;
 
 export function declinePropertyPurchase(
   state: GameEngineState,
@@ -57,6 +61,7 @@ export function declinePropertyPurchase(
     currentBid: 0,
     highestBidderRoomPlayerId: null,
     currentBidderRoomPlayerId: activeRoomPlayerIds[0] ?? null,
+    bidExpiresAt: getNextAuctionBidExpiresAt(state),
     activeRoomPlayerIds,
     passedRoomPlayerIds: [],
   };
@@ -92,10 +97,12 @@ export function placeAuctionBid(
   assertAuctionPlayerActive(auction, input.roomPlayerId);
   assertAuctionPlayerCanAct(auction, input.roomPlayerId);
 
-  if (!Number.isInteger(input.amount) || input.amount <= auction.currentBid) {
+  const minimumBid = getMinimumAuctionBid(auction);
+
+  if (!Number.isInteger(input.amount) || input.amount < minimumBid) {
     throw new GameEngineError(
       'INVALID_AUCTION_BID',
-      'Auction bid must be higher than the current bid',
+      `Auction bid must be at least ${minimumBid}`,
     );
   }
 
@@ -125,6 +132,7 @@ export function placeAuctionBid(
           auction,
           input.roomPlayerId,
         ),
+        bidExpiresAt: getNextAuctionBidExpiresAt(state),
       },
     },
     events: [
@@ -157,6 +165,7 @@ export function passAuctionBid(
     nextAuction,
     input.roomPlayerId,
   );
+  nextAuction.bidExpiresAt = getNextAuctionBidExpiresAt(state);
 
   const passEvent: GameEngineEvent = {
     type: 'auction_bid_passed',
@@ -282,6 +291,30 @@ export function getCurrentAuctionBidderRoomPlayerId(
   return auction.activeRoomPlayerIds.find(
     (roomPlayerId) => !auction.passedRoomPlayerIds.includes(roomPlayerId),
   ) ?? null;
+}
+
+export function getMinimumAuctionBid(auction: GameEngineAuction): number {
+  if (auction.currentBid <= 0) {
+    return MINIMUM_AUCTION_BID;
+  }
+
+  return auction.currentBid + AUCTION_BID_INCREMENT;
+}
+
+export function getAuctionBidDelay(state: GameEngineState): number {
+  if (!state.auction?.bidExpiresAt) {
+    return GAME_TURN_TIMER.auctionBidTimeoutMs;
+  }
+
+  return Math.max(state.auction.bidExpiresAt - Date.now(), 0);
+}
+
+function getNextAuctionBidExpiresAt(state: GameEngineState): number {
+  const bidExpiresAt = Date.now() + GAME_TURN_TIMER.auctionBidTimeoutMs;
+
+  return state.expiresAt
+    ? Math.min(bidExpiresAt, state.expiresAt)
+    : bidExpiresAt;
 }
 
 function assertAuctionPlayerActive(

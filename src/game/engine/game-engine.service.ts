@@ -17,22 +17,37 @@ import {
 } from './game-engine-buildings';
 import { cloneGameState } from './game-engine-cloner';
 import { payDebt as payPlayerDebt } from './game-engine-debt';
-import { finishGameByTime as finishGameByExpiredTime } from './game-engine-finish';
-import { payJailFine as payPlayerJailFine } from './game-engine-jail';
+import {
+  finishGameAfterLastHumanLeft as finishGameAfterAllHumansLeft,
+  finishGameByTime as finishGameByExpiredTime,
+} from './game-engine-finish';
+import {
+  payJailFine as payPlayerJailFine,
+  useGetOutOfJailCard as usePlayerGetOutOfJailCard,
+} from './game-engine-jail';
 import {
   mortgageProperty as mortgageOwnableProperty,
   unmortgageProperty as unmortgageOwnableProperty,
 } from './game-engine-mortgage';
 import { rollAndMove as movePlayer } from './game-engine-movement';
 import { buyProperty as buyOwnableProperty } from './game-engine-properties';
+import {
+  acceptTrade as acceptPlayerTrade,
+  cancelTrade as cancelPlayerTrade,
+  proposeTrade as proposePlayerTrade,
+  rejectTrade as rejectPlayerTrade,
+} from './game-engine-trades';
 import { endTurn as completeTurn } from './game-engine-turns';
 import {
+  type AcceptTradeInput,
   type BuildPropertyInput,
   type BuyPropertyInput,
+  type CancelTradeInput,
   type DeclareBankruptcyInput,
   type DeclinePropertyInput,
   type EndTurnInput,
   type FinishGameByTimeInput,
+  type FinishGameAfterLastHumanLeftInput,
   type GameEngineResult,
   type GameEngineState,
   type MortgagePropertyInput,
@@ -40,9 +55,12 @@ import {
   type PayDebtInput,
   type PayJailFineInput,
   type PlaceAuctionBidInput,
+  type ProposeTradeInput,
+  type RejectTradeInput,
   type RollAndMoveInput,
   type SellBuildingInput,
   type UnmortgagePropertyInput,
+  type UseGetOutOfJailCardInput,
 } from './game-engine.types';
 
 export class GameEngineService {
@@ -127,6 +145,34 @@ export class GameEngineService {
     return unmortgageOwnableProperty(cloneGameState(state), input);
   }
 
+  proposeTrade(
+    state: GameEngineState,
+    input: ProposeTradeInput,
+  ): GameEngineResult {
+    return proposePlayerTrade(cloneGameState(state), input);
+  }
+
+  acceptTrade(
+    state: GameEngineState,
+    input: AcceptTradeInput,
+  ): GameEngineResult {
+    return acceptPlayerTrade(cloneGameState(state), input);
+  }
+
+  rejectTrade(
+    state: GameEngineState,
+    input: RejectTradeInput,
+  ): GameEngineResult {
+    return rejectPlayerTrade(cloneGameState(state), input);
+  }
+
+  cancelTrade(
+    state: GameEngineState,
+    input: CancelTradeInput,
+  ): GameEngineResult {
+    return cancelPlayerTrade(cloneGameState(state), input);
+  }
+
   declareBankruptcy(
     state: GameEngineState,
     input: DeclareBankruptcyInput,
@@ -145,6 +191,13 @@ export class GameEngineService {
     return finishGameByExpiredTime(cloneGameState(state), input);
   }
 
+  finishGameAfterLastHumanLeft(
+    state: GameEngineState,
+    input: FinishGameAfterLastHumanLeftInput,
+  ): GameEngineResult {
+    return finishGameAfterAllHumansLeft(cloneGameState(state), input);
+  }
+
   payJailFine(
     state: GameEngineState,
     input: PayJailFineInput,
@@ -152,6 +205,15 @@ export class GameEngineService {
     assertCurrentTurn(state, input.roomPlayerId);
 
     return payPlayerJailFine(cloneGameState(state), input);
+  }
+
+  useGetOutOfJailCard(
+    state: GameEngineState,
+    input: UseGetOutOfJailCardInput,
+  ): GameEngineResult {
+    assertCurrentTurn(state, input.roomPlayerId);
+
+    return usePlayerGetOutOfJailCard(cloneGameState(state), input);
   }
 
   endTurn(state: GameEngineState, input: EndTurnInput): GameEngineResult {

@@ -73,6 +73,7 @@ export class GameBotQueueService {
       state.auction.currentBid,
       state.auction.highestBidderRoomPlayerId ?? 'none',
       state.auction.currentBidderRoomPlayerId ?? 'none',
+      state.auction.bidExpiresAt ?? 'none',
       state.auction.passedRoomPlayerIds.join('-') || 'none',
     ].join('_');
   }

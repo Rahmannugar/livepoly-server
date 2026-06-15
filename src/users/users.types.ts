@@ -34,7 +34,7 @@ export type UserMatchHistoryRow = {
   placement: number;
   playerCount: number;
   won: boolean;
-  endReason: 'bankruptcy' | 'time_elapsed' | 'cancelled';
+  endReason: 'bankruptcy' | 'time_elapsed' | 'abandoned' | 'cancelled';
   finalCash: number;
   finalNetWorth: number;
   bankruptAt: Date | null;
@@ -53,7 +53,7 @@ export type UserMatchHistoryItem = {
   placement: number;
   playerCount: number;
   won: boolean;
-  endReason: 'bankruptcy' | 'time_elapsed' | 'cancelled';
+  endReason: 'bankruptcy' | 'time_elapsed' | 'abandoned' | 'cancelled';
   finalCash: number;
   finalNetWorth: number;
   bankruptAt: string | null;

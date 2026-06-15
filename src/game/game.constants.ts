@@ -16,6 +16,7 @@ export const GAME_SNAPSHOTS = {
 
 export const GAME_TURN_TIMER = {
   timeoutMs: 60_000,
+  auctionBidTimeoutMs: 20_000,
   maxConsecutiveMissedTurns: 3,
 } as const;
 
@@ -26,8 +27,8 @@ export const GAME_BOTS = {
   },
   cashReserve: {
     easy: 200,
-    normal: 350,
-    hard: 500,
+    normal: 450,
+    hard: 600,
   },
   buyScoreThreshold: {
     easy: 65,
@@ -36,8 +37,8 @@ export const GAME_BOTS = {
   },
   auctionMaxPriceRatio: {
     easy: 0.55,
-    normal: 0.75,
-    hard: 0.9,
+    normal: 0.62,
+    hard: 0.78,
   },
   setCompletionBonus: {
     easy: 10,
@@ -104,11 +105,17 @@ export const GAME_COMMANDS = {
   sellBuilding: 'sell_building',
   mortgageProperty: 'mortgage_property',
   unmortgageProperty: 'unmortgage_property',
+  proposeTrade: 'propose_trade',
+  acceptTrade: 'accept_trade',
+  rejectTrade: 'reject_trade',
+  cancelTrade: 'cancel_trade',
   declareBankruptcy: 'declare_bankruptcy',
   payDebt: 'pay_debt',
   payJailFine: 'pay_jail_fine',
+  useGetOutOfJailCard: 'use_get_out_of_jail_card',
   endTurn: 'end_turn',
   finishGameByTime: 'finish_game_by_time',
+  finishGameAfterLastHumanLeft: 'finish_game_after_last_human_left',
 } as const;
 
 export const GAME_SOCKET_EVENTS = {
@@ -122,11 +129,16 @@ export const GAME_SOCKET_EVENTS = {
   passAuctionBid: 'game:pass-auction-bid',
   payDebt: 'game:pay-debt',
   payJailFine: 'game:pay-jail-fine',
+  useGetOutOfJailCard: 'game:use-get-out-of-jail-card',
   declareBankruptcy: 'game:declare-bankruptcy',
   buildProperty: 'game:build-property',
   sellBuilding: 'game:sell-building',
   mortgageProperty: 'game:mortgage-property',
   unmortgageProperty: 'game:unmortgage-property',
+  proposeTrade: 'game:propose-trade',
+  acceptTrade: 'game:accept-trade',
+  rejectTrade: 'game:reject-trade',
+  cancelTrade: 'game:cancel-trade',
   endTurn: 'game:end-turn',
   state: 'game:state',
   events: 'game:events',

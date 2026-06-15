@@ -86,6 +86,10 @@ export class GameProcessor extends WorkerHost {
         phase: state.phase,
         turnNumber: state.turnNumber,
       });
+      await this.gameTurnTimerQueueService.enqueueTurnTimer(
+        job.data.gameId,
+        state,
+      );
       return;
     }
 
@@ -297,12 +301,16 @@ export class GameProcessor extends WorkerHost {
       state.auction.currentBid,
       state.auction.highestBidderRoomPlayerId ?? 'none',
       state.auction.currentBidderRoomPlayerId ?? 'none',
+      state.auction.bidExpiresAt ?? 'none',
       state.auction.passedRoomPlayerIds.join('-') || 'none',
     ].join('_');
   }
 
   private getIntentRoomPlayerId(intent: GameEngineIntent): string | undefined {
-    if (intent.type === 'finish_game_by_time') {
+    if (
+      intent.type === 'finish_game_by_time' ||
+      intent.type === 'finish_game_after_last_human_left'
+    ) {
       return undefined;
     }
 

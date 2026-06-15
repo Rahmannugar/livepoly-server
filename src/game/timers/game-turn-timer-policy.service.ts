@@ -66,6 +66,10 @@ export class GameTurnTimerPolicyService {
     }
 
     if (state.phase === 'awaiting_auction_bid') {
+      if (state.auction?.bidExpiresAt && now < state.auction.bidExpiresAt) {
+        return null;
+      }
+
       const auctionRoomPlayerId = this.findAuctionTimeoutPlayer(state);
 
       if (!auctionRoomPlayerId) {

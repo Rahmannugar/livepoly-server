@@ -1,4 +1,5 @@
 import { getGameBoard } from './game-board';
+import { returnGetOutOfJailCardToDeck } from './game-engine-cards';
 import { cloneDiceRoll } from './game-engine-cloner';
 import { isDoubles } from './game-engine-dice';
 import { debitPlayer, debitPlayerOrCreateDebt } from './game-engine-money';
@@ -9,6 +10,7 @@ import {
   type GameEngineResult,
   type GameEngineState,
   type PayJailFineInput,
+  type UseGetOutOfJailCardInput,
 } from './game-engine.types';
 
 export const JAIL_FINE_AMOUNT = 50;
@@ -239,6 +241,67 @@ export function payJailFine(
         type: 'jail_fine_paid',
         roomPlayerId: input.roomPlayerId,
         amount: JAIL_FINE_AMOUNT,
+      },
+      {
+        type: 'player_released_from_jail',
+        roomPlayerId: input.roomPlayerId,
+      },
+    ],
+  };
+}
+
+export function useGetOutOfJailCard(
+  state: GameEngineState,
+  input: UseGetOutOfJailCardInput,
+): GameEngineResult {
+  const player = state.players.find(
+    (candidate) => candidate.roomPlayerId === input.roomPlayerId,
+  );
+
+  if (!player) {
+    throw new GameEngineError('PLAYER_NOT_FOUND', 'Player is not in game');
+  }
+
+  if (!player.inJail) {
+    throw new GameEngineError(
+      'PLAYER_NOT_IN_JAIL',
+      'Player is not currently in jail',
+    );
+  }
+
+  if (player.getOutOfJailFreeCards <= 0) {
+    throw new GameEngineError(
+      'GET_OUT_OF_JAIL_CARD_REQUIRED',
+      'Player does not have a Get Out of Jail Free card',
+    );
+  }
+
+  const [cardKey, ...remainingCardKeys] =
+    player.getOutOfJailFreeCardKeys ?? [];
+  const returnedState = returnGetOutOfJailCardToDeck(state, cardKey ?? null);
+
+  return {
+    state: releasePlayerFromJail(
+      {
+        ...returnedState,
+        players: returnedState.players.map((candidate) => {
+          if (candidate.roomPlayerId !== input.roomPlayerId) {
+            return candidate;
+          }
+
+          return {
+            ...candidate,
+            getOutOfJailFreeCards: candidate.getOutOfJailFreeCards - 1,
+            getOutOfJailFreeCardKeys: remainingCardKeys,
+          };
+        }),
+      },
+      input.roomPlayerId,
+    ),
+    events: [
+      {
+        type: 'get_out_of_jail_card_used',
+        roomPlayerId: input.roomPlayerId,
       },
       {
         type: 'player_released_from_jail',

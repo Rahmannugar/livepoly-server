@@ -147,6 +147,56 @@ describe('game-engine-finish', () => {
     ]);
   });
 
+  it('finishes game after the last human leaves by net worth', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_auction_bid',
+      auction: {
+        tileKey: TEST_BOARD_TILES.cheapProperty,
+        currentBid: 100,
+        highestBidderRoomPlayerId: 'room-player-2',
+        currentBidderRoomPlayerId: 'room-player-3',
+        activeRoomPlayerIds: [
+          'room-player-1',
+          'room-player-2',
+          'room-player-3',
+        ],
+        passedRoomPlayerIds: ['room-player-1'],
+        bidExpiresAt: 1779150000000,
+      },
+      pendingTileKey: TEST_BOARD_TILES.cheapProperty,
+      players: createGameEngineState().players.map((player) => {
+        if (player.roomPlayerId === 'room-player-2') {
+          return {
+            ...player,
+            cash: 1800,
+          };
+        }
+
+        return player;
+      }),
+    });
+
+    const result = service.finishGameAfterLastHumanLeft(state, {
+      finishedAt: 1779150000000,
+    });
+
+    expect(result.state).toMatchObject({
+      phase: 'finished',
+      auction: null,
+      pendingTileKey: null,
+      tradeOffer: null,
+      debt: null,
+      shouldCurrentPlayerPlayAgain: false,
+      consecutiveDoublesCount: 0,
+    });
+    expect(result.events[0]).toMatchObject({
+      type: 'game_finished_after_last_human_left',
+      finishedAt: 1779150000000,
+      winnerRoomPlayerId: 'room-player-2',
+      tiedRoomPlayerIds: ['room-player-2'],
+    });
+  });
+
   it('breaks timed game ties deterministically', () => {
     const result = service.finishGameByTime(
       createGameEngineState({

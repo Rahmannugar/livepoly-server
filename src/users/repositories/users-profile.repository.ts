@@ -5,8 +5,8 @@ import {
   DatabaseService,
 } from '../../infra/database/database.service';
 import { users } from '../../infra/database/schema';
-import type { UserSearchCursor, UserSearchRow } from '../users.types';
 import { getUsernamePrefixUpperBound } from '../users.helpers';
+import type { UserSearchCursor, UserSearchRow } from '../users.types';
 
 type UpdateUserInput = {
   username?: string;

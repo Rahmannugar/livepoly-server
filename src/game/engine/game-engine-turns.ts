@@ -16,6 +16,7 @@ export function endTurn(
         ...state,
         phase: 'awaiting_roll',
         lastDiceRoll: null,
+        tradeOffer: null,
         shouldCurrentPlayerPlayAgain: false,
       },
       events: [
@@ -41,6 +42,7 @@ export function endTurn(
       consecutiveDoublesCount: 0,
       shouldCurrentPlayerPlayAgain: false,
       lastDiceRoll: null,
+      tradeOffer: null,
     },
     events: [
       {

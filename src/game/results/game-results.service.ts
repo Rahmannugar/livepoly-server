@@ -153,10 +153,14 @@ export class GameResultsService {
     const finishEvent = events.find(
       (event) =>
         event.type === 'game_finished_by_bankruptcy' ||
-        event.type === 'game_finished_by_time',
+        event.type === 'game_finished_by_time' ||
+        event.type === 'game_finished_after_last_human_left',
     );
 
-    if (finishEvent?.type === 'game_finished_by_time') {
+    if (
+      finishEvent?.type === 'game_finished_by_time' ||
+      finishEvent?.type === 'game_finished_after_last_human_left'
+    ) {
       return new Date(finishEvent.finishedAt);
     }
 
@@ -170,6 +174,14 @@ export class GameResultsService {
 
     if (events.some((event) => event.type === 'game_finished_by_time')) {
       return 'time_elapsed';
+    }
+
+    if (
+      events.some(
+        (event) => event.type === 'game_finished_after_last_human_left',
+      )
+    ) {
+      return 'abandoned';
     }
 
     return 'cancelled';
@@ -196,6 +208,17 @@ export class GameResultsService {
       timeFinishEvent.winnerRoomPlayerId
     ) {
       return timeFinishEvent.winnerRoomPlayerId;
+    }
+
+    const abandonedFinishEvent = events.find(
+      (event) => event.type === 'game_finished_after_last_human_left',
+    );
+
+    if (
+      abandonedFinishEvent?.type === 'game_finished_after_last_human_left' &&
+      abandonedFinishEvent.winnerRoomPlayerId
+    ) {
+      return abandonedFinishEvent.winnerRoomPlayerId;
     }
 
     return (

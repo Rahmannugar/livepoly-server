@@ -63,10 +63,10 @@ export class UserMatchHistoryItemResponseDto {
   won: boolean;
 
   @ApiProperty({
-    enum: ['bankruptcy', 'time_elapsed', 'cancelled'],
+    enum: ['bankruptcy', 'time_elapsed', 'abandoned', 'cancelled'],
     example: 'time_elapsed',
   })
-  endReason: 'bankruptcy' | 'time_elapsed' | 'cancelled';
+  endReason: 'bankruptcy' | 'time_elapsed' | 'abandoned' | 'cancelled';
 
   @ApiProperty({ example: 1800 })
   finalCash: number;

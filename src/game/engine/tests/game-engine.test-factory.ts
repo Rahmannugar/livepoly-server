@@ -33,6 +33,7 @@ export function createGameEnginePlayer(
     inJail: false,
     jailTurnCount: 0,
     getOutOfJailFreeCards: 0,
+    getOutOfJailFreeCardKeys: [],
     consecutiveMissedTurns: 0,
     lastMissedTurnNumber: null,
     bankrupt: false,

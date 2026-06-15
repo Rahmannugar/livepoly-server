@@ -350,6 +350,25 @@ export function drawAndApplyCard(
   };
 }
 
+export function returnGetOutOfJailCardToDeck(
+  state: GameEngineState,
+  cardKey: string | null,
+): GameEngineState {
+  const resolvedCardKey = cardKey ?? 'chance_get_out_of_jail_free';
+  const deckKey = getDeckKeyForCard(resolvedCardKey);
+
+  if (!deckKey) {
+    throw new GameEngineError('CARD_NOT_FOUND', 'Card was not found');
+  }
+
+  const deck = getDeck(state, deckKey);
+
+  return setDeck(state, deckKey, {
+    ...deck,
+    discardPile: [...deck.discardPile, resolvedCardKey],
+  });
+}
+
 function drawCard(
   state: GameEngineState,
   deckKey: GameCardDeckKey,
@@ -440,6 +459,10 @@ function applyCardEffect(
           return {
             ...player,
             getOutOfJailFreeCards: player.getOutOfJailFreeCards + 1,
+            getOutOfJailFreeCardKeys: [
+              ...(player.getOutOfJailFreeCardKeys ?? []),
+              card.key,
+            ],
           };
         }),
       },
@@ -716,6 +739,18 @@ function getCardMoveTargetTile(
         return leftDistance - rightDistance;
       })[0] ?? null
   );
+}
+
+function getDeckKeyForCard(cardKey: string): GameCardDeckKey | null {
+  if (CHANCE_CARDS.some((card) => card.key === cardKey)) {
+    return 'chance';
+  }
+
+  if (WORLD_FUND_CARDS.some((card) => card.key === cardKey)) {
+    return 'worldFund';
+  }
+
+  return null;
 }
 
 function getDeck(

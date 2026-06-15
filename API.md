@@ -45,7 +45,7 @@ Base path: `/users`
 Search query:
 
 ```txt
-query: username prefix, minimum configured length
+query: lowercase username prefix, minimum configured length.
 limit: optional, max 100
 cursor: optional
 ```
@@ -238,6 +238,14 @@ game:<gameId>
 ```
 
 `game:pay-jail-fine`
+
+```ts
+{
+  gameId: string;
+}
+```
+
+`game:use-get-out-of-jail-card`
 
 ```ts
 {

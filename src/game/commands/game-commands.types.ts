@@ -38,6 +38,18 @@ export type PropertyCommand = RoomPlayerCommand & {
   tileKey: string;
 };
 
+export type ProposeTradeCommand = RoomPlayerCommand & {
+  toRoomPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredPropertyKeys: string[];
+  requestedPropertyKeys: string[];
+};
+
+export type TradeDecisionCommand = RoomPlayerCommand & {
+  tradeId: string;
+};
+
 export type GameCommandResult = {
   state: GameEngineState;
   events: GameEngineEvent[];

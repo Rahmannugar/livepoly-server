@@ -153,15 +153,15 @@ export const UsersDocs = {
     applyDecorators(
       ApiBearerAuth('accessToken'),
       ApiOperation({
-        summary: 'Search users by username prefix',
+        summary: 'Search users by username',
         description:
-          'Returns active users whose usernames start with the provided query.',
+          'Returns active users whose usernames start with the provided lowercase query.',
       }),
       ApiQuery({
         name: 'query',
         required: true,
         example: 'rah',
-        description: 'Username prefix to search for',
+        description: 'Username text to search for',
       }),
       ApiQuery({
         name: 'limit',

@@ -106,6 +106,7 @@ export type GameEnginePlayer = {
   inJail: boolean;
   jailTurnCount: number;
   getOutOfJailFreeCards: number;
+  getOutOfJailFreeCardKeys?: string[];
   consecutiveMissedTurns?: number;
   lastMissedTurnNumber?: number | null;
   bankrupt: boolean;
@@ -124,8 +125,20 @@ export type GameEngineAuction = {
   currentBid: number;
   highestBidderRoomPlayerId: string | null;
   currentBidderRoomPlayerId: string | null;
+  bidExpiresAt?: number | null;
   activeRoomPlayerIds: string[];
   passedRoomPlayerIds: string[];
+};
+
+export type GameEngineTradeOffer = {
+  id: string;
+  fromRoomPlayerId: string;
+  toRoomPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredPropertyKeys: string[];
+  requestedPropertyKeys: string[];
+  createdAt: number;
 };
 
 export type GameEngineDebtReason = 'rent' | 'tax' | 'card' | 'jail_fine';
@@ -155,6 +168,7 @@ export type GameEngineState = {
   lastDiceRoll?: DiceRoll | null;
   pendingTileKey?: string | null;
   auction?: GameEngineAuction | null;
+  tradeOffer?: GameEngineTradeOffer | null;
   debt?: GameEngineDebt | null;
   decks: GameEngineDecks;
   players: GameEnginePlayer[];
@@ -216,6 +230,10 @@ export type FinishGameByTimeInput = {
   finishedAt: number;
 };
 
+export type FinishGameAfterLastHumanLeftInput = {
+  finishedAt: number;
+};
+
 export type DeclinePropertyInput = {
   roomPlayerId: string;
 };
@@ -231,6 +249,35 @@ export type PassAuctionBidInput = {
 
 export type PayJailFineInput = {
   roomPlayerId: string;
+};
+
+export type UseGetOutOfJailCardInput = {
+  roomPlayerId: string;
+};
+
+export type ProposeTradeInput = {
+  roomPlayerId: string;
+  toRoomPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredPropertyKeys: string[];
+  requestedPropertyKeys: string[];
+  tradeId?: string;
+};
+
+export type AcceptTradeInput = {
+  roomPlayerId: string;
+  tradeId: string;
+};
+
+export type RejectTradeInput = {
+  roomPlayerId: string;
+  tradeId: string;
+};
+
+export type CancelTradeInput = {
+  roomPlayerId: string;
+  tradeId: string;
 };
 
 export type DrawCardInput = {
@@ -310,6 +357,10 @@ export type GameEngineEvent =
       type: 'jail_fine_paid';
       roomPlayerId: string;
       amount: number;
+    }
+  | {
+      type: 'get_out_of_jail_card_used';
+      roomPlayerId: string;
     }
   | {
       type: 'player_released_from_jail';
@@ -414,6 +465,42 @@ export type GameEngineEvent =
       amount: number;
     }
   | {
+      type: 'trade_proposed';
+      tradeId: string;
+      fromRoomPlayerId: string;
+      toRoomPlayerId: string;
+      offeredCash: number;
+      requestedCash: number;
+      offeredPropertyKeys: string[];
+      requestedPropertyKeys: string[];
+    }
+  | {
+      type: 'trade_buildings_liquidated';
+      tradeId: string;
+      roomPlayerId: string;
+      tileKey: string;
+      amount: number;
+    }
+  | {
+      type: 'trade_accepted';
+      tradeId: string;
+      fromRoomPlayerId: string;
+      toRoomPlayerId: string;
+    }
+  | {
+      type: 'trade_rejected';
+      tradeId: string;
+      fromRoomPlayerId: string;
+      toRoomPlayerId: string;
+      rejectedByRoomPlayerId: string;
+    }
+  | {
+      type: 'trade_cancelled';
+      tradeId: string;
+      fromRoomPlayerId: string;
+      toRoomPlayerId: string;
+    }
+  | {
       type: 'player_bankrupt';
       roomPlayerId: string;
       creditorRoomPlayerId: string | null;
@@ -426,6 +513,13 @@ export type GameEngineEvent =
     }
   | {
       type: 'game_finished_by_time';
+      finishedAt: number;
+      winnerRoomPlayerId: string | null;
+      tiedRoomPlayerIds: string[];
+      standings: PlayerNetWorth[];
+    }
+  | {
+      type: 'game_finished_after_last_human_left';
       finishedAt: number;
       winnerRoomPlayerId: string | null;
       tiedRoomPlayerIds: string[];
@@ -465,6 +559,7 @@ export type GameEngineErrorCode =
   | 'AUCTION_PLAYER_NOT_ACTIVE'
   | 'AUCTION_PLAYER_NOT_CURRENT'
   | 'PLAYER_NOT_IN_JAIL'
+  | 'GET_OUT_OF_JAIL_CARD_REQUIRED'
   | 'CARD_NOT_FOUND'
   | 'CARD_DECK_EMPTY'
   | 'BUILDING_NOT_ALLOWED'
@@ -478,6 +573,9 @@ export type GameEngineErrorCode =
   | 'PROPERTY_HAS_BUILDINGS'
   | 'PROPERTY_ALREADY_MORTGAGED'
   | 'PROPERTY_NOT_MORTGAGED'
+  | 'TRADE_NOT_ALLOWED'
+  | 'TRADE_NOT_FOUND'
+  | 'INVALID_TRADE'
   | 'PLAYER_ALREADY_BANKRUPT'
   | 'INVALID_BANKRUPTCY_CREDITOR'
   | 'INVALID_FINISH_TIME'

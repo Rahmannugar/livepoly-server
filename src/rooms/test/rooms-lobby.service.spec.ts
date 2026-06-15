@@ -2,9 +2,9 @@ import { ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { GameCommandsService } from '../../game/commands/game-commands.service';
 import type { GameEngineState } from '../../game/engine/game-engine.types';
+import type { GameRealtimePublisher } from '../../game/realtime/game-realtime.publisher';
 import type { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import type { GameResultsService } from '../../game/results/game-results.service';
-import type { GameStateService } from '../../game/state/game-state.service';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { NotificationsService } from '../../notifications/notifications.service';
@@ -69,12 +69,12 @@ type GameResultsServiceMock = {
   finalizeExpiredFinishedGame: jest.Mock;
 };
 
-type GameStateServiceMock = {
-  set: jest.Mock;
-};
-
 type GameCommandsServiceMock = {
   executeIntent: jest.Mock;
+};
+
+type GameRealtimePublisherMock = {
+  publishCommandResult: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -186,8 +186,8 @@ describe('RoomsLobbyService', () => {
   let observabilityService: ObservabilityServiceMock;
   let gameRecoveryService: GameRecoveryServiceMock;
   let gameResultsService: GameResultsServiceMock;
-  let gameStateService: GameStateServiceMock;
   let gameCommandsService: GameCommandsServiceMock;
+  let gameRealtimePublisher: GameRealtimePublisherMock;
 
   const tx = { tx: true };
 
@@ -250,12 +250,24 @@ describe('RoomsLobbyService', () => {
       finalizeExpiredFinishedGame: jest.fn().mockResolvedValue(undefined),
     };
 
-    gameStateService = {
-      set: jest.fn().mockResolvedValue(undefined),
+    gameCommandsService = {
+      executeIntent: jest.fn().mockResolvedValue({
+        state: { ...activeGameState, phase: 'finished' },
+        events: [
+          {
+            type: 'game_finished_after_last_human_left',
+            finishedAt: Date.now(),
+            winnerRoomPlayerId: 'bot-1',
+            tiedRoomPlayerIds: ['bot-1'],
+            standings: [],
+          },
+        ],
+        intentType: 'finish_game_after_last_human_left',
+      }),
     };
 
-    gameCommandsService = {
-      executeIntent: jest.fn().mockResolvedValue(undefined),
+    gameRealtimePublisher = {
+      publishCommandResult: jest.fn().mockResolvedValue(undefined),
     };
 
     service = new RoomsLobbyService(
@@ -266,8 +278,8 @@ describe('RoomsLobbyService', () => {
       observabilityService as unknown as ObservabilityService,
       gameRecoveryService as unknown as GameRecoveryService,
       gameResultsService as unknown as GameResultsService,
-      gameStateService as unknown as GameStateService,
       gameCommandsService as unknown as GameCommandsService,
+      gameRealtimePublisher as unknown as GameRealtimePublisher,
     );
   });
 
@@ -643,18 +655,23 @@ describe('RoomsLobbyService', () => {
       activeRoom.id,
       tx,
     );
-    expect(gameStateService.set).toHaveBeenCalledWith('game-1', {
-      ...activeGameState,
-      phase: 'finished',
-    });
-    expect(gameResultsService.finalizeFinishedGame).toHaveBeenCalledWith({
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
       gameId: 'game-1',
-      state: {
-        ...activeGameState,
-        phase: 'finished',
+      source: 'timer',
+      intent: {
+        type: 'finish_game_after_last_human_left',
+        payload: {
+          finishedAt: expect.any(Number),
+        },
       },
-      events: [],
     });
+    expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        intentType: 'finish_game_after_last_human_left',
+        state: expect.objectContaining({ phase: 'finished' }),
+      }),
+    );
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       ROOM_EVENTS.finishedAfterLastHumanLeft,
       {

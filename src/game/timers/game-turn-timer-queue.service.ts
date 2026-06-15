@@ -5,6 +5,7 @@ import { ObservabilityService } from '../../infra/observability/observability.se
 import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import type { GameEngineState } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS, GAME_TURN_TIMER } from '../game.constants';
+import { getAuctionBidDelay } from '../engine/game-engine-auctions';
 import type {
   ExecuteTurnTimeoutJob,
   FinishExpiredGameJob,
@@ -31,9 +32,11 @@ export class GameTurnTimerQueueService {
       actionStateKey: this.getActionStateKey(state),
     };
 
+    const delay = this.getTurnTimerDelay(state);
+
     await this.gameQueue.add(GAME_JOBS.executeTurnTimeout, data, {
       jobId: this.jobId(data),
-      delay: GAME_TURN_TIMER.timeoutMs,
+      delay,
       attempts: 3,
       backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
       removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
@@ -42,7 +45,7 @@ export class GameTurnTimerQueueService {
 
     this.observabilityService.recordEvent(GAME_EVENTS.turnTimerQueued, {
       ...data,
-      delay: GAME_TURN_TIMER.timeoutMs,
+      delay,
     });
 
     this.observabilityService.recordMetric(GAME_METRICS.turnTimerQueued);
@@ -87,6 +90,18 @@ export class GameTurnTimerQueueService {
     ].join('__');
   }
 
+  private getTurnTimerDelay(state: GameEngineState): number {
+    if (state.phase === 'awaiting_auction_bid' && state.auction) {
+      return getAuctionBidDelay(state);
+    }
+
+    if (state.turnExpiresAt) {
+      return Math.max(state.turnExpiresAt - Date.now(), 0);
+    }
+
+    return GAME_TURN_TIMER.timeoutMs;
+  }
+
   private getActionStateKey(state: GameEngineState): string {
     if (state.phase !== 'awaiting_auction_bid' || !state.auction) {
       return 'turn';
@@ -97,6 +112,7 @@ export class GameTurnTimerQueueService {
       state.auction.currentBid,
       state.auction.highestBidderRoomPlayerId ?? 'none',
       state.auction.currentBidderRoomPlayerId ?? 'none',
+      state.auction.bidExpiresAt ?? 'none',
       state.auction.passedRoomPlayerIds.join('-') || 'none',
     ].join('_');
   }

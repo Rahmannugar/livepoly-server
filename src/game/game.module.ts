@@ -74,6 +74,7 @@ import { GameController } from './game.controller';
     GameSnapshotService,
     GameRecoveryService,
     GameResultsService,
+    GameRealtimePublisher,
   ],
 })
 export class GameModule {}

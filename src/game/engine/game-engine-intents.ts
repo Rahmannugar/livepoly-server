@@ -1,10 +1,13 @@
 import { GameEngineService } from './game-engine.service';
 import type {
+  AcceptTradeInput,
   BuildPropertyInput,
   BuyPropertyInput,
+  CancelTradeInput,
   DeclareBankruptcyInput,
   DeclinePropertyInput,
   EndTurnInput,
+  FinishGameAfterLastHumanLeftInput,
   FinishGameByTimeInput,
   GameEngineResult,
   GameEngineState,
@@ -13,9 +16,12 @@ import type {
   PayDebtInput,
   PayJailFineInput,
   PlaceAuctionBidInput,
+  ProposeTradeInput,
+  RejectTradeInput,
   RollAndMoveInput,
   SellBuildingInput,
   UnmortgagePropertyInput,
+  UseGetOutOfJailCardInput,
 } from './game-engine.types';
 
 export type GameEngineIntent =
@@ -56,6 +62,22 @@ export type GameEngineIntent =
       payload: UnmortgagePropertyInput;
     }
   | {
+      type: 'propose_trade';
+      payload: ProposeTradeInput;
+    }
+  | {
+      type: 'accept_trade';
+      payload: AcceptTradeInput;
+    }
+  | {
+      type: 'reject_trade';
+      payload: RejectTradeInput;
+    }
+  | {
+      type: 'cancel_trade';
+      payload: CancelTradeInput;
+    }
+  | {
       type: 'declare_bankruptcy';
       payload: DeclareBankruptcyInput;
     }
@@ -68,12 +90,20 @@ export type GameEngineIntent =
       payload: PayJailFineInput;
     }
   | {
+      type: 'use_get_out_of_jail_card';
+      payload: UseGetOutOfJailCardInput;
+    }
+  | {
       type: 'end_turn';
       payload: EndTurnInput;
     }
   | {
       type: 'finish_game_by_time';
       payload: FinishGameByTimeInput;
+    }
+  | {
+      type: 'finish_game_after_last_human_left';
+      payload: FinishGameAfterLastHumanLeftInput;
     };
 
 const engine = new GameEngineService();
@@ -110,6 +140,18 @@ export function reduceGameEngineIntent(
     case 'unmortgage_property':
       return engine.unmortgageProperty(state, intent.payload);
 
+    case 'propose_trade':
+      return engine.proposeTrade(state, intent.payload);
+
+    case 'accept_trade':
+      return engine.acceptTrade(state, intent.payload);
+
+    case 'reject_trade':
+      return engine.rejectTrade(state, intent.payload);
+
+    case 'cancel_trade':
+      return engine.cancelTrade(state, intent.payload);
+
     case 'declare_bankruptcy':
       return engine.declareBankruptcy(state, intent.payload);
 
@@ -119,10 +161,16 @@ export function reduceGameEngineIntent(
     case 'pay_jail_fine':
       return engine.payJailFine(state, intent.payload);
 
+    case 'use_get_out_of_jail_card':
+      return engine.useGetOutOfJailCard(state, intent.payload);
+
     case 'end_turn':
       return engine.endTurn(state, intent.payload);
 
     case 'finish_game_by_time':
       return engine.finishGameByTime(state, intent.payload);
+
+    case 'finish_game_after_last_human_left':
+      return engine.finishGameAfterLastHumanLeft(state, intent.payload);
   }
 }

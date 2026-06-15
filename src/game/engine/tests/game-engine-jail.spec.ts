@@ -3,6 +3,7 @@ import {
   payJailFine,
   resolveJailedRoll,
   sendPlayerToJail,
+  useGetOutOfJailCard,
 } from '../game-engine-jail';
 import { GameEngineError } from '../game-engine.types';
 import { createGameEngineState } from './game-engine.test-factory';
@@ -84,6 +85,59 @@ describe('game-engine-jail', () => {
       new GameEngineError(
         'INSUFFICIENT_FUNDS',
         'Player does not have enough cash',
+      ),
+    );
+  });
+
+  it('releases jailed player after using a get out of jail free card', () => {
+    const state = createGameEngineState();
+
+    state.players[0].inJail = true;
+    state.players[0].jailTurnCount = 2;
+    state.players[0].getOutOfJailFreeCards = 1;
+    state.players[0].getOutOfJailFreeCardKeys = [
+      'world_fund_get_out_of_jail_free',
+    ];
+
+    const result = useGetOutOfJailCard(state, {
+      roomPlayerId: 'room-player-1',
+    });
+
+    expect(result.state.players[0]).toMatchObject({
+      inJail: false,
+      jailTurnCount: 0,
+      getOutOfJailFreeCards: 0,
+      getOutOfJailFreeCardKeys: [],
+    });
+    expect(result.state.decks.worldFund.discardPile).toEqual([
+      'world_fund_get_out_of_jail_free',
+    ]);
+    expect(result.events).toEqual([
+      {
+        type: 'get_out_of_jail_card_used',
+        roomPlayerId: 'room-player-1',
+      },
+      {
+        type: 'player_released_from_jail',
+        roomPlayerId: 'room-player-1',
+      },
+    ]);
+  });
+
+  it('rejects get out of jail card usage without a card', () => {
+    const state = createGameEngineState();
+
+    state.players[0].inJail = true;
+    state.players[0].getOutOfJailFreeCards = 0;
+
+    expect(() =>
+      useGetOutOfJailCard(state, {
+        roomPlayerId: 'room-player-1',
+      }),
+    ).toThrow(
+      new GameEngineError(
+        'GET_OUT_OF_JAIL_CARD_REQUIRED',
+        'Player does not have a Get Out of Jail Free card',
       ),
     );
   });

@@ -3,7 +3,11 @@ import type {
   GameEngineState,
 } from '../engine/game-engine.types';
 
-export type GameResultEndReason = 'bankruptcy' | 'time_elapsed' | 'cancelled';
+export type GameResultEndReason =
+  | 'bankruptcy'
+  | 'time_elapsed'
+  | 'abandoned'
+  | 'cancelled';
 
 export type FinalizeGameResultInput = {
   gameId: string;

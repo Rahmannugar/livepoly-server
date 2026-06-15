@@ -86,7 +86,7 @@ describe('game-engine-auctions', () => {
     ]);
   });
 
-  it('rejects bids below current bid', () => {
+  it('rejects bids below the next auction step', () => {
     const auctionState = placeAuctionBid(
       declinePropertyPurchase(
         createGameEngineState({
@@ -106,12 +106,12 @@ describe('game-engine-auctions', () => {
     expect(() =>
       placeAuctionBid(auctionState, {
         roomPlayerId: 'room-player-2',
-        amount: 75,
+        amount: 80,
       }),
     ).toThrow(
       new GameEngineError(
         'INVALID_AUCTION_BID',
-        'Auction bid must be higher than the current bid',
+        'Auction bid must be at least 85',
       ),
     );
   });

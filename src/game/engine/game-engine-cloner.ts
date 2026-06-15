@@ -6,6 +6,7 @@ import type {
   GameEnginePlayer,
   GameEngineProperty,
   GameEngineState,
+  GameEngineTradeOffer,
 } from './game-engine.types';
 
 export function cloneGameState(state: GameEngineState): GameEngineState {
@@ -14,6 +15,7 @@ export function cloneGameState(state: GameEngineState): GameEngineState {
     lastDiceRoll: state.lastDiceRoll ? cloneDiceRoll(state.lastDiceRoll) : null,
     pendingTileKey: state.pendingTileKey ?? null,
     auction: state.auction ? cloneGameAuction(state.auction) : null,
+    tradeOffer: state.tradeOffer ? cloneGameTradeOffer(state.tradeOffer) : null,
     decks: cloneGameDecks(state.decks),
     players: state.players.map((player) => cloneGamePlayer(player)),
     properties: state.properties.map((property) => cloneGameProperty(property)),
@@ -41,6 +43,16 @@ export function cloneGameAuction(
     ...auction,
     activeRoomPlayerIds: [...auction.activeRoomPlayerIds],
     passedRoomPlayerIds: [...auction.passedRoomPlayerIds],
+  };
+}
+
+export function cloneGameTradeOffer(
+  tradeOffer: GameEngineTradeOffer,
+): GameEngineTradeOffer {
+  return {
+    ...tradeOffer,
+    offeredPropertyKeys: [...tradeOffer.offeredPropertyKeys],
+    requestedPropertyKeys: [...tradeOffer.requestedPropertyKeys],
   };
 }
 

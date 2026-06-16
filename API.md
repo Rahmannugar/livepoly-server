@@ -297,6 +297,46 @@ game:<gameId>
 }
 ```
 
+`game:propose-trade`
+
+```ts
+{
+  gameId: string;
+  toRoomPlayerId: string;
+  offeredCash: number;
+  requestedCash: number;
+  offeredPropertyKeys: string[];
+  requestedPropertyKeys: string[];
+}
+```
+
+`game:accept-trade`
+
+```ts
+{
+  gameId: string;
+  tradeId: string;
+}
+```
+
+`game:reject-trade`
+
+```ts
+{
+  gameId: string;
+  tradeId: string;
+}
+```
+
+`game:cancel-trade`
+
+```ts
+{
+  gameId: string;
+  tradeId: string;
+}
+```
+
 `game:events:get`
 
 If `cursor` is omitted, the server returns the latest configured recovery window.

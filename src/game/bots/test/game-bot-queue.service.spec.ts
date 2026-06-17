@@ -130,4 +130,34 @@ describe('GameBotQueueService', () => {
       },
     );
   });
+
+  it('enqueues bot turn end without thinking delay', async () => {
+    gameBotService.chooseDecision.mockReturnValue({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'end_turn',
+        payload: {
+          roomPlayerId: 'bot-player-1',
+        },
+      },
+    });
+
+    await service.enqueueIfBotCanAct('game-1', {
+      ...state,
+      phase: 'awaiting_turn_end',
+    });
+
+    expect(gameQueue.add).toHaveBeenCalledWith(
+      GAME_JOBS.executeBotTurn,
+      { gameId: 'game-1' },
+      {
+        jobId: 'bot-turn__game-1__3__awaiting_turn_end__bot-player-1__turn',
+        delay: 0,
+        attempts: 3,
+        backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },
+        removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
+        removeOnFail: 100,
+      },
+    );
+  });
 });

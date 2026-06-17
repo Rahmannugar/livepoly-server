@@ -383,8 +383,6 @@ export class RoomsLobbyService {
         this.observabilityService.recordMetric(
           ROOM_METRICS.finishAfterLastHumanLeftFailed,
         );
-
-        throw error;
       }
     }
 

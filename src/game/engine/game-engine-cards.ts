@@ -747,7 +747,7 @@ function getDeckKeyForCard(cardKey: string): GameCardDeckKey | null {
   }
 
   if (WORLD_FUND_CARDS.some((card) => card.key === cardKey)) {
-    return 'worldFund';
+    return 'world_fund';
   }
 
   return null;

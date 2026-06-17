@@ -30,9 +30,9 @@ export const RoomsDocs = {
       ApiBody({
         type: CreateRoomDto,
         examples: {
-          oneHourRoom: {
-            summary: 'Create one hour room',
-            value: { durationMinutes: 60 },
+          casualRoom: {
+            summary: 'Create casual room',
+            value: { durationMinutes: 90 },
           },
         },
       }),

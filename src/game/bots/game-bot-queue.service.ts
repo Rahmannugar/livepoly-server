@@ -24,7 +24,7 @@ export class GameBotQueueService {
       return;
     }
 
-    const delay = this.getActionDelay();
+    const delay = this.getActionDelay(state);
 
     await this.gameQueue.add(
       GAME_JOBS.executeBotTurn,
@@ -57,7 +57,11 @@ export class GameBotQueueService {
     this.observabilityService.recordMetric(GAME_METRICS.botTurnQueued);
   }
 
-  private getActionDelay(): number {
+  private getActionDelay(state: GameEngineState): number {
+    if (state.phase === 'awaiting_turn_end') {
+      return 0;
+    }
+
     const { min, max } = GAME_BOTS.actionDelayMs;
 
     return Math.round(min + Math.random() * (max - min));

@@ -1,4 +1,4 @@
-export const ROOM_DURATIONS = [60, 90, 120, 180] as const;
+export const ROOM_DURATIONS = [90, 120] as const;
 
 export type RoomDurationMinutes = (typeof ROOM_DURATIONS)[number];
 
@@ -7,7 +7,7 @@ export const ROOM_CODE_ALPHABET =
 
 export const ROOM_CODE_LENGTH = 8;
 
-export const DEFAULT_ROOM_DURATION_MINUTES = 60;
+export const DEFAULT_ROOM_DURATION_MINUTES = 90;
 
 export const RANKED_ROOM_DURATION_MINUTES = 60;
 

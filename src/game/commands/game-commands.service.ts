@@ -474,17 +474,18 @@ export class GameCommandsService {
       previousState.turnNumber === nextState.turnNumber &&
       previousState.currentTurnRoomPlayerId ===
         nextState.currentTurnRoomPlayerId;
+    const previousTurnExpiresAt = previousState.turnExpiresAt;
     const previousDeadlineIsValid =
-      previousState.turnExpiresAt !== null &&
-      previousState.turnExpiresAt !== undefined &&
-      previousState.turnExpiresAt > now;
+      previousTurnExpiresAt !== null &&
+      previousTurnExpiresAt !== undefined &&
+      previousTurnExpiresAt > now;
 
     if (isSameTurn && previousDeadlineIsValid) {
       return {
         ...nextState,
         turnExpiresAt: nextState.expiresAt
-          ? Math.min(previousState.turnExpiresAt, nextState.expiresAt)
-          : previousState.turnExpiresAt,
+          ? Math.min(previousTurnExpiresAt, nextState.expiresAt)
+          : previousTurnExpiresAt,
       };
     }
 

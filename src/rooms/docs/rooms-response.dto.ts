@@ -97,7 +97,7 @@ export class RoomResponseDto {
   })
   currentUserAccess: string;
 
-  @ApiProperty({ example: 60 })
+  @ApiProperty({ example: 90 })
   durationMinutes: number;
 
   @ApiProperty({ example: 'classic' })

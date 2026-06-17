@@ -96,7 +96,7 @@ const waitingRoom = {
   hostUserId: authUser.id,
   status: 'waiting' as const,
   maxPlayers: 4,
-  durationMinutes: 60,
+  durationMinutes: 90,
   boardKey: 'classic',
   createdAt,
   startedAt: null,
@@ -328,14 +328,14 @@ describe('RoomsLobbyService', () => {
       },
     ]);
 
-    const result = await service.createRoom(authUser, { durationMinutes: 60 });
+    const result = await service.createRoom(authUser, { durationMinutes: 90 });
 
     expect(databaseService.transaction).toHaveBeenCalledTimes(1);
 
     expect(roomsLobbyRepository.createRoom).toHaveBeenCalledWith(
       expect.objectContaining({
         hostUserId: authUser.id,
-        durationMinutes: 60,
+        durationMinutes: 90,
         boardKey: 'classic',
       }),
       tx,
@@ -679,7 +679,7 @@ describe('RoomsLobbyService', () => {
     );
   });
 
-  it('surfaces finalization failure when the last human player leaves', async () => {
+  it('does not fail leave when finalization fails after the last human leaves', async () => {
     const error = new Error('finalization failed');
 
     roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
@@ -707,8 +707,8 @@ describe('RoomsLobbyService', () => {
     gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
     gameCommandsService.executeIntent.mockRejectedValue(error);
 
-    await expect(service.leaveRoom(authUser, activeRoom.code)).rejects.toThrow(
-      error,
+    await expect(service.leaveRoom(authUser, activeRoom.code)).resolves.toEqual(
+      { message: 'Room left' },
     );
 
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(

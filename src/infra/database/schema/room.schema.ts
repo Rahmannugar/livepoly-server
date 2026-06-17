@@ -59,7 +59,7 @@ export const rooms = pgTable(
     check('rooms_max_players_chk', sql`${table.maxPlayers} = 4`),
     check(
       'rooms_duration_minutes_chk',
-      sql`${table.durationMinutes} in (60, 90, 120, 180)`,
+      sql`${table.durationMinutes} in (90, 120)`,
     ),
     check('rooms_code_format_chk', sql`${table.code} ~ '^[A-Za-z0-9]{8}$'`),
   ],

@@ -67,7 +67,7 @@ const waitingRoom = {
   hostUserId: authUser.id,
   status: 'waiting' as const,
   maxPlayers: 4,
-  durationMinutes: 60,
+  durationMinutes: 90,
   boardKey: 'classic',
   createdAt,
   startedAt: null,
@@ -464,7 +464,7 @@ describe('RoomsGameService', () => {
       expect.objectContaining({
         mode: 'casual',
         currentTurnRoomPlayerId: humanPlayerOne.id,
-        expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
+        expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
         state: expect.objectContaining({
           version: 1,
           roomId: waitingRoom.id,

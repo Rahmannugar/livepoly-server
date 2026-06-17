@@ -63,7 +63,7 @@ describe('game-engine-intents', () => {
 
   it('runs building intent', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (
           property.tileKey === TEST_BOARD_TILES.cheapProperty ||
@@ -107,7 +107,7 @@ describe('game-engine-intents', () => {
 
   it('runs mortgage intent', () => {
     const state = createGameEngineState({
-      phase: 'awaiting_roll',
+      phase: 'awaiting_turn_end',
       properties: createGameEngineState().properties.map((property) => {
         if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
           return {

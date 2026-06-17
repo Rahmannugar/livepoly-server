@@ -7,16 +7,19 @@ describe('GameCommandsService', () => {
   const gameId = 'game-1';
   const roomPlayerId = 'room-player-1';
 
-  const makeState = (overrides: Partial<GameEngineState> = {}) =>
-    ({
+  const makeState = (overrides: Partial<GameEngineState> = {}) => {
+    const now = Date.now();
+
+    return {
       version: 1,
       roomId: 'room-1',
       roomCode: 'ABCD12',
       boardKey: 'classic',
       mode: 'ranked',
-      startedAt: 1_000,
+      startedAt: now,
       durationMinutes: 60,
-      expiresAt: 3_601_000,
+      expiresAt: now + 3_600_000,
+      turnExpiresAt: now + 60_000,
       phase: 'awaiting_first_turn',
       turnNumber: 1,
       currentTurnRoomPlayerId: roomPlayerId,
@@ -72,7 +75,8 @@ describe('GameCommandsService', () => {
       ],
       properties: [],
       ...overrides,
-    }) as GameEngineState;
+    } as GameEngineState;
+  };
 
   const makeService = (state = makeState()) => {
     let storedState = state;

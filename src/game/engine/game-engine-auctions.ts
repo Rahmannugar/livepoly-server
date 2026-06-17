@@ -121,28 +121,34 @@ export function placeAuctionBid(
     );
   }
 
+  const bidEvent: GameEngineEvent = {
+    type: 'auction_bid_placed',
+    roomPlayerId: input.roomPlayerId,
+    tileKey: auction.tileKey,
+    amount: input.amount,
+  };
+  const nextAuction: GameEngineAuction = {
+    ...auction,
+    currentBid: input.amount,
+    highestBidderRoomPlayerId: input.roomPlayerId,
+    currentBidderRoomPlayerId: null,
+    bidExpiresAt: getNextAuctionBidExpiresAt(state),
+  };
+  nextAuction.currentBidderRoomPlayerId = getNextAuctionBidderRoomPlayerId(
+    nextAuction,
+    input.roomPlayerId,
+  );
+
+  if (!nextAuction.currentBidderRoomPlayerId) {
+    return completeAuctionWithWinner(state, nextAuction, bidEvent);
+  }
+
   return {
     state: {
       ...state,
-      auction: {
-        ...auction,
-        currentBid: input.amount,
-        highestBidderRoomPlayerId: input.roomPlayerId,
-        currentBidderRoomPlayerId: getNextAuctionBidderRoomPlayerId(
-          auction,
-          input.roomPlayerId,
-        ),
-        bidExpiresAt: getNextAuctionBidExpiresAt(state),
-      },
+      auction: nextAuction,
     },
-    events: [
-      {
-        type: 'auction_bid_placed',
-        roomPlayerId: input.roomPlayerId,
-        tileKey: auction.tileKey,
-        amount: input.amount,
-      },
-    ],
+    events: [bidEvent],
   };
 }
 
@@ -197,10 +203,10 @@ export function passAuctionBid(
 function completeAuctionWithWinner(
   state: GameEngineState,
   auction: GameEngineAuction,
-  passEvent: GameEngineEvent,
+  triggerEvent: GameEngineEvent,
 ): GameEngineResult {
   if (!auction.highestBidderRoomPlayerId) {
-    return completeAuctionWithoutWinner(state, auction, passEvent);
+    return completeAuctionWithoutWinner(state, auction, triggerEvent);
   }
 
   const debitedState = debitPlayer(
@@ -226,7 +232,7 @@ function completeAuctionWithWinner(
       }),
     },
     events: [
-      passEvent,
+      triggerEvent,
       {
         type: 'auction_won',
         roomPlayerId: auction.highestBidderRoomPlayerId,

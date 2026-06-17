@@ -332,6 +332,63 @@ describe('RoomsGameService', () => {
     );
   });
 
+  it('uses the ranked duration for ranked games', async () => {
+    const twoHourRoom = {
+      ...waitingRoom,
+      durationMinutes: 120,
+    };
+    const activeTwoHourRoom = {
+      ...twoHourRoom,
+      status: 'active' as const,
+      startedAt: activeRoom.startedAt,
+    };
+    const players = [humanPlayerOne, humanPlayerTwo, humanPlayerThree];
+    const rankedExpiresAt = new Date(
+      activeTwoHourRoom.startedAt.getTime() + 60 * 60 * 1000,
+    );
+
+    roomsGameRepository.findRoomByCode.mockResolvedValue(twoHourRoom);
+    roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
+    roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
+    roomsGameRepository.startRoom.mockResolvedValue(activeTwoHourRoom);
+    roomsGameRepository.createGame.mockResolvedValue({
+      id: 'game-1',
+      roomId: twoHourRoom.id,
+      mode: 'ranked' as const,
+      status: 'active' as const,
+      currentTurnRoomPlayerId: humanPlayerOne.id,
+      turnNumber: 1,
+      state: {
+        version: 1,
+        mode: 'ranked',
+      },
+      startedAt: activeTwoHourRoom.startedAt,
+      expiresAt: rankedExpiresAt,
+      finishedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    });
+
+    await service.startRoom(authUser, twoHourRoom.code);
+
+    expect(roomsGameRepository.createGame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'ranked',
+        expiresAt: rankedExpiresAt,
+        state: expect.objectContaining({
+          mode: 'ranked',
+          durationMinutes: 60,
+          expiresAt: rankedExpiresAt.getTime(),
+        }),
+      }),
+      tx,
+    );
+    expect(gameTurnTimerQueueService.enqueueGameExpiry).toHaveBeenCalledWith(
+      'game-1',
+      rankedExpiresAt.getTime(),
+    );
+  });
+
   it('starts casual game and fills seats with bots', async () => {
     const players = [humanPlayerOne];
 

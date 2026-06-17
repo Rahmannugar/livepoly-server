@@ -195,6 +195,58 @@ describe('game-engine-auctions', () => {
     ]);
   });
 
+  it('awards property when the final active bidder places the first bid', () => {
+    const auctionState = declinePropertyPurchase(
+      createGameEngineState({
+        phase: 'awaiting_property_decision',
+        pendingTileKey: TEST_BOARD_TILES.cheapProperty,
+      }),
+      {
+        roomPlayerId: 'room-player-1',
+      },
+    ).state;
+
+    const afterFirstPlayerPasses = passAuctionBid(auctionState, {
+      roomPlayerId: 'room-player-1',
+    }).state;
+
+    const afterSecondPlayerPasses = passAuctionBid(afterFirstPlayerPasses, {
+      roomPlayerId: 'room-player-2',
+    }).state;
+
+    const result = placeAuctionBid(afterSecondPlayerPasses, {
+      roomPlayerId: 'room-player-3',
+      amount: 10,
+    });
+
+    expect(result.state).toMatchObject({
+      phase: 'awaiting_turn_end',
+      auction: null,
+    });
+    expect(result.state.players[2].cash).toBe(1490);
+    expect(
+      result.state.properties.find(
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
+      ),
+    ).toMatchObject({
+      ownerRoomPlayerId: 'room-player-3',
+    });
+    expect(result.events).toEqual([
+      {
+        type: 'auction_bid_placed',
+        roomPlayerId: 'room-player-3',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
+        amount: 10,
+      },
+      {
+        type: 'auction_won',
+        roomPlayerId: 'room-player-3',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
+        amount: 10,
+      },
+    ]);
+  });
+
   it('ends auction with no owner when all players pass', () => {
     const auctionState = declinePropertyPurchase(
       createGameEngineState({

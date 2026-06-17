@@ -56,13 +56,13 @@ docker compose up -d --build
 Run migrations:
 
 ```bash
-docker compose exec livepoly-server npm run db:migrate
+docker compose exec server npm run db:migrate
 ```
 
 View logs:
 
 ```bash
-docker compose logs -f livepoly-server livepoly-worker
+docker compose logs -f server worker
 ```
 
 Stop local services:
@@ -75,8 +75,8 @@ docker compose down
 
 ```bash
 docker compose up -d --build
-docker compose logs -f livepoly-server livepoly-worker
-docker compose exec livepoly-server npm run db:migrate
+docker compose logs -f server worker
+docker compose exec server npm run db:migrate
 npm test
 npm run build
 npm run db:generate migration_name

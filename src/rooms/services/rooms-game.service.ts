@@ -27,6 +27,7 @@ import {
   ROOM_METRICS,
   ROOM_MAX_PLAYERS,
   ROOM_MIN_RANKED_HUMANS,
+  RANKED_ROOM_DURATION_MINUTES,
   STARTING_CASH,
 } from '../rooms.constants';
 
@@ -100,6 +101,8 @@ export class RoomsGameService {
       hasOnlyHumans && humanPlayers.length >= ROOM_MIN_RANKED_HUMANS
         ? 'ranked'
         : 'casual';
+    const gameDurationMinutes =
+      mode === 'ranked' ? RANKED_ROOM_DURATION_MINUTES : room.durationMinutes;
 
     const botDifficulty = dto.botDifficulty ?? DEFAULT_BOT_DIFFICULTY;
     const botPlayers =
@@ -129,7 +132,7 @@ export class RoomsGameService {
         roomId: room.id,
         roomCode: room.code,
         startedAt: activeRoom.startedAt,
-        durationMinutes: activeRoom.durationMinutes,
+        durationMinutes: gameDurationMinutes,
         mode,
         players: allPlayers,
       });

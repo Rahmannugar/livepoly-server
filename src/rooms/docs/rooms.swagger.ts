@@ -222,7 +222,7 @@ export const RoomsDocs = {
       ApiOperation({
         summary: 'Start room',
         description:
-          'Starts a waiting room. Three or more human players start ranked. Fewer than three human players are filled with bots and start casual.',
+          'Starts a waiting room. Three or more human players start ranked with the standard ranked duration. Fewer than three human players are filled with bots and start casual.',
       }),
       ApiParam({ name: 'code', example: 'AbC23xYz' }),
       ApiBody({

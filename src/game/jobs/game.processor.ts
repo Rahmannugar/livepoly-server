@@ -274,9 +274,48 @@ export class GameProcessor extends WorkerHost {
     state: GameEngineState,
     result: GameCommandResult,
   ): Promise<void> {
-    await this.gameRealtimePublisher.publishCommandResult(gameId, result);
-    await this.gameBotQueueService.enqueueIfBotCanAct(gameId, state);
-    await this.gameTurnTimerQueueService.enqueueTurnTimer(gameId, state);
+    try {
+      await this.gameRealtimePublisher.publishCommandResult(gameId, result);
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.realtimePublishFailed, {
+        gameId,
+        phase: state.phase,
+        turnNumber: state.turnNumber,
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(
+        GAME_METRICS.realtimePublishFailed,
+      );
+    }
+
+    try {
+      await this.gameBotQueueService.enqueueIfBotCanAct(gameId, state);
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.botTurnFailed, {
+        gameId,
+        phase: state.phase,
+        turnNumber: state.turnNumber,
+        reason: 'queue_failed',
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(GAME_METRICS.botTurnFailed);
+    }
+
+    try {
+      await this.gameTurnTimerQueueService.enqueueTurnTimer(gameId, state);
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerFailed, {
+        gameId,
+        phase: state.phase,
+        turnNumber: state.turnNumber,
+        reason: 'queue_failed',
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(GAME_METRICS.turnTimerFailed);
+    }
   }
 
   private isTimerJobCurrent(

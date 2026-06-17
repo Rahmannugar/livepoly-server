@@ -2,6 +2,7 @@ import { ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { GameCommandsService } from '../../game/commands/game-commands.service';
 import type { GameEngineState } from '../../game/engine/game-engine.types';
+import { GAME_METRICS } from '../../game/game.constants';
 import type { GameRealtimePublisher } from '../../game/realtime/game-realtime.publisher';
 import type { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import type { GameResultsService } from '../../game/results/game-results.service';
@@ -432,14 +433,14 @@ describe('RoomsLobbyService', () => {
     ]);
     expect(
       roomsLobbyRepository.countCurrentSpectatorsForRooms,
-    ).toHaveBeenCalledWith([activeRoom.id, secondRoom.id]);
+    ).toHaveBeenCalledWith([activeRoom.id]);
     expect(roomsLobbyRepository.listActiveGamesForRooms).toHaveBeenCalledWith([
       activeRoom.id,
       secondRoom.id,
     ]);
     expect(
       roomsLobbyRepository.listCurrentSpectatorsForUserRoomIds,
-    ).toHaveBeenCalledWith(authUser.id, [activeRoom.id, secondRoom.id]);
+    ).toHaveBeenCalledWith(authUser.id, [activeRoom.id]);
     expect(result).toEqual([
       {
         ...activeRoom,
@@ -452,13 +453,6 @@ describe('RoomsLobbyService', () => {
             roomId: activeRoom.id,
           }),
         ],
-      },
-      {
-        ...secondRoom,
-        spectatorCount: 0,
-        activeGameId: null,
-        currentUserAccess: 'none',
-        players: [],
       },
     ]);
   });
@@ -682,6 +676,99 @@ describe('RoomsLobbyService', () => {
     );
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(
       ROOM_METRICS.finishedAfterLastHumanLeft,
+    );
+  });
+
+  it('surfaces finalization failure when the last human player leaves', async () => {
+    const error = new Error('finalization failed');
+
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined' as const,
+    });
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.leaveRoom.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'left' as const,
+    });
+    roomsLobbyRepository.countJoinedHumanPlayers.mockResolvedValue(0);
+    roomsLobbyRepository.findActiveGameByRoomId.mockResolvedValue({
+      id: 'game-1',
+      roomId: activeRoom.id,
+      status: 'active' as const,
+    });
+    gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
+    gameCommandsService.executeIntent.mockRejectedValue(error);
+
+    await expect(service.leaveRoom(authUser, activeRoom.code)).rejects.toThrow(
+      error,
+    );
+
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.finishAfterLastHumanLeftFailed,
+      {
+        roomId: activeRoom.id,
+        roomCode: activeRoom.code,
+        gameId: 'game-1',
+        message: 'finalization failed',
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.finishAfterLastHumanLeftFailed,
+    );
+  });
+
+  it('does not fail leave when finalization publish fails after the last human leaves', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined' as const,
+    });
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.leaveRoom.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'left' as const,
+    });
+    roomsLobbyRepository.countJoinedHumanPlayers.mockResolvedValue(0);
+    roomsLobbyRepository.findActiveGameByRoomId.mockResolvedValue({
+      id: 'game-1',
+      roomId: activeRoom.id,
+      status: 'active' as const,
+    });
+    gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
+    gameRealtimePublisher.publishCommandResult.mockRejectedValue(
+      new Error('realtime down'),
+    );
+
+    await expect(service.leaveRoom(authUser, activeRoom.code)).resolves.toEqual(
+      { message: 'Room left' },
+    );
+
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      source: 'timer',
+      intent: {
+        type: 'finish_game_after_last_human_left',
+        payload: {
+          finishedAt: expect.any(Number),
+        },
+      },
+    });
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      GAME_METRICS.realtimePublishFailed,
     );
   });
 

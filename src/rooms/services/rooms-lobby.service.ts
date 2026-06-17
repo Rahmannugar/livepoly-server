@@ -10,6 +10,7 @@ import { GameCommandsService } from '../../game/commands/game-commands.service';
 import { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import { GameResultsService } from '../../game/results/game-results.service';
 import { GameRealtimePublisher } from '../../game/realtime/game-realtime.publisher';
+import { GAME_EVENTS, GAME_METRICS } from '../../game/game.constants';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
@@ -382,6 +383,8 @@ export class RoomsLobbyService {
         this.observabilityService.recordMetric(
           ROOM_METRICS.finishAfterLastHumanLeftFailed,
         );
+
+        throw error;
       }
     }
 
@@ -411,10 +414,23 @@ export class RoomsLobbyService {
       },
     });
 
-    await this.gameRealtimePublisher.publishCommandResult(
-      input.gameId,
-      result,
-    );
+    try {
+      await this.gameRealtimePublisher.publishCommandResult(
+        input.gameId,
+        result,
+      );
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.realtimePublishFailed, {
+        gameId: input.gameId,
+        phase: result.state.phase,
+        turnNumber: result.state.turnNumber,
+        errorName: error instanceof Error ? error.name : undefined,
+      });
+
+      this.observabilityService.recordMetric(
+        GAME_METRICS.realtimePublishFailed,
+      );
+    }
 
     this.observabilityService.recordEvent(
       ROOM_EVENTS.finishedAfterLastHumanLeft,

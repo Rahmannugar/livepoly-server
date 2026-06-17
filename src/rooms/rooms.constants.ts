@@ -9,6 +9,8 @@ export const ROOM_CODE_LENGTH = 8;
 
 export const DEFAULT_ROOM_DURATION_MINUTES = 60;
 
+export const RANKED_ROOM_DURATION_MINUTES = 60;
+
 export const ROOM_BOARD_KEY = 'classic';
 
 export const ROOM_MAX_PLAYERS = 4;

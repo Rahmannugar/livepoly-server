@@ -10,6 +10,7 @@ import type { GameRealtimePublisher } from '../../realtime/game-realtime.publish
 import type { GameRecoveryService } from '../../recovery/game-recovery.service';
 import type { GameTurnTimerPolicyService } from '../../timers/game-turn-timer-policy.service';
 import type { GameTurnTimerQueueService } from '../../timers/game-turn-timer-queue.service';
+import { GAME_METRICS } from '../../game.constants';
 import type { GameJob } from '../game-jobs.types';
 import { GameProcessor } from '../game.processor';
 import type { LeaderboardsService } from '../../../leaderboards/leaderboards.service';
@@ -186,7 +187,41 @@ describe('GameProcessor', () => {
     expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
     expect(gameBotQueueService.enqueueIfBotCanAct).not.toHaveBeenCalled();
-    expect(gameTurnTimerQueueService.enqueueTurnTimer).not.toHaveBeenCalled();
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      state,
+    );
+  });
+
+  it('does not retry an applied bot command when follow-up work fails', async () => {
+    gameRealtimePublisher.publishCommandResult.mockRejectedValue(
+      new Error('realtime down'),
+    );
+    gameBotQueueService.enqueueIfBotCanAct.mockRejectedValue(
+      new Error('bot queue down'),
+    );
+    gameTurnTimerQueueService.enqueueTurnTimer.mockRejectedValue(
+      new Error('timer queue down'),
+    );
+
+    await expect(
+      processor.process(
+        makeJob(GAME_JOBS.executeBotTurn, {
+          gameId: 'game-1',
+        }),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledTimes(1);
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      GAME_METRICS.realtimePublishFailed,
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      GAME_METRICS.botTurnFailed,
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      GAME_METRICS.turnTimerFailed,
+    );
   });
 
   it('executes a current turn timeout', async () => {

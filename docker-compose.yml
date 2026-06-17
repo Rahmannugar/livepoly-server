@@ -1,12 +1,11 @@
 name: livepoly
 
 services:
-  livepoly-server:
+  server:
     image: livepoly-server
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: livepoly-server
     ports:
       - '3002:3002'
     env_file:
@@ -24,12 +23,11 @@ services:
     command: npm run start:dev
     restart: unless-stopped
 
-  livepoly-worker:
+  worker:
     image: livepoly-server
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: livepoly-worker
     env_file:
       - .env
     environment:
@@ -46,7 +44,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: livepoly-redis
     volumes:
       - livepoly-redis-data:/data
     command: redis-server --appendonly yes

@@ -4,9 +4,9 @@ import { ROOM_DURATIONS, type RoomDurationMinutes } from '../rooms.constants';
 
 export class CreateRoomDto {
   @ApiPropertyOptional({
-    example: 60,
+    example: 90,
     enum: ROOM_DURATIONS,
-    description: 'Timed game duration in minutes.',
+    description: 'Casual room duration in minutes.',
   })
   @IsOptional()
   @IsIn(ROOM_DURATIONS)

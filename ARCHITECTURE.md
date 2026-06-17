@@ -40,6 +40,10 @@ Owns the game engine, game state, commands, timers, bots, recovery, realtime gat
 
 The game engine is pure domain logic. Command services coordinate Redis state mutation, durable event append, snapshots, result finalization, follow-up jobs, and realtime publishing.
 
+Games persist `startedAt`, `expiresAt`, and `finishedAt`. Ranked games use the fixed ranked duration; casual games use the room duration selected before start. The live state also carries `turnExpiresAt` and auction `bidExpiresAt` so clients can render authoritative timers without inventing client-only deadlines.
+
+Game-changing commands check the authoritative expiry before normal mutation. If `now >= expiresAt`, the command finalizes the game by time and returns the finished state/result path instead of applying the requested move. A delayed expiry job is also scheduled when the game starts, but it is a safety net rather than the only finalizer; it refuses to finish early and exists to close games with no further player commands.
+
 ### Friends
 
 Owns friend request lifecycle and friend lists. Friend list and request reads are cursor paginated with first-page Redis caching and version-based invalidation.

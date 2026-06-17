@@ -83,7 +83,7 @@ Base path: `/rooms`
 Room responses include players and spectator count. Spectating is allowed only for active rooms and is capped by application-level capacity.
 
 `POST /rooms/:code/start` returns the started room plus the created game. The game response includes `startedAt`, `expiresAt`, and `finishedAt` so clients can render timers and finished-state UI without reading those values from embedded game state.
-Ranked games use the standard ranked duration; casual games use the room duration selected at creation.
+Casual rooms can be created for `90` or `120` minutes. Ranked games always use the fixed `60` minute ranked duration. Three or more human players start ranked; rooms with fewer humans are filled with bots and start casual.
 
 ## Game
 
@@ -92,6 +92,16 @@ Base path: `/games`
 - `GET /games/:gameId/result`
 
 The result endpoint is authenticated. It is available to players and spectators for that game. It returns the finalized room result with ordered player placements, or `null` while finalization is still settling after the live game closes.
+
+Live game timing:
+
+```txt
+turn window: 60 seconds
+auction bidder window: 25 seconds
+game expiry: games.expiresAt
+```
+
+Game-changing commands check the authoritative game expiry before applying the requested action. If the game has expired, the command path finalizes the game by time instead of applying a normal move. The expiry job is the background safety net for games with no incoming commands.
 
 ## Friends
 

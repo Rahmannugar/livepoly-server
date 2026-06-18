@@ -20,6 +20,7 @@ export const USER_SEARCH = {
   minQueryLength: 2,
   firstPageTtlSeconds: 30,
   ttlJitterRatio: 0.15,
+  cacheVersionKey: 'users:search:version',
 } as const;
 
 export const USER_MATCH_HISTORY = {

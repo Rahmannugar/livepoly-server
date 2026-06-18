@@ -173,6 +173,8 @@ export class UsersProfileService {
         username: user.username,
       });
 
+      await this.bumpUserSearchCacheVersion();
+
       return this.profile(user, stats);
     } catch (error) {
       if (this.isUsernameUniqueViolation(error)) {
@@ -243,6 +245,12 @@ export class UsersProfileService {
       userId: authUser.id,
       username: authUser.username,
     });
+
+    await this.bumpUserSearchCacheVersion();
+  }
+
+  async bumpUserSearchCacheVersion(): Promise<void> {
+    await this.cacheService.getClient().incr(USER_SEARCH.cacheVersionKey);
   }
 
   private profile(
@@ -343,7 +351,7 @@ export class UsersProfileService {
   private async getUserSearchCacheVersion(): Promise<number> {
     const value = await this.cacheService
       .getClient()
-      .get('users:search:version');
+      .get(USER_SEARCH.cacheVersionKey);
     return value ? Number(value) : 1;
   }
 

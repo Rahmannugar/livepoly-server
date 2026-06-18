@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import { CacheService } from '../infra/cache/cache.service';
 import { DatabaseService } from '../infra/database/database.service';
 import { MailQueueService } from '../mail/jobs/mail-queue.service';
 import { OtpService } from '../otp/otp.service';
@@ -35,6 +36,7 @@ import { randomInt } from 'crypto';
 import { OAuthClientService } from './oauth-client.service';
 import { OAuthStateService } from './oauth-state.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
+import { USER_SEARCH } from '../users/users.constants';
 
 @Injectable()
 export class AuthService {
@@ -49,6 +51,7 @@ export class AuthService {
     private readonly oauthClientService: OAuthClientService,
     private readonly oauthStateService: OAuthStateService,
     private readonly authTokenVersionCacheService: AuthTokenVersionCacheService,
+    private readonly cacheService: CacheService,
     private readonly observabilityService: ObservabilityService,
   ) {}
 
@@ -168,6 +171,7 @@ export class AuthService {
       return this.createSessionForUser(oauthUser, context);
     }
 
+    let shouldBumpUserSearchCache = false;
     const user = await this.databaseService.transaction(async (tx) => {
       const emailUser = await this.authRepository.findUserByEmail(
         profile.email,
@@ -197,6 +201,7 @@ export class AuthService {
 
         if (!emailUser.emailVerified) {
           await this.authRepository.markEmailVerified(emailUser.id, tx);
+          shouldBumpUserSearchCache = true;
         }
 
         return {
@@ -213,6 +218,8 @@ export class AuthService {
         profile.usernameSeed,
       );
 
+      shouldBumpUserSearchCache = true;
+
       return this.authRepository.createOAuthUser(
         {
           email: profile.email,
@@ -224,6 +231,10 @@ export class AuthService {
         tx,
       );
     });
+
+    if (shouldBumpUserSearchCache) {
+      await this.bumpUserSearchCacheVersion();
+    }
 
     return this.createSessionForUser(user, context);
   }
@@ -261,6 +272,10 @@ export class AuthService {
     this.observabilityService.recordSecurityEvent(eventName, attributes);
   }
 
+  private async bumpUserSearchCacheVersion(): Promise<void> {
+    await this.cacheService.getClient().incr(USER_SEARCH.cacheVersionKey);
+  }
+
   //public methods
   async signup(dto: SignupDto, context: AuthRequestContext) {
     const email = dto.email.trim().toLowerCase();
@@ -292,6 +307,8 @@ export class AuthService {
       username,
       passwordHash,
     });
+
+    await this.bumpUserSearchCacheVersion();
 
     await this.otpService.storeEmailVerificationOtp({
       userId: user.id,
@@ -357,6 +374,7 @@ export class AuthService {
 
     await this.authRepository.markEmailVerified(user.id);
     await this.otpService.deleteEmailVerificationOtp(user.id);
+    await this.bumpUserSearchCacheVersion();
 
     this.recordSecurityEvent(AUTH_EVENTS.emailVerificationSucceeded, {
       userId: user.id,

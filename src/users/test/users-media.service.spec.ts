@@ -8,6 +8,7 @@ import type { UsersQueueService } from '../jobs/users-queue.service';
 import type { UsersMediaRepository } from '../repositories/users-media.repository';
 import type { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersMediaService } from '../services/users-media.service';
+import type { UsersProfileService } from '../services/users-profile.service';
 import { USER_EVENTS } from '../users.constants';
 
 type UsersProfileRepositoryMock = {
@@ -39,6 +40,10 @@ type DatabaseServiceMock = {
   transaction: jest.Mock;
 };
 
+type UsersProfileServiceMock = {
+  bumpUserSearchCacheVersion: jest.Mock;
+};
+
 const authUser: AuthUser = {
   id: '7c6e0f4e-7f8d-4c18-a0cf-906f4c8b2b91',
   email: 'player@example.com',
@@ -58,6 +63,7 @@ describe('UsersMediaService', () => {
   let observabilityService: ObservabilityServiceMock;
   let usersQueueService: UsersQueueServiceMock;
   let databaseService: DatabaseServiceMock;
+  let usersProfileService: UsersProfileServiceMock;
 
   beforeEach(() => {
     usersProfileRepository = {
@@ -110,6 +116,10 @@ describe('UsersMediaService', () => {
       transaction: jest.fn(async (callback) => callback('tx')),
     };
 
+    usersProfileService = {
+      bumpUserSearchCacheVersion: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new UsersMediaService(
       usersProfileRepository as unknown as UsersProfileRepository,
       usersMediaRepository as unknown as UsersMediaRepository,
@@ -118,6 +128,7 @@ describe('UsersMediaService', () => {
       observabilityService as unknown as ObservabilityService,
       usersQueueService as unknown as UsersQueueService,
       databaseService as unknown as DatabaseService,
+      usersProfileService as unknown as UsersProfileService,
     );
   });
 
@@ -160,6 +171,7 @@ describe('UsersMediaService', () => {
       userId: authUser.id,
       objectKey: result.objectKey,
     });
+    expect(usersProfileService.bumpUserSearchCacheVersion).toHaveBeenCalled();
 
     expect(observabilityService.recordSecurityEvent).toHaveBeenCalledWith(
       USER_EVENTS.avatarUploadUrlCreated,

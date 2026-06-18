@@ -1,11 +1,13 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import type { CacheService } from '../../infra/cache/cache.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { MailQueueService } from '../../mail/jobs/mail-queue.service';
 import { OtpService } from '../../otp/otp.service';
 import { SessionCacheService } from '../../session/session-cache.service';
+import { USER_SEARCH } from '../../users/users.constants';
 import { AuthRepository } from '../auth.repository';
 import { AuthService } from '../auth.service';
 import { AuthTokenVersionCacheService } from '../auth-token-version-cache.service';
@@ -83,6 +85,14 @@ type RevokedSession = {
 type Executor = unknown;
 
 type AuthRepositoryMock = {
+  findUserByEmailOrUsername: jest.Mock<
+    Promise<{ id: string; email: string; username: string } | null>,
+    [string, string]
+  >;
+  createUser: jest.Mock<
+    Promise<{ id: string; email: string; username: string }>,
+    [{ email: string; username: string; passwordHash: string }]
+  >;
   findUserByOAuthAccount: jest.Mock<
     Promise<AuthUserForSession | null>,
     [OAuthProvider, string]
@@ -215,6 +225,12 @@ type ObservabilityServiceMock = {
   >;
 };
 
+type CacheServiceMock = {
+  getClient: jest.Mock<{
+    incr: jest.Mock<Promise<number>, [string]>;
+  }>;
+};
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -229,6 +245,8 @@ describe('AuthService', () => {
   let oauthClientService: OAuthClientServiceMock;
   let oauthStateService: OAuthStateServiceMock;
   let observabilityService: ObservabilityServiceMock;
+  let cacheService: CacheServiceMock;
+  let cacheIncr: jest.Mock<Promise<number>, [string]>;
 
   const tx: Executor = Symbol('tx');
 
@@ -238,6 +256,41 @@ describe('AuthService', () => {
     sessions = [];
 
     authRepository = {
+      findUserByEmailOrUsername: jest.fn(async (email, username) => {
+        const user = users.find(
+          (item) => item.email === email || item.username === username,
+        );
+
+        if (!user) return null;
+
+        return {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+        };
+      }),
+
+      createUser: jest.fn(async (input) => {
+        const user: FakeUser = {
+          id: `user-${users.length + 1}`,
+          email: input.email,
+          username: input.username,
+          passwordHash: input.passwordHash,
+          emailVerified: false,
+          role: 'player',
+          status: 'active',
+          tokenVersion: 0,
+        };
+
+        users.push(user);
+
+        return {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+        };
+      }),
+
       findUserByOAuthAccount: jest.fn(async (provider, providerAccountId) => {
         const account = oauthAccounts.find(
           (item) =>
@@ -543,6 +596,13 @@ describe('AuthService', () => {
       >(),
     };
 
+    cacheIncr = jest.fn<Promise<number>, [string]>(async () => 2);
+    cacheService = {
+      getClient: jest.fn(() => ({
+        incr: cacheIncr,
+      })),
+    };
+
     service = new AuthService(
       authRepository as unknown as AuthRepository,
       mailQueueService as unknown as MailQueueService,
@@ -554,8 +614,52 @@ describe('AuthService', () => {
       oauthClientService as unknown as OAuthClientService,
       oauthStateService as unknown as OAuthStateService,
       authTokenVersionCacheService as unknown as AuthTokenVersionCacheService,
+      cacheService as unknown as CacheService,
       observabilityService as unknown as ObservabilityService,
     );
+  });
+
+  it('bumps user search cache after signup', async () => {
+    await service.signup(
+      {
+        email: 'NewPlayer@Example.com',
+        username: 'newplayer',
+        password: 'StrongPass123',
+      },
+      { ip: '127.0.0.1', userAgent: 'jest' },
+    );
+
+    expect(users).toHaveLength(1);
+    expect(users[0]).toMatchObject({
+      email: 'newplayer@example.com',
+      username: 'newplayer',
+      emailVerified: false,
+    });
+    expect(cacheIncr).toHaveBeenCalledWith(USER_SEARCH.cacheVersionKey);
+  });
+
+  it('bumps user search cache when email verification makes a user discoverable', async () => {
+    users.push({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'playerone',
+      passwordHash: 'password-hash',
+      emailVerified: false,
+      role: 'player',
+      status: 'active',
+      tokenVersion: 0,
+    });
+
+    await service.verifyEmail(
+      {
+        email: 'player@example.com',
+        otpCode: '123456',
+      },
+      { ip: '127.0.0.1', userAgent: 'jest' },
+    );
+
+    expect(users[0].emailVerified).toBe(true);
+    expect(cacheIncr).toHaveBeenCalledWith(USER_SEARCH.cacheVersionKey);
   });
 
   it('links google and discord with the same verified email to one user', async () => {
@@ -608,6 +712,8 @@ describe('AuthService', () => {
 
     expect(authRepository.createOAuthUser).toHaveBeenCalledTimes(1);
     expect(authRepository.linkOAuthAccount).toHaveBeenCalledTimes(1);
+    expect(cacheIncr).toHaveBeenCalledWith(USER_SEARCH.cacheVersionKey);
+    expect(cacheIncr).toHaveBeenCalledTimes(1);
     expect(sessions).toHaveLength(2);
     expect(sessions.every((session) => session.userId === users[0].id)).toBe(
       true,

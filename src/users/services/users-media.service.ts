@@ -9,6 +9,7 @@ import { CreateAvatarUploadUrlDto } from '../dto/avatar.dto';
 import { UsersQueueService } from '../jobs/users-queue.service';
 import { UsersMediaRepository } from '../repositories/users-media.repository';
 import { UsersProfileRepository } from '../repositories/users-profile.repository';
+import { UsersProfileService } from './users-profile.service';
 import { USER_AVATAR, USER_EVENTS } from '../users.constants';
 import type { UserAvatarContentType } from '../users.constants';
 
@@ -22,6 +23,7 @@ export class UsersMediaService {
     private readonly observabilityService: ObservabilityService,
     private readonly usersQueueService: UsersQueueService,
     private readonly databaseService: DatabaseService,
+    private readonly usersProfileService: UsersProfileService,
   ) {}
 
   async createAvatarUploadUrl(
@@ -79,6 +81,7 @@ export class UsersMediaService {
       userId: authUser.id,
       objectKey,
     });
+    await this.usersProfileService.bumpUserSearchCacheVersion();
 
     this.recordSecurityEvent(USER_EVENTS.avatarUploadUrlCreated, {
       userId: authUser.id,

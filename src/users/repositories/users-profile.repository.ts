@@ -51,7 +51,14 @@ export class UsersProfileRepository {
         updatedAt: users.updatedAt,
       })
       .from(users)
-      .where(and(eq(users.username, username), isNull(users.deletedAt)))
+      .where(
+        and(
+          eq(users.username, username),
+          eq(users.status, 'active'),
+          eq(users.emailVerified, true),
+          isNull(users.deletedAt),
+        ),
+      )
       .limit(1);
 
     return user ?? null;
@@ -85,6 +92,7 @@ export class UsersProfileRepository {
         and(
           isNull(users.deletedAt),
           eq(users.status, 'active'),
+          eq(users.emailVerified, true),
           gte(users.username, input.query),
           upperBound ? lt(users.username, upperBound) : undefined,
           input.cursor

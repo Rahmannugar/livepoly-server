@@ -10,6 +10,7 @@ import type { UsersQueueService } from '../jobs/users-queue.service';
 import type { UsersProfileRepository } from '../repositories/users-profile.repository';
 import { UsersProfileService } from '../services/users-profile.service';
 import type { UsersStatsService } from '../services/users-stats.service';
+import { USER_SEARCH } from '../users.constants';
 
 type UsersProfileRepositoryMock = {
   findActiveUserById: jest.Mock;
@@ -80,6 +81,7 @@ describe('UsersProfileService', () => {
   let usersQueueService: UsersQueueServiceMock;
   let cacheService: CacheServiceMock;
   let usersStatsService: UsersStatsServiceMock;
+  let cacheIncr: jest.Mock;
 
   beforeEach(() => {
     usersProfileRepository = {
@@ -118,9 +120,11 @@ describe('UsersProfileService', () => {
       enqueueDeletedUserCleanup: jest.fn().mockResolvedValue(undefined),
     };
 
+    cacheIncr = jest.fn().mockResolvedValue(2);
     cacheService = {
       getClient: jest.fn().mockReturnValue({
         get: jest.fn().mockResolvedValue(null),
+        incr: cacheIncr,
       }),
       getOrSet: jest.fn(),
     };
@@ -148,6 +152,26 @@ describe('UsersProfileService', () => {
     ).rejects.toBeInstanceOf(ConflictException);
 
     expect(usersProfileRepository.updateUser).not.toHaveBeenCalled();
+  });
+
+  it('bumps user search cache after profile update', async () => {
+    usersProfileRepository.findUserByUsername.mockResolvedValue(null);
+    usersProfileRepository.updateUser.mockResolvedValue({
+      id: authUser.id,
+      email: authUser.email,
+      username: 'renamed',
+      bio: 'New table energy.',
+      avatarObjectKey: 'avatars/user-1/avatar.webp',
+      createdAt: new Date('2026-05-14T12:00:00.000Z'),
+      updatedAt: new Date('2026-05-14T12:15:00.000Z'),
+    });
+
+    await service.updateMe(authUser, {
+      username: 'renamed',
+      bio: 'New table energy.',
+    });
+
+    expect(cacheIncr).toHaveBeenCalledWith(USER_SEARCH.cacheVersionKey);
   });
 
   it('soft deletes user, revokes sessions, clears cache, and enqueues cleanup', async () => {
@@ -186,6 +210,7 @@ describe('UsersProfileService', () => {
         avatarObjectKey: 'avatars/user-1/avatar.webp',
       }),
     );
+    expect(cacheIncr).toHaveBeenCalledWith(USER_SEARCH.cacheVersionKey);
   });
 
   it('returns public profile without email by username', async () => {

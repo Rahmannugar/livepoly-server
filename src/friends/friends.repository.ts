@@ -48,7 +48,14 @@ export class FriendsRepository {
         avatarObjectKey: users.avatarObjectKey,
       })
       .from(users)
-      .where(and(eq(users.username, username), isNull(users.deletedAt)))
+      .where(
+        and(
+          eq(users.username, username),
+          eq(users.status, 'active'),
+          eq(users.emailVerified, true),
+          isNull(users.deletedAt),
+        ),
+      )
       .limit(1);
 
     return user ?? null;

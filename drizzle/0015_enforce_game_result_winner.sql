@@ -1,4 +1,4 @@
-SET search_path TO "livepoly";--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
 ALTER TABLE "room_results" DROP CONSTRAINT "room_results_winner_required_chk";--> statement-breakpoint
 ALTER TABLE "room_results" ADD CONSTRAINT "room_results_winner_required_chk" CHECK (
         (

@@ -1,6 +1,6 @@
-SET search_path TO "livepoly";--> statement-breakpoint
-CREATE TYPE "livepoly"."game_mode" AS ENUM('ranked', 'casual');--> statement-breakpoint
-CREATE TYPE "livepoly"."game_status" AS ENUM('active', 'finished', 'cancelled');--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
+CREATE TYPE "public"."game_mode" AS ENUM('ranked', 'casual');--> statement-breakpoint
+CREATE TYPE "public"."game_status" AS ENUM('active', 'finished', 'cancelled');--> statement-breakpoint
 CREATE TABLE "games" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"room_id" uuid NOT NULL,
@@ -27,8 +27,8 @@ CREATE TABLE "games" (
       )
 );
 --> statement-breakpoint
-ALTER TABLE "games" ADD CONSTRAINT "games_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "livepoly"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "games" ADD CONSTRAINT "games_current_turn_room_player_fk" FOREIGN KEY ("room_id","current_turn_room_player_id") REFERENCES "livepoly"."room_players"("room_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "games" ADD CONSTRAINT "games_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "public"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "games" ADD CONSTRAINT "games_current_turn_room_player_fk" FOREIGN KEY ("room_id","current_turn_room_player_id") REFERENCES "public"."room_players"("room_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "games_room_id_unique_idx" ON "games" USING btree ("room_id");--> statement-breakpoint
 CREATE INDEX "games_status_idx" ON "games" USING btree ("status");--> statement-breakpoint
 CREATE INDEX "games_mode_idx" ON "games" USING btree ("mode");--> statement-breakpoint

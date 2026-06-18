@@ -1,3 +1,3 @@
-SET search_path TO "livepoly";--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
 DROP TABLE "otp_tokens" CASCADE;--> statement-breakpoint
-DROP TYPE "livepoly"."otp_purpose";
+DROP TYPE "public"."otp_purpose";

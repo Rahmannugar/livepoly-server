@@ -1,6 +1,6 @@
-SET search_path TO "livepoly";--> statement-breakpoint
-CREATE TYPE "livepoly"."job_status" AS ENUM('queued', 'processing', 'completed', 'failed');--> statement-breakpoint
-CREATE TYPE "livepoly"."outbox_event_status" AS ENUM('queued', 'processing', 'published', 'failed');--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
+CREATE TYPE "public"."job_status" AS ENUM('queued', 'processing', 'completed', 'failed');--> statement-breakpoint
+CREATE TYPE "public"."outbox_event_status" AS ENUM('queued', 'processing', 'published', 'failed');--> statement-breakpoint
 CREATE TABLE "user_avatar_uploads" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"user_id" uuid NOT NULL,
@@ -54,7 +54,7 @@ CREATE TABLE "outbox_events" (
 --> statement-breakpoint
 DROP INDEX "room_players_room_user_unique_idx";--> statement-breakpoint
 DROP INDEX "room_spectators_room_user_unique_idx";--> statement-breakpoint
-ALTER TABLE "user_avatar_uploads" ADD CONSTRAINT "user_avatar_uploads_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "livepoly"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "user_avatar_uploads" ADD CONSTRAINT "user_avatar_uploads_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "user_avatar_uploads_object_key_unique_idx" ON "user_avatar_uploads" USING btree ("object_key");--> statement-breakpoint
 CREATE INDEX "user_avatar_uploads_user_status_idx" ON "user_avatar_uploads" USING btree ("user_id","status");--> statement-breakpoint
 CREATE INDEX "user_avatar_uploads_expires_at_idx" ON "user_avatar_uploads" USING btree ("expires_at");--> statement-breakpoint

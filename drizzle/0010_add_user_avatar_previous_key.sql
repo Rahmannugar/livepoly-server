@@ -1,2 +1,2 @@
-SET search_path TO "livepoly";--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
 ALTER TABLE "user_avatar_uploads" ADD COLUMN "previous_avatar_object_key" text;

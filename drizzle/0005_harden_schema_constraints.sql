@@ -1,12 +1,12 @@
-SET search_path TO "livepoly";--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
 ALTER TABLE "room_player_results" DROP CONSTRAINT "room_player_results_room_player_id_room_players_id_fk";
 --> statement-breakpoint
 ALTER TABLE "room_results" DROP CONSTRAINT "room_results_winner_room_player_id_room_players_id_fk";
 --> statement-breakpoint
 ALTER TABLE "room_results" ALTER COLUMN "winner_room_player_id" DROP NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "room_players_room_id_id_unique_idx" ON "room_players" USING btree ("room_id","id");--> statement-breakpoint
-ALTER TABLE "room_player_results" ADD CONSTRAINT "room_player_results_room_player_fk" FOREIGN KEY ("room_id","room_player_id") REFERENCES "livepoly"."room_players"("room_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_results" ADD CONSTRAINT "room_results_winner_room_player_fk" FOREIGN KEY ("room_id","winner_room_player_id") REFERENCES "livepoly"."room_players"("room_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_player_results" ADD CONSTRAINT "room_player_results_room_player_fk" FOREIGN KEY ("room_id","room_player_id") REFERENCES "public"."room_players"("room_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_results" ADD CONSTRAINT "room_results_winner_room_player_fk" FOREIGN KEY ("room_id","winner_room_player_id") REFERENCES "public"."room_players"("room_id","id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "oauth_accounts_user_provider_unique_idx" ON "oauth_accounts" USING btree ("user_id","provider");--> statement-breakpoint
 CREATE UNIQUE INDEX "rating_history_room_user_unique_idx" ON "rating_history" USING btree ("room_id","user_id");--> statement-breakpoint
 ALTER TABLE "player_stats" ADD CONSTRAINT "player_stats_games_played_chk" CHECK ("player_stats"."games_played" >= 0);--> statement-breakpoint

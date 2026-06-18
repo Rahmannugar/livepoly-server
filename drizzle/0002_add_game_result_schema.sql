@@ -1,6 +1,6 @@
-SET search_path TO "livepoly";--> statement-breakpoint
-CREATE TYPE "livepoly"."game_end_reason" AS ENUM('bankruptcy', 'time_elapsed', 'cancelled');--> statement-breakpoint
-CREATE TYPE "livepoly"."leaderboard_period" AS ENUM('weekly', 'monthly');--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
+CREATE TYPE "public"."game_end_reason" AS ENUM('bankruptcy', 'time_elapsed', 'cancelled');--> statement-breakpoint
+CREATE TYPE "public"."leaderboard_period" AS ENUM('weekly', 'monthly');--> statement-breakpoint
 CREATE TABLE "leaderboard_snapshots" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"period_type" "leaderboard_period" NOT NULL,
@@ -45,13 +45,13 @@ CREATE TABLE "room_results" (
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-ALTER TABLE "rating_history" ADD CONSTRAINT "rating_history_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "livepoly"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "rating_history" ADD CONSTRAINT "rating_history_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "livepoly"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_player_results" ADD CONSTRAINT "room_player_results_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "livepoly"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_player_results" ADD CONSTRAINT "room_player_results_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "livepoly"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_results" ADD CONSTRAINT "room_results_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "livepoly"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_results" ADD CONSTRAINT "room_results_winner_room_player_id_room_players_id_fk" FOREIGN KEY ("winner_room_player_id") REFERENCES "livepoly"."room_players"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_results" ADD CONSTRAINT "room_results_winner_user_id_users_id_fk" FOREIGN KEY ("winner_user_id") REFERENCES "livepoly"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rating_history" ADD CONSTRAINT "rating_history_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rating_history" ADD CONSTRAINT "rating_history_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "public"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_player_results" ADD CONSTRAINT "room_player_results_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "public"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_player_results" ADD CONSTRAINT "room_player_results_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_results" ADD CONSTRAINT "room_results_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "public"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_results" ADD CONSTRAINT "room_results_winner_room_player_id_room_players_id_fk" FOREIGN KEY ("winner_room_player_id") REFERENCES "public"."room_players"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_results" ADD CONSTRAINT "room_results_winner_user_id_users_id_fk" FOREIGN KEY ("winner_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "leaderboard_snapshots_period_unique_idx" ON "leaderboard_snapshots" USING btree ("period_type","period_start","period_end");--> statement-breakpoint
 CREATE INDEX "rating_history_user_id_idx" ON "rating_history" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "rating_history_room_id_idx" ON "rating_history" USING btree ("room_id");--> statement-breakpoint

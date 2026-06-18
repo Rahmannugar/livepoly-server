@@ -1,3 +1,3 @@
-SET search_path TO "livepoly";--> statement-breakpoint
+SET search_path TO "public";--> statement-breakpoint
 ALTER TABLE "leaderboard_snapshots" ALTER COLUMN "period_start" SET DATA TYPE timestamp with time zone;--> statement-breakpoint
 ALTER TABLE "leaderboard_snapshots" ALTER COLUMN "period_end" SET DATA TYPE timestamp with time zone;

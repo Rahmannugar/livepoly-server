@@ -22,6 +22,7 @@ import { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import { CreateRoomDto } from '../dto/create-room.dto';
 import { InviteRoomDto } from '../dto/invite-room.dto';
 import { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
+import { RoomsStreamService } from './rooms-stream.service';
 import {
   DEFAULT_ROOM_DURATION_MINUTES,
   LIVE_ROOMS_LIMIT,
@@ -48,6 +49,7 @@ export class RoomsLobbyService {
     private readonly gameResultsService: GameResultsService,
     private readonly gameCommandsService: GameCommandsService,
     private readonly gameRealtimePublisher: GameRealtimePublisher,
+    private readonly roomsStreamService: RoomsStreamService,
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
@@ -95,6 +97,11 @@ export class RoomsLobbyService {
           boardKey: room.boardKey,
         });
         this.observabilityService.recordMetric(ROOM_METRICS.created);
+        await this.roomsStreamService.publishRoomChanged({
+          roomId: room.id,
+          roomCode: room.code,
+          event: 'room.created',
+        });
 
         return this.getRoomPayload(room.id, room, authUser.id);
       } catch (error) {
@@ -263,6 +270,11 @@ export class RoomsLobbyService {
       seatNumber: result.seatNumber,
     });
     this.observabilityService.recordMetric(ROOM_METRICS.joined);
+    await this.roomsStreamService.publishRoomChanged({
+      roomId: result.room.id,
+      roomCode: result.room.code,
+      event: 'room.joined',
+    });
 
     return this.getRoomPayload(result.room.id, result.room, authUser.id);
   }
@@ -326,6 +338,11 @@ export class RoomsLobbyService {
         userId: authUser.id,
       });
       this.observabilityService.recordMetric(ROOM_METRICS.cancelled);
+      await this.roomsStreamService.publishRoomChanged({
+        roomId: room.id,
+        roomCode: room.code,
+        event: 'room.cancelled',
+      });
 
       return { message: 'Room cancelled' };
     }
@@ -346,19 +363,26 @@ export class RoomsLobbyService {
             lockedRoom.id,
             tx,
           );
+        const activeGame =
+          await this.roomsLobbyRepository.findActiveGameByRoomId(
+            lockedRoom.id,
+            tx,
+          );
 
-        if (joinedHumanCount <= 1) {
-          const activeGame =
-            await this.roomsLobbyRepository.findActiveGameByRoomId(
-              lockedRoom.id,
-              tx,
-            );
-
-          if (activeGame) {
+        if (activeGame) {
+          if (joinedHumanCount <= 1) {
             return {
               activeGameId: activeGame.id,
+              shouldFinishAfterLastHumanLeft: true,
+              leavingRoomPlayerId: player.id,
             };
           }
+
+          return {
+            activeGameId: activeGame.id,
+            shouldFinishAfterLastHumanLeft: false,
+            leavingRoomPlayerId: player.id,
+          };
         }
       }
 
@@ -372,16 +396,38 @@ export class RoomsLobbyService {
 
       return {
         activeGameId: null,
+        shouldFinishAfterLastHumanLeft: false,
+        leavingRoomPlayerId: player.id,
       };
     });
 
     if (leaveResult.activeGameId) {
       try {
-        await this.finalizeRoomAfterLastHumanLeft({
-          roomId: room.id,
-          roomCode: room.code,
-          gameId: leaveResult.activeGameId,
-        });
+        if (leaveResult.shouldFinishAfterLastHumanLeft) {
+          await this.finalizeRoomAfterLastHumanLeft({
+            roomId: room.id,
+            roomCode: room.code,
+            gameId: leaveResult.activeGameId,
+          });
+        } else {
+          const result = await this.gameCommandsService.executeIntent({
+            gameId: leaveResult.activeGameId,
+            roomPlayerId: leaveResult.leavingRoomPlayerId,
+            source: 'player',
+            intent: {
+              type: 'declare_bankruptcy',
+              payload: {
+                roomPlayerId: leaveResult.leavingRoomPlayerId,
+                creditorRoomPlayerId: null,
+              },
+            },
+          });
+
+          await this.publishGameCommandResultBestEffort({
+            gameId: leaveResult.activeGameId,
+            result,
+          });
+        }
 
         await this.databaseService.transaction(async (tx) => {
           const lockedRoom = await this.roomsLobbyRepository.lockRoomByCode(
@@ -425,6 +471,11 @@ export class RoomsLobbyService {
       userId: authUser.id,
     });
     this.observabilityService.recordMetric(ROOM_METRICS.left);
+    await this.roomsStreamService.publishRoomChanged({
+      roomId: room.id,
+      roomCode: room.code,
+      event: 'room.left',
+    });
 
     return { message: 'Room left' };
   }
@@ -484,16 +535,28 @@ export class RoomsLobbyService {
       eventTypes: result.events.map((event) => event.type),
     });
 
+    await this.publishGameCommandResultBestEffort({
+      gameId: input.gameId,
+      result,
+    });
+
+    this.recordFinishedAfterLastHumanLeft(input);
+  }
+
+  private async publishGameCommandResultBestEffort(input: {
+    gameId: string;
+    result: Awaited<ReturnType<GameCommandsService['executeIntent']>>;
+  }): Promise<void> {
     try {
       await this.gameRealtimePublisher.publishCommandResult(
         input.gameId,
-        result,
+        input.result,
       );
     } catch (error) {
       this.observabilityService.recordEvent(GAME_EVENTS.realtimePublishFailed, {
         gameId: input.gameId,
-        phase: result.state.phase,
-        turnNumber: result.state.turnNumber,
+        phase: input.result.state.phase,
+        turnNumber: input.result.state.turnNumber,
         errorName: error instanceof Error ? error.name : undefined,
       });
 
@@ -501,8 +564,6 @@ export class RoomsLobbyService {
         GAME_METRICS.realtimePublishFailed,
       );
     }
-
-    this.recordFinishedAfterLastHumanLeft(input);
   }
 
   private recordFinishedAfterLastHumanLeft(input: {
@@ -601,6 +662,11 @@ export class RoomsLobbyService {
       userId: authUser.id,
     });
     this.observabilityService.recordMetric(ROOM_METRICS.spectatorJoined);
+    await this.roomsStreamService.publishRoomChanged({
+      roomId: room.id,
+      roomCode: room.code,
+      event: 'room.spectator_joined',
+    });
 
     return {
       message: 'Spectating room',
@@ -630,6 +696,11 @@ export class RoomsLobbyService {
       userId: authUser.id,
     });
     this.observabilityService.recordMetric(ROOM_METRICS.spectatorLeft);
+    await this.roomsStreamService.publishRoomChanged({
+      roomId: room.id,
+      roomCode: room.code,
+      event: 'room.spectator_left',
+    });
 
     return {
       message: 'Stopped spectating room',

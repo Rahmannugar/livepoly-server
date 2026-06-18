@@ -188,15 +188,4 @@ describe('UsersProfileService', () => {
     );
   });
 
-  it('does not return deleted users in profile lookup', async () => {
-    usersProfileRepository.findActiveUserByUsername.mockResolvedValue(null);
-
-    await expect(service.getByUsername('playerone')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
-
-    expect(
-      usersProfileRepository.findActiveUserByUsername,
-    ).toHaveBeenCalledWith('playerone');
-  });
 });

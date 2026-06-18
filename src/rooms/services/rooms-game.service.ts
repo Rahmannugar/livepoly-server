@@ -17,6 +17,7 @@ import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import type { StartRoomDto } from '../dto/start-room.dto';
 import { RoomsGameRepository } from '../repositories/rooms-game.repository';
+import { RoomsStreamService } from './rooms-stream.service';
 import {
   BOT_NAMES,
   type BotDifficulty,
@@ -52,6 +53,7 @@ export class RoomsGameService {
     private readonly observabilityService: ObservabilityService,
     private readonly gameSnapshotService: GameSnapshotService,
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
+    private readonly roomsStreamService: RoomsStreamService,
   ) {}
 
   async startRoom(authUser: AuthUser, code: string, dto: StartRoomDto = {}) {
@@ -193,6 +195,11 @@ export class RoomsGameService {
       botPlayerCount: result.players.length - result.humanPlayerCount,
     });
     this.observabilityService.recordMetric(ROOM_METRICS.started(result.mode));
+    await this.roomsStreamService.publishRoomChanged({
+      roomId: result.room.id,
+      roomCode: result.room.code,
+      event: 'room.started',
+    });
 
     return {
       room: {
@@ -237,6 +244,11 @@ export class RoomsGameService {
         input.error instanceof Error ? input.error.message : 'Unknown error',
     });
     this.observabilityService.recordMetric(ROOM_METRICS.startSetupFailed);
+    await this.roomsStreamService.publishRoomChanged({
+      roomId: input.roomId,
+      roomCode: input.roomCode,
+      event: 'room.cancelled',
+    });
   }
 
   private buildBotPlayers(

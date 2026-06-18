@@ -85,14 +85,6 @@ export class UsersController {
     return this.usersStatsService.listMatches(username, dto);
   }
 
-  @UsersDocs.GetByUsername()
-  @RateLimit(...USERS_RATE_LIMIT_RULES.getByUsername)
-  @Get(':username')
-  @HttpCode(HttpStatus.OK)
-  getByUsername(@Param('username') username: string) {
-    return this.usersProfileService.getByUsername(username);
-  }
-
   @UsersDocs.Search()
   @RateLimit(...USERS_RATE_LIMIT_RULES.search)
   @Get('search')

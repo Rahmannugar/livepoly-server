@@ -8,6 +8,7 @@ import type { ObservabilityService } from '../../infra/observability/observabili
 import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
 import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsGameService } from '../services/rooms-game.service';
+import type { RoomsStreamService } from '../services/rooms-stream.service';
 
 type RoomsGameRepositoryMock = {
   lockRoomByCode: jest.Mock;
@@ -40,6 +41,10 @@ type GameSnapshotServiceMock = {
 type GameTurnTimerQueueServiceMock = {
   enqueueTurnTimer: jest.Mock;
   enqueueGameExpiry: jest.Mock;
+};
+
+type RoomsStreamServiceMock = {
+  publishRoomChanged: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -123,6 +128,7 @@ describe('RoomsGameService', () => {
   let observabilityService: ObservabilityServiceMock;
   let gameSnapshotService: GameSnapshotServiceMock;
   let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
+  let roomsStreamService: RoomsStreamServiceMock;
 
   const tx = { tx: true };
 
@@ -162,6 +168,10 @@ describe('RoomsGameService', () => {
       enqueueGameExpiry: jest.fn().mockResolvedValue(undefined),
     };
 
+    roomsStreamService = {
+      publishRoomChanged: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsGameService(
       roomsGameRepository as unknown as RoomsGameRepository,
       databaseService as unknown as DatabaseService,
@@ -169,6 +179,7 @@ describe('RoomsGameService', () => {
       observabilityService as unknown as ObservabilityService,
       gameSnapshotService as unknown as GameSnapshotService,
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
+      roomsStreamService as unknown as RoomsStreamService,
     );
   });
 

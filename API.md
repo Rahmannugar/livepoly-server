@@ -38,7 +38,6 @@ Base path: `/users`
 - `PATCH /users/me`
 - `DELETE /users/me`
 - `POST /users/me/avatar/upload-url`
-- `GET /users/:username`
 - `GET /users/:username/matches`
 - `GET /users/search`
 

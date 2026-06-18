@@ -5,10 +5,13 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  MessageEvent,
   Param,
   Post,
+  Sse,
   UseGuards,
 } from '@nestjs/common';
+import type { Observable } from 'rxjs';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
@@ -21,6 +24,7 @@ import { StartRoomDto } from './dto/start-room.dto';
 import { ROOMS_RATE_LIMIT_RULES } from './rooms-rate-limit.rules';
 import { RoomsGameService } from './services/rooms-game.service';
 import { RoomsLobbyService } from './services/rooms-lobby.service';
+import { RoomsStreamService } from './services/rooms-stream.service';
 
 @RoomsDocs.Controller()
 @UseGuards(AuthGuard, RateLimitGuard)
@@ -29,6 +33,7 @@ export class RoomsController {
   constructor(
     private readonly roomsLobbyService: RoomsLobbyService,
     private readonly roomsGameService: RoomsGameService,
+    private readonly roomsStreamService: RoomsStreamService,
   ) {}
 
   @RoomsDocs.CreateRoom()
@@ -56,6 +61,12 @@ export class RoomsController {
   @HttpCode(HttpStatus.OK)
   getCurrentRoom(@AuthUserDecorator() authUser: AuthUser) {
     return this.roomsLobbyService.getCurrentRoom(authUser);
+  }
+
+  @RateLimit(...ROOMS_RATE_LIMIT_RULES.read)
+  @Sse('stream/:code')
+  streamRoom(@Param('code') code: string): Observable<MessageEvent> {
+    return this.roomsStreamService.streamRoom(code);
   }
 
   @RoomsDocs.GetRoomByCode()

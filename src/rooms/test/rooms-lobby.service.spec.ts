@@ -13,6 +13,7 @@ import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service'
 import type { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
 import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsLobbyService } from '../services/rooms-lobby.service';
+import type { RoomsStreamService } from '../services/rooms-stream.service';
 
 type RoomsLobbyRepositoryMock = {
   findActiveRoomForUser: jest.Mock;
@@ -78,6 +79,10 @@ type GameCommandsServiceMock = {
 
 type GameRealtimePublisherMock = {
   publishCommandResult: jest.Mock;
+};
+
+type RoomsStreamServiceMock = {
+  publishRoomChanged: jest.Mock;
 };
 
 const authUser: AuthUser = {
@@ -191,6 +196,7 @@ describe('RoomsLobbyService', () => {
   let gameResultsService: GameResultsServiceMock;
   let gameCommandsService: GameCommandsServiceMock;
   let gameRealtimePublisher: GameRealtimePublisherMock;
+  let roomsStreamService: RoomsStreamServiceMock;
 
   const tx = { tx: true };
 
@@ -275,6 +281,10 @@ describe('RoomsLobbyService', () => {
       publishCommandResult: jest.fn().mockResolvedValue(undefined),
     };
 
+    roomsStreamService = {
+      publishRoomChanged: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsLobbyService(
       roomsLobbyRepository as unknown as RoomsLobbyRepository,
       databaseService as unknown as DatabaseService,
@@ -285,6 +295,7 @@ describe('RoomsLobbyService', () => {
       gameResultsService as unknown as GameResultsService,
       gameCommandsService as unknown as GameCommandsService,
       gameRealtimePublisher as unknown as GameRealtimePublisher,
+      roomsStreamService as unknown as RoomsStreamService,
     );
   });
 
@@ -672,6 +683,90 @@ describe('RoomsLobbyService', () => {
       userId: authUser.id,
     });
     expect(databaseService.transaction).not.toHaveBeenCalled();
+  });
+
+  it('removes a leaving human from an active game when other humans remain', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined' as const,
+    });
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.countJoinedHumanPlayers.mockResolvedValue(2);
+    roomsLobbyRepository.findActiveGameByRoomId.mockResolvedValue({
+      id: 'game-1',
+      roomId: activeRoom.id,
+      status: 'active' as const,
+    });
+    gameCommandsService.executeIntent.mockResolvedValueOnce({
+      state: {
+        ...activeGameState,
+        players: activeGameState.players.map((player) =>
+          player.roomPlayerId === 'player-1'
+            ? { ...player, bankrupt: true }
+            : player,
+        ),
+      },
+      events: [
+        {
+          type: 'player_bankrupt',
+          roomPlayerId: 'player-1',
+          creditorRoomPlayerId: null,
+          transfer: {
+            cash: 1500,
+            propertyKeys: [],
+          },
+        },
+      ],
+      intentType: 'declare_bankruptcy',
+    });
+    roomsLobbyRepository.leaveRoom.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'left' as const,
+    });
+
+    const result = await service.leaveRoom(authUser, activeRoom.code);
+
+    expect(result).toEqual({ message: 'Room left' });
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      roomPlayerId: 'player-1',
+      source: 'player',
+      intent: {
+        type: 'declare_bankruptcy',
+        payload: {
+          roomPlayerId: 'player-1',
+          creditorRoomPlayerId: null,
+        },
+      },
+    });
+    expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
+      'game-1',
+      expect.objectContaining({
+        intentType: 'declare_bankruptcy',
+        state: expect.objectContaining({
+          players: expect.arrayContaining([
+            expect.objectContaining({
+              roomPlayerId: 'player-1',
+              bankrupt: true,
+            }),
+          ]),
+        }),
+      }),
+    );
+    expect(roomsLobbyRepository.leaveRoom).toHaveBeenCalledWith(
+      {
+        roomId: activeRoom.id,
+        userId: authUser.id,
+      },
+      tx,
+    );
   });
 
   it('finalizes an active game when the last human player leaves', async () => {

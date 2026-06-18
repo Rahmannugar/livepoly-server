@@ -38,32 +38,6 @@ export class UsersProfileService {
     private readonly observabilityService: ObservabilityService,
   ) {}
 
-  async getByUsername(username: string) {
-    const normalizedUsername = username.trim().toLowerCase();
-    const user =
-      await this.usersProfileRepository.findActiveUserByUsername(
-        normalizedUsername,
-      );
-
-    if (!user) {
-      this.recordSecurityEvent(USER_EVENTS.publicProfileViewFailed, {
-        targetUsername: normalizedUsername,
-        reason: 'user_not_found',
-      });
-
-      throw new NotFoundException('User not found');
-    }
-
-    const stats = await this.usersStatsService.getStats(user.id);
-
-    this.recordSecurityEvent(USER_EVENTS.publicProfileViewed, {
-      targetUserId: user.id,
-      targetUsername: user.username,
-    });
-
-    return this.profile(user, stats);
-  }
-
   async searchUsers(dto: SearchUsersDto): Promise<UserSearchResponse> {
     const query = dto.query.trim().toLowerCase();
 

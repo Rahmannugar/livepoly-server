@@ -190,22 +190,4 @@ export const UsersDocs = {
       }),
     ),
 
-  GetByUsername: () =>
-    applyDecorators(
-      ApiBearerAuth('accessToken'),
-      ApiOperation({ summary: 'Get user profile by username' }),
-      ApiParam({
-        name: 'username',
-        example: 'rahmannugar',
-      }),
-      ApiOkResponse({ type: UserProfileResponseDto }),
-      ApiResponse({
-        status: HttpStatus.NOT_FOUND,
-        description: 'User not found',
-      }),
-      ApiResponse({
-        status: HttpStatus.UNAUTHORIZED,
-        description: 'Authentication required',
-      }),
-    ),
 };

@@ -702,7 +702,9 @@ describe('RoomsLobbyService', () => {
     const result = await service.leaveRoom(authUser, activeRoom.code);
 
     expect(result).toEqual({ message: 'Room left' });
-    expect(roomsLobbyRepository.lockRoomByCode).toHaveBeenCalledWith(
+    expect(databaseService.transaction).toHaveBeenCalledTimes(2);
+    expect(roomsLobbyRepository.lockRoomByCode).toHaveBeenNthCalledWith(
+      1,
       activeRoom.code,
       tx,
     );
@@ -727,6 +729,13 @@ describe('RoomsLobbyService', () => {
         state: expect.objectContaining({ phase: 'finished' }),
       }),
     );
+    expect(roomsLobbyRepository.leaveRoom).toHaveBeenCalledWith(
+      {
+        roomId: activeRoom.id,
+        userId: authUser.id,
+      },
+      tx,
+    );
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       ROOM_EVENTS.finishedAfterLastHumanLeft,
       {
@@ -740,7 +749,7 @@ describe('RoomsLobbyService', () => {
     );
   });
 
-  it('keeps leave successful and records when last-human result finalization fails', async () => {
+  it('does not leave the room when last-human result finalization fails', async () => {
     const error = new Error('finalization failed');
 
     roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
@@ -768,10 +777,11 @@ describe('RoomsLobbyService', () => {
     gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
     gameCommandsService.executeIntent.mockRejectedValue(error);
 
-    await expect(service.leaveRoom(authUser, activeRoom.code)).resolves.toEqual(
-      { message: 'Room left' },
+    await expect(service.leaveRoom(authUser, activeRoom.code)).rejects.toThrow(
+      'finalization failed',
     );
 
+    expect(roomsLobbyRepository.leaveRoom).not.toHaveBeenCalled();
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       ROOM_EVENTS.finishAfterLastHumanLeftFailed,
       {
@@ -820,6 +830,7 @@ describe('RoomsLobbyService', () => {
       { message: 'Room left' },
     );
 
+    expect(databaseService.transaction).toHaveBeenCalledTimes(2);
     expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
     expect(gameResultsService.finalizeAbandonedFinishedGame).toHaveBeenCalledWith(
       {
@@ -870,6 +881,7 @@ describe('RoomsLobbyService', () => {
       { message: 'Room left' },
     );
 
+    expect(databaseService.transaction).toHaveBeenCalledTimes(2);
     expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
       gameId: 'game-1',
       source: 'timer',

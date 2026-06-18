@@ -340,7 +340,29 @@ export class RoomsLobbyService {
         throw new NotFoundException('Room not found');
       }
 
-      const leftPlayer = await this.roomsLobbyRepository.leaveRoom(
+      if (lockedRoom.status === 'active') {
+        const joinedHumanCount =
+          await this.roomsLobbyRepository.countJoinedHumanPlayers(
+            lockedRoom.id,
+            tx,
+          );
+
+        if (joinedHumanCount <= 1) {
+          const activeGame =
+            await this.roomsLobbyRepository.findActiveGameByRoomId(
+              lockedRoom.id,
+              tx,
+            );
+
+          if (activeGame) {
+            return {
+              activeGameId: activeGame.id,
+            };
+          }
+        }
+      }
+
+      await this.roomsLobbyRepository.leaveRoom(
         {
           roomId: lockedRoom.id,
           userId: authUser.id,
@@ -348,46 +370,10 @@ export class RoomsLobbyService {
         tx,
       );
 
-      if (!leftPlayer) {
-        return {
-          activeGameId: null,
-        };
-      }
-
-      if (lockedRoom.status !== 'active') {
-        return {
-          activeGameId: null,
-        };
-      }
-
-      const joinedHumanCount =
-        await this.roomsLobbyRepository.countJoinedHumanPlayers(
-          lockedRoom.id,
-          tx,
-        );
-
-      if (joinedHumanCount > 0) {
-        return {
-          activeGameId: null,
-        };
-      }
-
-      const activeGame = await this.roomsLobbyRepository.findActiveGameByRoomId(
-        lockedRoom.id,
-        tx,
-      );
-
       return {
-        activeGameId: activeGame?.id ?? null,
+        activeGameId: null,
       };
     });
-
-    this.observabilityService.recordEvent(ROOM_EVENTS.left, {
-      roomId: room.id,
-      roomCode: room.code,
-      userId: authUser.id,
-    });
-    this.observabilityService.recordMetric(ROOM_METRICS.left);
 
     if (leaveResult.activeGameId) {
       try {
@@ -395,6 +381,25 @@ export class RoomsLobbyService {
           roomId: room.id,
           roomCode: room.code,
           gameId: leaveResult.activeGameId,
+        });
+
+        await this.databaseService.transaction(async (tx) => {
+          const lockedRoom = await this.roomsLobbyRepository.lockRoomByCode(
+            code,
+            tx,
+          );
+
+          if (!lockedRoom) {
+            throw new NotFoundException('Room not found');
+          }
+
+          await this.roomsLobbyRepository.leaveRoom(
+            {
+              roomId: lockedRoom.id,
+              userId: authUser.id,
+            },
+            tx,
+          );
         });
       } catch (error) {
         this.observabilityService.recordEvent(
@@ -409,8 +414,17 @@ export class RoomsLobbyService {
         this.observabilityService.recordMetric(
           ROOM_METRICS.finishAfterLastHumanLeftFailed,
         );
+
+        throw error;
       }
     }
+
+    this.observabilityService.recordEvent(ROOM_EVENTS.left, {
+      roomId: room.id,
+      roomCode: room.code,
+      userId: authUser.id,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.left);
 
     return { message: 'Room left' };
   }

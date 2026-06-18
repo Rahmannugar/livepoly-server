@@ -167,11 +167,13 @@ export class GameBotService {
       };
     }
 
+    const bidAmount = this.getAuctionBidAmount(bot, tile, nextBid, maxBid);
+
     return {
       type: 'place_auction_bid',
       payload: {
         roomPlayerId: bot.roomPlayerId,
-        amount: nextBid,
+        amount: bidAmount,
       },
     };
   }
@@ -293,6 +295,33 @@ export class GameBotService {
       tile.price * GAME_BOTS.auctionMaxPriceRatio[difficulty] +
         strategicPremium * GAME_BOTS.rentPotentialWeight[difficulty],
     );
+  }
+
+  private getAuctionBidAmount(
+    bot: GameEnginePlayer,
+    tile: OwnableTile,
+    minimumBid: number,
+    maxBid: number,
+  ): number {
+    const affordableMax = bot.cash - this.cashReserve(bot);
+    const cappedMaxBid = Math.min(maxBid, affordableMax);
+    const bidRoom = cappedMaxBid - minimumBid;
+
+    if (bidRoom <= 0) {
+      return minimumBid;
+    }
+
+    const difficulty = this.difficulty(bot);
+    const tileStep = Math.max(
+      1,
+      Math.floor(tile.price * GAME_BOTS.auctionBidStepRatio[difficulty]),
+    );
+    const pressureStep =
+      difficulty === 'hard' && tile.kind === 'property'
+        ? Math.floor(this.rentPotentialScore(tile))
+        : 0;
+
+    return minimumBid + Math.min(bidRoom, tileStep + pressureStep);
   }
 
   private cashReserve(bot: GameEnginePlayer): number {

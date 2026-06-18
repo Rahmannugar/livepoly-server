@@ -169,6 +169,13 @@
       "when": 1781322000000,
       "tag": "0023_update_room_duration_options",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1781936400000,
+      "tag": "0024_add_abandoned_game_result_reason",
+      "breakpoints": true
     }
   ]
 }

@@ -46,6 +46,11 @@ export const GAME_BOTS = {
     normal: 0.62,
     hard: 0.78,
   },
+  auctionBidStepRatio: {
+    easy: 0.03,
+    normal: 0.06,
+    hard: 0.1,
+  },
   setCompletionBonus: {
     easy: 10,
     normal: 70,

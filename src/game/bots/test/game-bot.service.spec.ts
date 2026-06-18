@@ -169,4 +169,93 @@ describe('GameBotService', () => {
       },
     });
   });
+
+  it('raises auction bids by difficulty-scaled amounts within valuation', () => {
+    const state = createBotState({
+      phase: 'awaiting_auction_bid',
+      pendingTileKey: null,
+      auction: {
+        tileKey: TEST_BOARD_TILES.airport,
+        currentBid: 80,
+        highestBidderRoomPlayerId: 'room-player-2',
+        currentBidderRoomPlayerId: 'bot-player-1',
+        bidExpiresAt: Date.now() + 25_000,
+        activeRoomPlayerIds: ['bot-player-1', 'room-player-2'],
+        passedRoomPlayerIds: [],
+      },
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'normal',
+          botName: 'Ada',
+          seatNumber: 1,
+          cash: 1500,
+        }),
+        createGameEnginePlayer({
+          roomPlayerId: 'room-player-2',
+          userId: 'user-2',
+          username: 'playertwo',
+          seatNumber: 2,
+        }),
+      ],
+    });
+
+    expect(service.chooseDecision(state)).toEqual({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'place_auction_bid',
+        payload: {
+          roomPlayerId: 'bot-player-1',
+          amount: 93,
+        },
+      },
+    });
+  });
+
+  it('passes auction bids above its valuation', () => {
+    const state = createBotState({
+      phase: 'awaiting_auction_bid',
+      pendingTileKey: null,
+      auction: {
+        tileKey: TEST_BOARD_TILES.airport,
+        currentBid: 160,
+        highestBidderRoomPlayerId: 'room-player-2',
+        currentBidderRoomPlayerId: 'bot-player-1',
+        bidExpiresAt: Date.now() + 25_000,
+        activeRoomPlayerIds: ['bot-player-1', 'room-player-2'],
+        passedRoomPlayerIds: [],
+      },
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'normal',
+          botName: 'Ada',
+          seatNumber: 1,
+          cash: 1500,
+        }),
+        createGameEnginePlayer({
+          roomPlayerId: 'room-player-2',
+          userId: 'user-2',
+          username: 'playertwo',
+          seatNumber: 2,
+        }),
+      ],
+    });
+
+    expect(service.chooseDecision(state)).toEqual({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'pass_auction_bid',
+        payload: {
+          roomPlayerId: 'bot-player-1',
+        },
+      },
+    });
+  });
 });

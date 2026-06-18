@@ -12,7 +12,7 @@ import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsGameService } from '../services/rooms-game.service';
 
 type RoomsGameRepositoryMock = {
-  findRoomByCode: jest.Mock;
+  lockRoomByCode: jest.Mock;
   findJoinedPlayer: jest.Mock;
   listJoinedPlayers: jest.Mock;
   addBotPlayer: jest.Mock;
@@ -140,7 +140,7 @@ describe('RoomsGameService', () => {
 
   beforeEach(() => {
     roomsGameRepository = {
-      findRoomByCode: jest.fn(),
+      lockRoomByCode: jest.fn(),
       findJoinedPlayer: jest.fn(),
       listJoinedPlayers: jest.fn(),
       addBotPlayer: jest.fn(),
@@ -210,7 +210,7 @@ describe('RoomsGameService', () => {
   it('starts ranked game with three humans', async () => {
     const players = [humanPlayerOne, humanPlayerTwo, humanPlayerThree];
 
-    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
     roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
     roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
     roomsGameRepository.startRoom.mockResolvedValue(activeRoom);
@@ -352,7 +352,7 @@ describe('RoomsGameService', () => {
       activeTwoHourRoom.startedAt.getTime() + 90 * 60 * 1000,
     );
 
-    roomsGameRepository.findRoomByCode.mockResolvedValue(twoHourRoom);
+    roomsGameRepository.lockRoomByCode.mockResolvedValue(twoHourRoom);
     roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
     roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
     roomsGameRepository.startRoom.mockResolvedValue(activeTwoHourRoom);
@@ -414,7 +414,7 @@ describe('RoomsGameService', () => {
       updatedAt: createdAt,
     };
 
-    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
     roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
     roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
     roomsGameRepository.startRoom.mockResolvedValue(activeRoom);
@@ -482,7 +482,7 @@ describe('RoomsGameService', () => {
       seatNumber: 4,
     };
 
-    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
     roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
     roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
     roomsGameRepository.addBotPlayer
@@ -653,7 +653,7 @@ describe('RoomsGameService', () => {
       seatNumber: 4,
     };
 
-    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
     roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
     roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
     roomsGameRepository.addBotPlayer
@@ -715,7 +715,7 @@ describe('RoomsGameService', () => {
       botPlayer,
     ];
 
-    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
     roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
     roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
     roomsGameRepository.startRoom.mockResolvedValue(activeRoom);
@@ -772,7 +772,7 @@ describe('RoomsGameService', () => {
   });
 
   it('rejects start from non-host', async () => {
-    roomsGameRepository.findRoomByCode.mockResolvedValue({
+    roomsGameRepository.lockRoomByCode.mockResolvedValue({
       ...waitingRoom,
       hostUserId: 'other-user',
     });
@@ -781,7 +781,11 @@ describe('RoomsGameService', () => {
       service.startRoom(authUser, waitingRoom.code),
     ).rejects.toBeInstanceOf(ForbiddenException);
 
-    expect(databaseService.transaction).not.toHaveBeenCalled();
+    expect(databaseService.transaction).toHaveBeenCalledTimes(1);
+    expect(roomsGameRepository.lockRoomByCode).toHaveBeenCalledWith(
+      waitingRoom.code,
+      tx,
+    );
     expect(roomsGameRepository.createGame).not.toHaveBeenCalled();
     expect(gameSnapshotService.createStartSnapshot).not.toHaveBeenCalled();
     expect(
@@ -790,7 +794,7 @@ describe('RoomsGameService', () => {
   });
 
   it('rejects starting a room that is not waiting', async () => {
-    roomsGameRepository.findRoomByCode.mockResolvedValue({
+    roomsGameRepository.lockRoomByCode.mockResolvedValue({
       ...waitingRoom,
       status: 'active' as const,
     });
@@ -799,7 +803,11 @@ describe('RoomsGameService', () => {
       service.startRoom(authUser, waitingRoom.code),
     ).rejects.toBeInstanceOf(ConflictException);
 
-    expect(databaseService.transaction).not.toHaveBeenCalled();
+    expect(databaseService.transaction).toHaveBeenCalledTimes(1);
+    expect(roomsGameRepository.lockRoomByCode).toHaveBeenCalledWith(
+      waitingRoom.code,
+      tx,
+    );
     expect(roomsGameRepository.createGame).not.toHaveBeenCalled();
     expect(gameSnapshotService.createStartSnapshot).not.toHaveBeenCalled();
   });

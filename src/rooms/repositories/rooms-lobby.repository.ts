@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, count, desc, eq, inArray, isNull, or } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { DatabaseService } from '../../infra/database/database.service';
 import type { DatabaseExecutor } from '../../infra/database/database.service';
 import {
@@ -20,8 +20,22 @@ export class RoomsLobbyRepository {
     return executor ?? this.databaseService.db;
   }
 
-  async findActiveRoomForUser(userId: string) {
-    const [room] = await this.databaseService.db
+  async lockActiveRoomMembershipForUser(
+    userId: string,
+    executor: DatabaseExecutor,
+  ): Promise<void> {
+    await executor.execute(sql`
+      select pg_advisory_xact_lock(hashtext(${`active-room:${userId}`}))
+    `);
+  }
+
+  async findActiveRoomForUser(
+    userId: string,
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [room] = await db
       .select({
         id: rooms.id,
         code: rooms.code,
@@ -294,8 +308,10 @@ export class RoomsLobbyRepository {
       .orderBy(roomPlayers.roomId, roomPlayers.seatNumber);
   }
 
-  async listJoinedPlayers(roomId: string) {
-    return this.databaseService.db
+  async listJoinedPlayers(roomId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    return db
       .select({
         id: roomPlayers.id,
         userId: roomPlayers.userId,

@@ -16,6 +16,7 @@ import { RoomsLobbyService } from '../services/rooms-lobby.service';
 
 type RoomsLobbyRepositoryMock = {
   findActiveRoomForUser: jest.Mock;
+  lockActiveRoomMembershipForUser: jest.Mock;
   createRoom: jest.Mock;
   addHumanPlayer: jest.Mock;
   findRoomByCode: jest.Mock;
@@ -196,6 +197,7 @@ describe('RoomsLobbyService', () => {
   beforeEach(() => {
     roomsLobbyRepository = {
       findActiveRoomForUser: jest.fn().mockResolvedValue(null),
+      lockActiveRoomMembershipForUser: jest.fn().mockResolvedValue(undefined),
       createRoom: jest.fn(),
       addHumanPlayer: jest.fn(),
       findRoomByCode: jest.fn(),
@@ -299,6 +301,9 @@ describe('RoomsLobbyService', () => {
 
     expect(roomsLobbyRepository.createRoom).not.toHaveBeenCalled();
     expect(roomsLobbyRepository.addHumanPlayer).not.toHaveBeenCalled();
+    expect(
+      roomsLobbyRepository.lockActiveRoomMembershipForUser,
+    ).toHaveBeenCalledWith(authUser.id, tx);
   });
 
   it('creates a waiting room and joins the host in seat one', async () => {
@@ -333,6 +338,9 @@ describe('RoomsLobbyService', () => {
     const result = await service.createRoom(authUser, { durationMinutes: 90 });
 
     expect(databaseService.transaction).toHaveBeenCalledTimes(1);
+    expect(
+      roomsLobbyRepository.lockActiveRoomMembershipForUser,
+    ).toHaveBeenCalledWith(authUser.id, tx);
 
     expect(roomsLobbyRepository.createRoom).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -508,7 +516,7 @@ describe('RoomsLobbyService', () => {
       username: 'joiner',
     };
 
-    roomsLobbyRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
 
     roomsLobbyRepository.listJoinedPlayers.mockResolvedValue([
       { id: 'player-1', userId: 'user-1', seatNumber: 1 },
@@ -520,11 +528,21 @@ describe('RoomsLobbyService', () => {
 
     await service.joinRoom(joiningUser, waitingRoom.code);
 
-    expect(roomsLobbyRepository.addHumanPlayer).toHaveBeenCalledWith({
-      roomId: waitingRoom.id,
-      userId: joiningUser.id,
-      seatNumber: 3,
-    });
+    expect(
+      roomsLobbyRepository.lockActiveRoomMembershipForUser,
+    ).toHaveBeenCalledWith(joiningUser.id, tx);
+    expect(roomsLobbyRepository.lockRoomByCode).toHaveBeenCalledWith(
+      waitingRoom.code,
+      tx,
+    );
+    expect(roomsLobbyRepository.addHumanPlayer).toHaveBeenCalledWith(
+      {
+        roomId: waitingRoom.id,
+        userId: joiningUser.id,
+        seatNumber: 3,
+      },
+      tx,
+    );
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       ROOM_EVENTS.joined,
       {
@@ -547,7 +565,7 @@ describe('RoomsLobbyService', () => {
       username: 'joiner',
     };
 
-    roomsLobbyRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
 
     roomsLobbyRepository.listJoinedPlayers.mockResolvedValue([
       { id: 'player-1', userId: 'user-1', seatNumber: 1 },
@@ -722,7 +740,7 @@ describe('RoomsLobbyService', () => {
     );
   });
 
-  it('fails leave when finalization fails after the last human leaves', async () => {
+  it('keeps leave successful when finalization fails after the last human leaves', async () => {
     const error = new Error('finalization failed');
 
     roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
@@ -750,8 +768,8 @@ describe('RoomsLobbyService', () => {
     gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
     gameCommandsService.executeIntent.mockRejectedValue(error);
 
-    await expect(service.leaveRoom(authUser, activeRoom.code)).rejects.toThrow(
-      'Room could not be finalized after leaving',
+    await expect(service.leaveRoom(authUser, activeRoom.code)).resolves.toEqual(
+      { message: 'Room left' },
     );
 
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(

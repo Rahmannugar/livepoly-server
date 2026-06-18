@@ -2,7 +2,6 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
-  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { randomInt } from 'crypto';
@@ -12,7 +11,10 @@ import { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import { GameResultsService } from '../../game/results/game-results.service';
 import { GameRealtimePublisher } from '../../game/realtime/game-realtime.publisher';
 import { GAME_EVENTS, GAME_METRICS } from '../../game/game.constants';
-import { DatabaseService } from '../../infra/database/database.service';
+import {
+  DatabaseService,
+  type DatabaseExecutor,
+} from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { NotificationsService } from '../../notifications/notifications.service';
 import { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
@@ -46,13 +48,19 @@ export class RoomsLobbyService {
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
-    await this.ensureUserHasNoActiveRoom(authUser.id);
+    await this.finalizeExpiredActiveRoomForUser(authUser.id);
 
     for (let attempt = 0; attempt < 5; attempt += 1) {
       const code = this.generateRoomCode();
 
       try {
         const room = await this.databaseService.transaction(async (tx) => {
+          await this.roomsLobbyRepository.lockActiveRoomMembershipForUser(
+            authUser.id,
+            tx,
+          );
+          await this.ensureUserHasNoActiveRoom(authUser.id, tx);
+
           const createdRoom = await this.roomsLobbyRepository.createRoom(
             {
               code,
@@ -191,52 +199,69 @@ export class RoomsLobbyService {
   }
 
   async joinRoom(authUser: AuthUser, code: string) {
-    await this.ensureUserHasNoActiveRoom(authUser.id);
+    await this.finalizeExpiredActiveRoomForUser(authUser.id);
 
-    const room = await this.roomsLobbyRepository.findRoomByCode(code);
+    const result = await this.databaseService.transaction(async (tx) => {
+      await this.roomsLobbyRepository.lockActiveRoomMembershipForUser(
+        authUser.id,
+        tx,
+      );
+      await this.ensureUserHasNoActiveRoom(authUser.id, tx);
 
-    if (!room) {
-      throw new NotFoundException('Room not found');
-    }
+      const room = await this.roomsLobbyRepository.lockRoomByCode(code, tx);
 
-    if (room.status !== 'waiting') {
-      throw new ConflictException('Room is not open');
-    }
-
-    const joinedPlayers = await this.roomsLobbyRepository.listJoinedPlayers(
-      room.id,
-    );
-    const seatNumber = this.findFirstFreeSeat(
-      joinedPlayers.map((player) => player.seatNumber),
-    );
-
-    if (!seatNumber) {
-      throw new ConflictException('Room is full');
-    }
-
-    try {
-      await this.roomsLobbyRepository.addHumanPlayer({
-        roomId: room.id,
-        userId: authUser.id,
-        seatNumber,
-      });
-    } catch (error) {
-      if (this.roomsLobbyRepository.isSeatUniqueViolation(error)) {
-        throw new ConflictException('Room seat is no longer available');
+      if (!room) {
+        throw new NotFoundException('Room not found');
       }
 
-      throw error;
-    }
+      if (room.status !== 'waiting') {
+        throw new ConflictException('Room is not open');
+      }
+
+      const joinedPlayers = await this.roomsLobbyRepository.listJoinedPlayers(
+        room.id,
+        tx,
+      );
+      const seatNumber = this.findFirstFreeSeat(
+        joinedPlayers.map((player) => player.seatNumber),
+      );
+
+      if (!seatNumber) {
+        throw new ConflictException('Room is full');
+      }
+
+      try {
+        await this.roomsLobbyRepository.addHumanPlayer(
+          {
+            roomId: room.id,
+            userId: authUser.id,
+            seatNumber,
+          },
+          tx,
+        );
+      } catch (error) {
+        if (this.roomsLobbyRepository.isSeatUniqueViolation(error)) {
+          throw new ConflictException('Room seat is no longer available');
+        }
+
+        throw error;
+      }
+
+      return {
+        room,
+        seatNumber,
+      };
+    });
 
     this.observabilityService.recordEvent(ROOM_EVENTS.joined, {
-      roomId: room.id,
-      roomCode: room.code,
+      roomId: result.room.id,
+      roomCode: result.room.code,
       userId: authUser.id,
-      seatNumber,
+      seatNumber: result.seatNumber,
     });
     this.observabilityService.recordMetric(ROOM_METRICS.joined);
 
-    return this.getRoomPayload(room.id, room, authUser.id);
+    return this.getRoomPayload(result.room.id, result.room, authUser.id);
   }
 
   async leaveRoom(authUser: AuthUser, code: string) {
@@ -380,9 +405,6 @@ export class RoomsLobbyService {
         );
         this.observabilityService.recordMetric(
           ROOM_METRICS.finishAfterLastHumanLeftFailed,
-        );
-        throw new InternalServerErrorException(
-          'Room could not be finalized after leaving',
         );
       }
     }
@@ -664,16 +686,26 @@ export class RoomsLobbyService {
     };
   }
 
-  private async ensureUserHasNoActiveRoom(userId: string) {
-    let activeRoom =
+  private async finalizeExpiredActiveRoomForUser(userId: string): Promise<void> {
+    const activeRoom =
       await this.roomsLobbyRepository.findActiveRoomForUser(userId);
 
     if (
       activeRoom &&
       (await this.finalizeExpiredRoomGame(activeRoom.id))
     ) {
-      activeRoom = await this.roomsLobbyRepository.findActiveRoomForUser(userId);
+      return;
     }
+  }
+
+  private async ensureUserHasNoActiveRoom(
+    userId: string,
+    executor?: DatabaseExecutor,
+  ) {
+    const activeRoom = await this.roomsLobbyRepository.findActiveRoomForUser(
+      userId,
+      executor,
+    );
 
     if (activeRoom) {
       throw new ConflictException('You are already in an active room');

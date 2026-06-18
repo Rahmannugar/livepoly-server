@@ -59,59 +59,59 @@ export class RoomsGameService {
   ) {}
 
   async startRoom(authUser: AuthUser, code: string, dto: StartRoomDto = {}) {
-    const room = await this.roomsGameRepository.findRoomByCode(code);
-
-    if (!room) {
-      throw new NotFoundException('Room not found');
-    }
-
-    if (room.status !== 'waiting') {
-      throw new ConflictException('Room is not open');
-    }
-
-    if (room.hostUserId !== authUser.id) {
-      throw new ForbiddenException('Only the host can start the room');
-    }
-
-    const hostPlayer = await this.roomsGameRepository.findJoinedPlayer(
-      room.id,
-      authUser.id,
-    );
-
-    if (!hostPlayer) {
-      throw new NotFoundException('Room player not found');
-    }
-
-    const joinedPlayers = await this.roomsGameRepository.listJoinedPlayers(
-      room.id,
-    );
-
-    if (joinedPlayers.length === 0) {
-      throw new ConflictException('Room has no joined players');
-    }
-
-    const humanPlayers = joinedPlayers.filter(
-      (player) => player.playerType === 'human',
-    );
-
-    const hasOnlyHumans = joinedPlayers.every(
-      (player) => player.playerType === 'human',
-    );
-
-    const mode: GameMode =
-      hasOnlyHumans && humanPlayers.length >= ROOM_MIN_RANKED_HUMANS
-        ? 'ranked'
-        : 'casual';
-    const gameDurationMinutes =
-      mode === 'ranked' ? RANKED_ROOM_DURATION_MINUTES : room.durationMinutes;
-
-    const botDifficulty = dto.botDifficulty ?? DEFAULT_BOT_DIFFICULTY;
-    const botPlayers =
-      mode === 'casual'
-        ? this.buildBotPlayers(room.id, joinedPlayers, botDifficulty)
-        : [];
-
     const result = await this.databaseService.transaction(async (tx) => {
+      const room = await this.roomsGameRepository.lockRoomByCode(code, tx);
+
+      if (!room) {
+        throw new NotFoundException('Room not found');
+      }
+
+      if (room.status !== 'waiting') {
+        throw new ConflictException('Room is not open');
+      }
+
+      if (room.hostUserId !== authUser.id) {
+        throw new ForbiddenException('Only the host can start the room');
+      }
+
+      const hostPlayer = await this.roomsGameRepository.findJoinedPlayer(
+        room.id,
+        authUser.id,
+        tx,
+      );
+
+      if (!hostPlayer) {
+        throw new NotFoundException('Room player not found');
+      }
+
+      const joinedPlayers = await this.roomsGameRepository.listJoinedPlayers(
+        room.id,
+        tx,
+      );
+
+      if (joinedPlayers.length === 0) {
+        throw new ConflictException('Room has no joined players');
+      }
+
+      const humanPlayers = joinedPlayers.filter(
+        (player) => player.playerType === 'human',
+      );
+
+      const hasOnlyHumans = joinedPlayers.every(
+        (player) => player.playerType === 'human',
+      );
+
+      const mode: GameMode =
+        hasOnlyHumans && humanPlayers.length >= ROOM_MIN_RANKED_HUMANS
+          ? 'ranked'
+          : 'casual';
+      const gameDurationMinutes =
+        mode === 'ranked' ? RANKED_ROOM_DURATION_MINUTES : room.durationMinutes;
+      const botDifficulty = dto.botDifficulty ?? DEFAULT_BOT_DIFFICULTY;
+      const botPlayers =
+        mode === 'casual'
+          ? this.buildBotPlayers(room.id, joinedPlayers, botDifficulty)
+          : [];
       const createdBots: JoinedRoomPlayer[] = [];
 
       for (const bot of botPlayers) {
@@ -177,6 +177,8 @@ export class RoomsGameService {
       return {
         room: activeRoom,
         game,
+        mode,
+        humanPlayerCount: humanPlayers.length,
         players: allPlayers,
         outboxEventIds,
         initialState,
@@ -209,12 +211,12 @@ export class RoomsGameService {
       roomCode: result.room.code,
       gameId: result.game.id,
       hostUserId: authUser.id,
-      mode,
+      mode: result.mode,
       playerCount: result.players.length,
-      humanPlayerCount: humanPlayers.length,
-      botPlayerCount: result.players.length - humanPlayers.length,
+      humanPlayerCount: result.humanPlayerCount,
+      botPlayerCount: result.players.length - result.humanPlayerCount,
     });
-    this.observabilityService.recordMetric(ROOM_METRICS.started(mode));
+    this.observabilityService.recordMetric(ROOM_METRICS.started(result.mode));
 
     for (const outboxEventId of result.outboxEventIds) {
       await this.outboxQueueService.enqueuePublishEvent(outboxEventId);

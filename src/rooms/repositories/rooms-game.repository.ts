@@ -21,8 +21,8 @@ export class RoomsGameRepository {
     return executor ?? this.databaseService.db;
   }
 
-  async findRoomByCode(code: string) {
-    const [room] = await this.databaseService.db
+  async lockRoomByCode(code: string, executor: DatabaseExecutor) {
+    const [room] = await executor
       .select({
         id: rooms.id,
         code: rooms.code,
@@ -37,13 +37,16 @@ export class RoomsGameRepository {
       })
       .from(rooms)
       .where(eq(rooms.code, code))
-      .limit(1);
+      .limit(1)
+      .for('update');
 
     return room ?? null;
   }
 
-  async listJoinedPlayers(roomId: string) {
-    return this.databaseService.db
+  async listJoinedPlayers(roomId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    return db
       .select({
         id: roomPlayers.id,
         roomId: roomPlayers.roomId,
@@ -65,8 +68,14 @@ export class RoomsGameRepository {
       .orderBy(roomPlayers.seatNumber);
   }
 
-  async findJoinedPlayer(roomId: string, userId: string) {
-    const [player] = await this.databaseService.db
+  async findJoinedPlayer(
+    roomId: string,
+    userId: string,
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [player] = await db
       .select({
         id: roomPlayers.id,
         roomId: roomPlayers.roomId,

@@ -92,4 +92,12 @@ export class UsersController {
   searchUsers(@Query() dto: SearchUsersDto) {
     return this.usersProfileService.searchUsers(dto);
   }
+
+  @UsersDocs.GetByUsername()
+  @RateLimit(...USERS_RATE_LIMIT_RULES.getByUsername)
+  @Get(':username')
+  @HttpCode(HttpStatus.OK)
+  getByUsername(@Param('username') username: string) {
+    return this.usersProfileService.getByUsername(username);
+  }
 }

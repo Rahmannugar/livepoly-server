@@ -52,6 +52,16 @@ export const USERS_RATE_LIMIT_RULES = {
     },
   ],
 
+  getByUsername: [
+    {
+      scope: 'users:profile:get:ip',
+      identifier: { type: 'ip' },
+      limit: 120,
+      windowSeconds: 60,
+      burstLimit: 40,
+    },
+  ],
+
   getMatches: [
     {
       scope: 'users:matches:get:user',

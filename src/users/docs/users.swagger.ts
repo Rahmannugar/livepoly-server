@@ -14,6 +14,7 @@ import { CreateAvatarUploadUrlDto } from '../dto/avatar.dto';
 import { UpdateUserDto } from '../dto/update-user.dto';
 import {
   AvatarUploadUrlResponseDto,
+  PublicUserProfileResponseDto,
   UserMatchHistoryResponseDto,
   UserProfileResponseDto,
   UserSearchResponseDto,
@@ -53,7 +54,7 @@ export const UsersDocs = {
           },
         },
       }),
-      ApiOkResponse({ type: UserProfileResponseDto }),
+      ApiOkResponse({ type: PublicUserProfileResponseDto }),
       ApiResponse({
         status: HttpStatus.BAD_REQUEST,
         description: 'No profile updates provided',
@@ -190,4 +191,22 @@ export const UsersDocs = {
       }),
     ),
 
+  GetByUsername: () =>
+    applyDecorators(
+      ApiBearerAuth('accessToken'),
+      ApiOperation({ summary: 'Get user profile by username' }),
+      ApiParam({
+        name: 'username',
+        example: 'rahmannugar',
+      }),
+      ApiOkResponse({ type: UserProfileResponseDto }),
+      ApiResponse({
+        status: HttpStatus.NOT_FOUND,
+        description: 'User not found',
+      }),
+      ApiResponse({
+        status: HttpStatus.UNAUTHORIZED,
+        description: 'Authentication required',
+      }),
+    ),
 };

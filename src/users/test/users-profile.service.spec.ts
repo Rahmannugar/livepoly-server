@@ -188,4 +188,43 @@ describe('UsersProfileService', () => {
     );
   });
 
+  it('returns public profile without email by username', async () => {
+    usersProfileRepository.findActiveUserByUsername.mockResolvedValue({
+      id: 'user-2',
+      email: 'private@example.com',
+      username: 'playertwo',
+      bio: 'Buying the board.',
+      avatarObjectKey: 'avatars/user-2/avatar.webp',
+      createdAt: new Date('2026-05-14T12:00:00.000Z'),
+      updatedAt: new Date('2026-05-14T12:15:00.000Z'),
+    });
+
+    const result = await service.getByUsername('PlayerTwo');
+
+    expect(usersProfileRepository.findActiveUserByUsername).toHaveBeenCalledWith(
+      'playertwo',
+    );
+    expect(result).toEqual({
+      id: 'user-2',
+      username: 'playertwo',
+      bio: 'Buying the board.',
+      avatarUrl: 'https://pub-example.r2.dev/avatars/user-2/avatar.webp',
+      stats,
+      createdAt: new Date('2026-05-14T12:00:00.000Z'),
+      updatedAt: new Date('2026-05-14T12:15:00.000Z'),
+    });
+    expect(result).not.toHaveProperty('email');
+  });
+
+  it('does not return deleted users in public profile lookup', async () => {
+    usersProfileRepository.findActiveUserByUsername.mockResolvedValue(null);
+
+    await expect(service.getByUsername('playerone')).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
+
+    expect(
+      usersProfileRepository.findActiveUserByUsername,
+    ).toHaveBeenCalledWith('playerone');
+  });
 });

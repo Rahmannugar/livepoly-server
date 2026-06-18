@@ -38,6 +38,32 @@ export class UsersProfileService {
     private readonly observabilityService: ObservabilityService,
   ) {}
 
+  async getByUsername(username: string) {
+    const normalizedUsername = username.trim().toLowerCase();
+    const user =
+      await this.usersProfileRepository.findActiveUserByUsername(
+        normalizedUsername,
+      );
+
+    if (!user) {
+      this.recordSecurityEvent(USER_EVENTS.publicProfileViewFailed, {
+        targetUsername: normalizedUsername,
+        reason: 'user_not_found',
+      });
+
+      throw new NotFoundException('User not found');
+    }
+
+    const stats = await this.usersStatsService.getStats(user.id);
+
+    this.recordSecurityEvent(USER_EVENTS.publicProfileViewed, {
+      targetUserId: user.id,
+      targetUsername: user.username,
+    });
+
+    return this.publicProfile(user, stats);
+  }
+
   async searchUsers(dto: SearchUsersDto): Promise<UserSearchResponse> {
     const query = dto.query.trim().toLowerCase();
 
@@ -234,6 +260,28 @@ export class UsersProfileService {
     return {
       id: user.id,
       email: user.email,
+      username: user.username,
+      bio: user.bio,
+      avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),
+      stats,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+
+  private publicProfile(
+    user: {
+      id: string;
+      username: string;
+      bio: string | null;
+      avatarObjectKey: string | null;
+      createdAt: Date;
+      updatedAt: Date;
+    },
+    stats: Awaited<ReturnType<UsersStatsService['getStats']>>,
+  ) {
+    return {
+      id: user.id,
       username: user.username,
       bio: user.bio,
       avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),

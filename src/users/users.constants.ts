@@ -34,6 +34,8 @@ export type UserAvatarUploadStatus =
 
 export const USER_EVENTS = {
   avatarUploadUrlCreated: 'UserAvatarUploadUrlCreated',
+  publicProfileViewFailed: 'PublicProfileViewFailed',
+  publicProfileViewed: 'PublicProfileViewed',
   profileViewFailed: 'UserProfileViewFailed',
   profileViewed: 'UserProfileViewed',
   profileUpdateRequested: 'UserProfileUpdateRequested',

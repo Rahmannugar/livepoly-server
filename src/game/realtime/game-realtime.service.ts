@@ -113,6 +113,8 @@ export class GameRealtimeService {
     const access = await this.requireLiveGameAccess(input);
     const state = await this.gameRecoveryService.getOrRecover(input.gameId);
 
+    await this.repairLiveGameScheduling(input.gameId, state);
+
     return {
       ...access,
       state,
@@ -399,8 +401,8 @@ export class GameRealtimeService {
     result: GameCommandResult,
   ): Promise<void> {
     await this.publishCommandResult(gameId, result);
-    await this.scheduleBotTurn(gameId, result);
-    await this.scheduleTurnTimer(gameId, result);
+    await this.scheduleBotTurn(gameId, result.state);
+    await this.scheduleTurnTimer(gameId, result.state);
   }
 
   private async publishCommandResult(
@@ -425,15 +427,15 @@ export class GameRealtimeService {
 
   private async scheduleBotTurn(
     gameId: string,
-    result: GameCommandResult,
+    state: GameCommandResult['state'],
   ): Promise<void> {
     try {
-      await this.gameBotQueueService.enqueueIfBotCanAct(gameId, result.state);
+      await this.gameBotQueueService.enqueueIfBotCanAct(gameId, state);
     } catch (error) {
       this.observabilityService.recordEvent(GAME_EVENTS.botTurnFailed, {
         gameId,
-        phase: result.state.phase,
-        turnNumber: result.state.turnNumber,
+        phase: state.phase,
+        turnNumber: state.turnNumber,
         reason: 'queue_failed',
         errorName: error instanceof Error ? error.name : undefined,
       });
@@ -444,23 +446,28 @@ export class GameRealtimeService {
 
   private async scheduleTurnTimer(
     gameId: string,
-    result: GameCommandResult,
+    state: GameCommandResult['state'],
   ): Promise<void> {
     try {
-      await this.gameTurnTimerQueueService.enqueueTurnTimer(
-        gameId,
-        result.state,
-      );
+      await this.gameTurnTimerQueueService.enqueueTurnTimer(gameId, state);
     } catch (error) {
       this.observabilityService.recordEvent(GAME_EVENTS.turnTimerFailed, {
         gameId,
-        phase: result.state.phase,
-        turnNumber: result.state.turnNumber,
+        phase: state.phase,
+        turnNumber: state.turnNumber,
         reason: 'queue_failed',
         errorName: error instanceof Error ? error.name : undefined,
       });
 
       this.observabilityService.recordMetric(GAME_METRICS.turnTimerFailed);
     }
+  }
+
+  private async repairLiveGameScheduling(
+    gameId: string,
+    state: GameCommandResult['state'],
+  ): Promise<void> {
+    await this.scheduleBotTurn(gameId, state);
+    await this.scheduleTurnTimer(gameId, state);
   }
 }

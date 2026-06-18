@@ -5,9 +5,11 @@ import type { GameBotQueueService } from '../../bots/game-bot-queue.service';
 import type { GameBotService } from '../../bots/game-bot.service';
 import type { GameCommandsService } from '../../commands/game-commands.service';
 import type { GameEngineIntent } from '../../engine/game-engine-intents';
+import { GameEngineError } from '../../engine/game-engine.types';
 import { createGameEngineState } from '../../engine/tests/game-engine.test-factory';
 import type { GameRealtimePublisher } from '../../realtime/game-realtime.publisher';
 import type { GameRecoveryService } from '../../recovery/game-recovery.service';
+import type { GameResultsService } from '../../results/game-results.service';
 import type { GameTurnTimerPolicyService } from '../../timers/game-turn-timer-policy.service';
 import type { GameTurnTimerQueueService } from '../../timers/game-turn-timer-queue.service';
 import { GAME_METRICS } from '../../game.constants';
@@ -43,6 +45,10 @@ type GameTurnTimerPolicyServiceMock = {
   chooseTimeoutIntent: jest.Mock;
 };
 
+type GameResultsServiceMock = {
+  finalizeExpiredFinishedGame: jest.Mock;
+};
+
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
   recordMetric: jest.Mock;
@@ -61,6 +67,7 @@ describe('GameProcessor', () => {
   let gameBotQueueService: GameBotQueueServiceMock;
   let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
   let gameTurnTimerPolicyService: GameTurnTimerPolicyServiceMock;
+  let gameResultsService: GameResultsServiceMock;
   let observabilityService: ObservabilityServiceMock;
   let leaderboardsService: LeaderboardsServiceMock;
 
@@ -124,6 +131,10 @@ describe('GameProcessor', () => {
       chooseTimeoutIntent: jest.fn().mockReturnValue(rollIntent),
     };
 
+    gameResultsService = {
+      finalizeExpiredFinishedGame: jest.fn().mockResolvedValue(undefined),
+    };
+
     observabilityService = {
       recordEvent: jest.fn(),
       recordMetric: jest.fn(),
@@ -141,6 +152,7 @@ describe('GameProcessor', () => {
       gameBotQueueService as unknown as GameBotQueueService,
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
       gameTurnTimerPolicyService as unknown as GameTurnTimerPolicyService,
+      gameResultsService as unknown as GameResultsService,
       observabilityService as unknown as ObservabilityService,
       leaderboardsService as unknown as LeaderboardsService,
     );
@@ -319,9 +331,70 @@ describe('GameProcessor', () => {
     );
   });
 
-  it('skips expiry jobs for closed games', async () => {
+  it('repairs finalization for already finished games in the expiry job', async () => {
+    const finishedState = createGameEngineState({
+      phase: 'finished',
+      expiresAt: 1_800_000,
+    });
+
+    gameRecoveryService.getOrRecover.mockResolvedValueOnce(finishedState);
+
+    await processor.process(
+      makeJob(GAME_JOBS.finishExpiredGame, {
+        gameId: 'game-1',
+        expiresAt: 1_800_000,
+      }),
+    );
+
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
+    expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+    expect(gameResultsService.finalizeExpiredFinishedGame).toHaveBeenCalledWith(
+      {
+        gameId: 'game-1',
+        state: finishedState,
+        finishedAt: expect.any(Number),
+      },
+    );
+  });
+
+  it('repairs finalization when an expiry command finds the game already closed', async () => {
+    const expiredAt = Date.now() - 1_000;
+    const activeState = createGameEngineState({
+      phase: 'awaiting_roll',
+      expiresAt: expiredAt,
+    });
+    const finishedState = createGameEngineState({
+      phase: 'finished',
+      expiresAt: expiredAt,
+    });
+
+    gameRecoveryService.getOrRecover
+      .mockResolvedValueOnce(activeState)
+      .mockResolvedValueOnce(finishedState);
+    gameCommandsService.executeIntent.mockRejectedValueOnce(
+      new GameEngineError('GAME_NOT_ACTIVE', 'Game is not active'),
+    );
+
+    await processor.process(
+      makeJob(GAME_JOBS.finishExpiredGame, {
+        gameId: 'game-1',
+        expiresAt: expiredAt,
+      }),
+    );
+
+    expect(gameResultsService.finalizeExpiredFinishedGame).toHaveBeenCalledWith(
+      {
+        gameId: 'game-1',
+        state: finishedState,
+        finishedAt: expect.any(Number),
+      },
+    );
+    expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+  });
+
+  it('skips expiry jobs for cancelled games', async () => {
     gameRecoveryService.getOrRecover.mockResolvedValueOnce(
-      createGameEngineState({ phase: 'finished' }),
+      createGameEngineState({ phase: 'cancelled' }),
     );
 
     await processor.process(
@@ -333,6 +406,9 @@ describe('GameProcessor', () => {
 
     expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
+    expect(
+      gameResultsService.finalizeExpiredFinishedGame,
+    ).not.toHaveBeenCalled();
   });
 
   it('does not finish games before their expiry time', async () => {

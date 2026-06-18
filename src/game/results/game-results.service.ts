@@ -132,6 +132,36 @@ export class GameResultsService {
     });
   }
 
+  async finalizeAbandonedFinishedGame(input: {
+    gameId: string;
+    state: GameEngineState;
+    finishedAt: number;
+  }): Promise<void> {
+    if (input.state.phase !== 'finished') {
+      return;
+    }
+
+    const standings = calculateNetWorthStandings(input.state);
+    const winner = getNetWorthWinner(standings);
+    const topNetWorth = standings[0]?.netWorth;
+
+    await this.finalizeFinishedGame({
+      gameId: input.gameId,
+      state: input.state,
+      events: [
+        {
+          type: 'game_finished_after_last_human_left',
+          finishedAt: input.finishedAt,
+          winnerRoomPlayerId: winner?.roomPlayerId ?? null,
+          tiedRoomPlayerIds: standings
+            .filter((standing) => standing.netWorth === topNetWorth)
+            .map((standing) => standing.roomPlayerId),
+          standings,
+        },
+      ],
+    });
+  }
+
   async getGameResultForUser(input: {
     gameId: string;
     userId: string;

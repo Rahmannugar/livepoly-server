@@ -183,6 +183,34 @@ export class RoomsGameRepository {
     return game;
   }
 
+  async cancelStartedGame(
+    input: {
+      roomId: string;
+      gameId: string;
+      finishedAt: Date;
+    },
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    await db
+      .update(games)
+      .set({
+        status: 'cancelled',
+        finishedAt: input.finishedAt,
+        updatedAt: input.finishedAt,
+      })
+      .where(and(eq(games.id, input.gameId), eq(games.status, 'active')));
+
+    await db
+      .update(rooms)
+      .set({
+        status: 'cancelled',
+        endedAt: input.finishedAt,
+      })
+      .where(and(eq(rooms.id, input.roomId), eq(rooms.status, 'active')));
+  }
+
   isUniqueViolation(error: unknown) {
     return (
       typeof error === 'object' &&

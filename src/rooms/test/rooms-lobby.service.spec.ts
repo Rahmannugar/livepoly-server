@@ -68,6 +68,7 @@ type GameRecoveryServiceMock = {
 type GameResultsServiceMock = {
   finalizeFinishedGame: jest.Mock;
   finalizeExpiredFinishedGame: jest.Mock;
+  finalizeAbandonedFinishedGame: jest.Mock;
 };
 
 type GameCommandsServiceMock = {
@@ -249,6 +250,7 @@ describe('RoomsLobbyService', () => {
     gameResultsService = {
       finalizeFinishedGame: jest.fn().mockResolvedValue(undefined),
       finalizeExpiredFinishedGame: jest.fn().mockResolvedValue(undefined),
+      finalizeAbandonedFinishedGame: jest.fn().mockResolvedValue(undefined),
     };
 
     gameCommandsService = {
@@ -455,6 +457,47 @@ describe('RoomsLobbyService', () => {
         ],
       },
     ]);
+  });
+
+  it('filters expired active games from live rooms without mutating state', async () => {
+    const expiredAt = Date.now() - 1_000;
+    const expiredGame = {
+      id: 'game-expired',
+      roomId: activeRoom.id,
+      status: 'active',
+      expiresAt: new Date(expiredAt),
+    };
+
+    roomsLobbyRepository.listLiveRooms.mockResolvedValue([activeRoom]);
+    roomsLobbyRepository.listActiveGamesForRooms.mockResolvedValue([
+      expiredGame,
+    ]);
+
+    const result = await service.listLiveRooms(authUser);
+
+    expect(gameRecoveryService.getOrRecover).not.toHaveBeenCalled();
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
+    expect(roomsLobbyRepository.listPlayersForRooms).toHaveBeenCalledWith([]);
+    expect(result).toEqual([]);
+  });
+
+  it('returns null for an expired current room without mutating state', async () => {
+    const expiredAt = Date.now() - 1_000;
+    const expiredGame = {
+      id: 'game-expired',
+      roomId: activeRoom.id,
+      status: 'active',
+      expiresAt: new Date(expiredAt),
+    };
+
+    roomsLobbyRepository.findActiveRoomForUser.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findActiveGameByRoomId.mockResolvedValue(expiredGame);
+
+    const result = await service.getCurrentRoom(authUser);
+
+    expect(gameRecoveryService.getOrRecover).not.toHaveBeenCalled();
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
+    expect(result).toBeNull();
   });
 
   it('joins the first free seat', async () => {
@@ -679,7 +722,7 @@ describe('RoomsLobbyService', () => {
     );
   });
 
-  it('does not fail leave when finalization fails after the last human leaves', async () => {
+  it('fails leave when finalization fails after the last human leaves', async () => {
     const error = new Error('finalization failed');
 
     roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
@@ -707,8 +750,8 @@ describe('RoomsLobbyService', () => {
     gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
     gameCommandsService.executeIntent.mockRejectedValue(error);
 
-    await expect(service.leaveRoom(authUser, activeRoom.code)).resolves.toEqual(
-      { message: 'Room left' },
+    await expect(service.leaveRoom(authUser, activeRoom.code)).rejects.toThrow(
+      'Room could not be finalized after leaving',
     );
 
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
@@ -722,6 +765,58 @@ describe('RoomsLobbyService', () => {
     );
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(
       ROOM_METRICS.finishAfterLastHumanLeftFailed,
+    );
+  });
+
+  it('persists result when the recovered game is already finished after the last human leaves', async () => {
+    const finishedState = {
+      ...activeGameState,
+      phase: 'finished' as const,
+    };
+
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'joined' as const,
+    });
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(activeRoom);
+    roomsLobbyRepository.leaveRoom.mockResolvedValue({
+      id: 'player-1',
+      roomId: activeRoom.id,
+      userId: authUser.id,
+      seatNumber: 1,
+      status: 'left' as const,
+    });
+    roomsLobbyRepository.countJoinedHumanPlayers.mockResolvedValue(0);
+    roomsLobbyRepository.findActiveGameByRoomId.mockResolvedValue({
+      id: 'game-1',
+      roomId: activeRoom.id,
+      status: 'active' as const,
+    });
+    gameRecoveryService.getOrRecover.mockResolvedValue(finishedState);
+
+    await expect(service.leaveRoom(authUser, activeRoom.code)).resolves.toEqual(
+      { message: 'Room left' },
+    );
+
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
+    expect(gameResultsService.finalizeAbandonedFinishedGame).toHaveBeenCalledWith(
+      {
+        gameId: 'game-1',
+        state: finishedState,
+        finishedAt: expect.any(Number),
+      },
+    );
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.finishedAfterLastHumanLeft,
+      {
+        roomId: activeRoom.id,
+        roomCode: activeRoom.code,
+        gameId: 'game-1',
+      },
     );
   });
 

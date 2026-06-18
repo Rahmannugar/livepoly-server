@@ -18,6 +18,7 @@ import {
 } from '../../infra/queue/queue.constants';
 import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
 import { GameRecoveryService } from '../recovery/game-recovery.service';
+import { GameResultsService } from '../results/game-results.service';
 import { GameTurnTimerPolicyService } from '../timers/game-turn-timer-policy.service';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
 import type {
@@ -39,6 +40,7 @@ export class GameProcessor extends WorkerHost {
     private readonly gameBotQueueService: GameBotQueueService,
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
     private readonly gameTurnTimerPolicyService: GameTurnTimerPolicyService,
+    private readonly gameResultsService: GameResultsService,
     private readonly observabilityService: ObservabilityService,
     private readonly leaderboardsService: LeaderboardsService,
   ) {
@@ -192,7 +194,22 @@ export class GameProcessor extends WorkerHost {
   private async processFinishExpiredGame(job: Job<FinishExpiredGameJob>) {
     const state = await this.gameRecoveryService.getOrRecover(job.data.gameId);
 
-    if (state.phase === 'finished' || state.phase === 'cancelled') {
+    if (state.phase === 'finished') {
+      await this.gameResultsService.finalizeExpiredFinishedGame({
+        gameId: job.data.gameId,
+        state,
+        finishedAt: Math.max(Date.now(), state.expiresAt ?? job.data.expiresAt),
+      });
+
+      this.observabilityService.recordEvent(GAME_EVENTS.turnTimerSkipped, {
+        jobId: job.id,
+        gameId: job.data.gameId,
+        reason: 'finished_game_finalization_repaired',
+      });
+      return;
+    }
+
+    if (state.phase === 'cancelled') {
       this.observabilityService.recordEvent(GAME_EVENTS.turnTimerSkipped, {
         jobId: job.id,
         gameId: job.data.gameId,
@@ -247,6 +264,21 @@ export class GameProcessor extends WorkerHost {
         error instanceof GameEngineError &&
         error.code === 'GAME_NOT_ACTIVE'
       ) {
+        const repairedState = await this.gameRecoveryService.getOrRecover(
+          job.data.gameId,
+        );
+
+        if (repairedState.phase === 'finished') {
+          await this.gameResultsService.finalizeExpiredFinishedGame({
+            gameId: job.data.gameId,
+            state: repairedState,
+            finishedAt: Math.max(
+              Date.now(),
+              repairedState.expiresAt ?? job.data.expiresAt,
+            ),
+          });
+        }
+
         this.observabilityService.recordEvent(GAME_EVENTS.turnTimerSkipped, {
           jobId: job.id,
           gameId: job.data.gameId,

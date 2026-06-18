@@ -236,7 +236,39 @@ describe('GameRealtimeService', () => {
     });
 
     expect(gameRecoveryService.getOrRecover).toHaveBeenCalledWith('game-1');
+    expect(gameBotQueueService.enqueueIfBotCanAct).toHaveBeenCalledWith(
+      'game-1',
+      state,
+    );
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      state,
+    );
     expect(gameCommandsService.rollAndMove).not.toHaveBeenCalled();
+  });
+
+  it('repairs live bot and turn scheduling when a player joins', async () => {
+    await expect(
+      service.joinGame({
+        gameId: 'game-1',
+        userId: 'user-1',
+      }),
+    ).resolves.toEqual({
+      access: GAME_LIVE_ACCESS.player,
+      roomPlayerId: 'room-player-1',
+      state,
+    });
+
+    expect(gameRecoveryService.getOrRecover).toHaveBeenCalledWith('game-1');
+    expect(gameBotQueueService.enqueueIfBotCanAct).toHaveBeenCalledWith(
+      'game-1',
+      state,
+    );
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      state,
+    );
+    expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
   });
 
   it('rejects users who are not active game players or spectators', async () => {

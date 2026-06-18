@@ -2,6 +2,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
@@ -182,15 +183,26 @@ export class RoomsGameService {
       };
     });
 
-    await this.gameStateService.set(result.game.id, result.initialState);
-    await this.gameTurnTimerQueueService.enqueueTurnTimer(
-      result.game.id,
-      result.initialState,
-    );
-    await this.gameTurnTimerQueueService.enqueueGameExpiry(
-      result.game.id,
-      result.initialState.expiresAt ?? Date.now(),
-    );
+    try {
+      await this.gameStateService.set(result.game.id, result.initialState);
+      await this.gameTurnTimerQueueService.enqueueTurnTimer(
+        result.game.id,
+        result.initialState,
+      );
+      await this.gameTurnTimerQueueService.enqueueGameExpiry(
+        result.game.id,
+        result.initialState.expiresAt ?? Date.now(),
+      );
+    } catch (error) {
+      await this.cancelStartedGameAfterSetupFailure({
+        roomId: result.room.id,
+        roomCode: result.room.code,
+        gameId: result.game.id,
+        error,
+      });
+
+      throw new InternalServerErrorException('Game could not be started');
+    }
 
     this.observabilityService.recordEvent(ROOM_EVENTS.started, {
       roomId: result.room.id,
@@ -216,6 +228,41 @@ export class RoomsGameService {
       },
       game: result.game,
     };
+  }
+
+  private async cancelStartedGameAfterSetupFailure(input: {
+    roomId: string;
+    roomCode: string;
+    gameId: string;
+    error: unknown;
+  }): Promise<void> {
+    const finishedAt = new Date();
+
+    try {
+      await this.gameStateService.delete(input.gameId);
+    } catch {
+      // Redis cleanup is best-effort after startup setup fails.
+    }
+
+    await this.databaseService.transaction(async (tx) => {
+      await this.roomsGameRepository.cancelStartedGame(
+        {
+          roomId: input.roomId,
+          gameId: input.gameId,
+          finishedAt,
+        },
+        tx,
+      );
+    });
+
+    this.observabilityService.recordEvent(ROOM_EVENTS.startSetupFailed, {
+      roomId: input.roomId,
+      roomCode: input.roomCode,
+      gameId: input.gameId,
+      message:
+        input.error instanceof Error ? input.error.message : 'Unknown error',
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.startSetupFailed);
   }
 
   private buildBotPlayers(

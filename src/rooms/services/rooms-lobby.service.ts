@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
 import { randomInt } from 'crypto';
@@ -104,11 +105,8 @@ export class RoomsLobbyService {
     const activeGames =
       await this.roomsLobbyRepository.listActiveGamesForRooms(roomIds);
 
-    const expiredActiveGameRoomIds = new Set(
-      activeGames
-        .filter((game) => game.expiresAt.getTime() <= Date.now())
-        .map((game) => game.roomId),
-    );
+    const expiredActiveGameRoomIds =
+      this.getExpiredActiveGameRoomIds(activeGames);
 
     const nonExpiredRooms = rooms.filter(
       (room) => !expiredActiveGameRoomIds.has(room.id),
@@ -175,7 +173,7 @@ export class RoomsLobbyService {
       return null;
     }
 
-    if (await this.isActiveRoomExpired(room.id)) {
+    if (await this.roomHasExpiredActiveGame(room.id)) {
       return null;
     }
 
@@ -383,6 +381,9 @@ export class RoomsLobbyService {
         this.observabilityService.recordMetric(
           ROOM_METRICS.finishAfterLastHumanLeftFailed,
         );
+        throw new InternalServerErrorException(
+          'Room could not be finalized after leaving',
+        );
       }
     }
 
@@ -398,6 +399,12 @@ export class RoomsLobbyService {
     const finishedAt = Date.now();
 
     if (state.phase === 'finished') {
+      await this.gameResultsService.finalizeAbandonedFinishedGame({
+        gameId: input.gameId,
+        state,
+        finishedAt,
+      });
+      this.recordFinishedAfterLastHumanLeft(input);
       return;
     }
 
@@ -430,6 +437,14 @@ export class RoomsLobbyService {
       );
     }
 
+    this.recordFinishedAfterLastHumanLeft(input);
+  }
+
+  private recordFinishedAfterLastHumanLeft(input: {
+    roomId: string;
+    roomCode: string;
+    gameId: string;
+  }): void {
     this.observabilityService.recordEvent(
       ROOM_EVENTS.finishedAfterLastHumanLeft,
       {
@@ -451,6 +466,10 @@ export class RoomsLobbyService {
     }
 
     if (room.status !== 'active') {
+      throw new ConflictException('Only active rooms can be spectated');
+    }
+
+    if (await this.finalizeExpiredRoomGame(room.id)) {
       throw new ConflictException('Only active rooms can be spectated');
     }
 
@@ -722,7 +741,24 @@ export class RoomsLobbyService {
     return true;
   }
 
-  private async isActiveRoomExpired(roomId: string): Promise<boolean> {
+  private getExpiredActiveGameRoomIds(
+    activeGames: { id: string; roomId: string; expiresAt: Date }[],
+  ): Set<string> {
+    const expiredRoomIds = new Set<string>();
+    const now = Date.now();
+
+    for (const game of activeGames) {
+      if (game.expiresAt.getTime() > now) {
+        continue;
+      }
+
+      expiredRoomIds.add(game.roomId);
+    }
+
+    return expiredRoomIds;
+  }
+
+  private async roomHasExpiredActiveGame(roomId: string): Promise<boolean> {
     const activeGame =
       await this.roomsLobbyRepository.findActiveGameByRoomId(roomId);
 

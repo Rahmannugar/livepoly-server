@@ -9,7 +9,7 @@ export const ROOM_CODE_LENGTH = 8;
 
 export const DEFAULT_ROOM_DURATION_MINUTES = 90;
 
-export const RANKED_ROOM_DURATION_MINUTES = 60;
+export const RANKED_ROOM_DURATION_MINUTES = 90;
 
 export const ROOM_BOARD_KEY = 'classic';
 
@@ -46,6 +46,7 @@ export const ROOM_EVENTS = {
   left: 'RoomLeft',
   finishedAfterLastHumanLeft: 'RoomFinishedAfterLastHumanLeft',
   finishAfterLastHumanLeftFailed: 'RoomFinishAfterLastHumanLeftFailed',
+  startSetupFailed: 'RoomStartSetupFailed',
   cancelled: 'RoomCancelled',
   inviteSent: 'RoomInviteSent',
   started: 'RoomStarted',
@@ -60,6 +61,7 @@ export const ROOM_METRICS = {
   finishedAfterLastHumanLeft: 'Custom/Room/FinishedAfterLastHumanLeft',
   finishAfterLastHumanLeftFailed:
     'Custom/Room/FinishAfterLastHumanLeftFailed',
+  startSetupFailed: 'Custom/Room/StartSetupFailed',
   cancelled: 'Custom/Room/Cancelled',
   inviteSent: 'Custom/Room/InviteSent',
   started: (mode: string) => `Custom/Room/Started/${mode}`,

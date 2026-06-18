@@ -8,6 +8,7 @@ import type { ObservabilityService } from '../../infra/observability/observabili
 import type { NotificationsService } from '../../notifications/notifications.service';
 import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
+import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsGameService } from '../services/rooms-game.service';
 
 type RoomsGameRepositoryMock = {
@@ -17,6 +18,7 @@ type RoomsGameRepositoryMock = {
   addBotPlayer: jest.Mock;
   startRoom: jest.Mock;
   createGame: jest.Mock;
+  cancelStartedGame: jest.Mock;
 };
 
 type DatabaseServiceMock = {
@@ -33,6 +35,7 @@ type OutboxQueueServiceMock = {
 
 type GameStateServiceMock = {
   set: jest.Mock;
+  delete: jest.Mock;
 };
 
 type ObservabilityServiceMock = {
@@ -143,6 +146,7 @@ describe('RoomsGameService', () => {
       addBotPlayer: jest.fn(),
       startRoom: jest.fn(),
       createGame: jest.fn(),
+      cancelStartedGame: jest.fn(),
     };
 
     databaseService = {
@@ -174,6 +178,7 @@ describe('RoomsGameService', () => {
 
     gameStateService = {
       set: jest.fn().mockResolvedValue(undefined),
+      delete: jest.fn().mockResolvedValue(undefined),
     };
 
     observabilityService = {
@@ -221,7 +226,7 @@ describe('RoomsGameService', () => {
         mode: 'ranked',
       },
       startedAt: activeRoom.startedAt,
-      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
       finishedAt: null,
       createdAt,
       updatedAt: createdAt,
@@ -241,7 +246,7 @@ describe('RoomsGameService', () => {
         roomId: waitingRoom.id,
         mode: 'ranked',
         currentTurnRoomPlayerId: humanPlayerOne.id,
-        expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
+        expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
         state: expect.objectContaining({
           version: 1,
           roomId: waitingRoom.id,
@@ -316,7 +321,7 @@ describe('RoomsGameService', () => {
     );
     expect(gameTurnTimerQueueService.enqueueGameExpiry).toHaveBeenCalledWith(
       'game-1',
-      activeRoom.startedAt.getTime() + 60 * 60 * 1000,
+      activeRoom.startedAt.getTime() + 90 * 60 * 1000,
     );
 
     expect(result.room).toEqual({
@@ -344,7 +349,7 @@ describe('RoomsGameService', () => {
     };
     const players = [humanPlayerOne, humanPlayerTwo, humanPlayerThree];
     const rankedExpiresAt = new Date(
-      activeTwoHourRoom.startedAt.getTime() + 60 * 60 * 1000,
+      activeTwoHourRoom.startedAt.getTime() + 90 * 60 * 1000,
     );
 
     roomsGameRepository.findRoomByCode.mockResolvedValue(twoHourRoom);
@@ -377,7 +382,7 @@ describe('RoomsGameService', () => {
         expiresAt: rankedExpiresAt,
         state: expect.objectContaining({
           mode: 'ranked',
-          durationMinutes: 60,
+          durationMinutes: 90,
           expiresAt: rankedExpiresAt.getTime(),
         }),
       }),
@@ -386,6 +391,63 @@ describe('RoomsGameService', () => {
     expect(gameTurnTimerQueueService.enqueueGameExpiry).toHaveBeenCalledWith(
       'game-1',
       rankedExpiresAt.getTime(),
+    );
+  });
+
+  it('cancels the started game when live setup fails after the database transaction', async () => {
+    const players = [humanPlayerOne, humanPlayerTwo, humanPlayerThree];
+    const game = {
+      id: 'game-1',
+      roomId: waitingRoom.id,
+      mode: 'ranked' as const,
+      status: 'active' as const,
+      currentTurnRoomPlayerId: humanPlayerOne.id,
+      turnNumber: 1,
+      state: {
+        version: 1,
+        mode: 'ranked',
+      },
+      startedAt: activeRoom.startedAt,
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
+      finishedAt: null,
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    roomsGameRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsGameRepository.findJoinedPlayer.mockResolvedValue(humanPlayerOne);
+    roomsGameRepository.listJoinedPlayers.mockResolvedValue(players);
+    roomsGameRepository.startRoom.mockResolvedValue(activeRoom);
+    roomsGameRepository.createGame.mockResolvedValue(game);
+    gameTurnTimerQueueService.enqueueGameExpiry.mockRejectedValue(
+      new Error('queue down'),
+    );
+
+    await expect(
+      service.startRoom(authUser, waitingRoom.code),
+    ).rejects.toThrow('Game could not be started');
+
+    expect(gameStateService.delete).toHaveBeenCalledWith(game.id);
+    expect(roomsGameRepository.cancelStartedGame).toHaveBeenCalledWith(
+      {
+        roomId: waitingRoom.id,
+        gameId: game.id,
+        finishedAt: expect.any(Date),
+      },
+      tx,
+    );
+    expect(outboxQueueService.enqueuePublishEvent).not.toHaveBeenCalled();
+    expect(observabilityService.recordEvent).toHaveBeenCalledWith(
+      ROOM_EVENTS.startSetupFailed,
+      {
+        roomId: activeRoom.id,
+        roomCode: activeRoom.code,
+        gameId: game.id,
+        message: 'queue down',
+      },
+    );
+    expect(observabilityService.recordMetric).toHaveBeenCalledWith(
+      ROOM_METRICS.startSetupFailed,
     );
   });
 
@@ -440,7 +502,7 @@ describe('RoomsGameService', () => {
         mode: 'casual',
       },
       startedAt: activeRoom.startedAt,
-      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
       finishedAt: null,
       createdAt,
       updatedAt: createdAt,
@@ -611,7 +673,7 @@ describe('RoomsGameService', () => {
         mode: 'casual',
       },
       startedAt: activeRoom.startedAt,
-      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
       finishedAt: null,
       createdAt,
       updatedAt: createdAt,
@@ -669,7 +731,7 @@ describe('RoomsGameService', () => {
         mode: 'casual',
       },
       startedAt: activeRoom.startedAt,
-      expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
+      expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
       finishedAt: null,
       createdAt,
       updatedAt: createdAt,

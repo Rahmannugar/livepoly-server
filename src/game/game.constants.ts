@@ -15,7 +15,7 @@ export const GAME_SNAPSHOTS = {
 } as const;
 
 export const GAME_TURN_TIMER = {
-  timeoutMs: 60_000,
+  timeoutMs: 90_000,
   auctionBidTimeoutMs: 25_000,
   maxConsecutiveMissedTurns: 3,
 } as const;

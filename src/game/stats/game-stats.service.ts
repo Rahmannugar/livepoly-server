@@ -22,15 +22,15 @@ export class GameStatsService {
     input: ApplyFinishedGameStatsInput,
     executor?: DatabaseExecutor,
   ): Promise<void> {
-    if (!this.shouldApplyStats(input.state)) {
-      return;
-    }
-
-    const rankedResults = input.playerResults.filter(
+    const userResults = input.playerResults.filter(
       (result) => result.userId !== null,
     );
 
-    const userIds = rankedResults.map((result) => result.userId as string);
+    if (userResults.length === 0) {
+      return;
+    }
+
+    const userIds = userResults.map((result) => result.userId as string);
 
     await this.gameStatsRepository.createMissingPlayerStats(userIds, executor);
 
@@ -43,27 +43,44 @@ export class GameStatsService {
       currentStats.map((stats) => [stats.userId, stats]),
     );
 
-    const ratingChanges = this.gameRatingService.calculateRatingChanges(
-      rankedResults.map((result) => {
-        const stats = statsByUserId.get(result.userId as string);
+    const shouldRateGame = this.shouldRateGame(input.state);
+    const ratingChanges = shouldRateGame
+      ? this.gameRatingService.calculateRatingChanges(
+          userResults.map((result) => {
+            const stats = statsByUserId.get(result.userId as string);
 
-        if (!stats) {
-          throw new Error('Player stats row missing after initialization');
-        }
+            if (!stats) {
+              throw new Error('Player stats row missing after initialization');
+            }
 
-        return {
-          userId: result.userId as string,
-          placement: result.placement,
-          rating: stats.currentRating,
-        };
-      }),
-    );
+            return {
+              userId: result.userId as string,
+              placement: result.placement,
+              rating: stats.currentRating,
+            };
+          }),
+        )
+      : userResults.map((result) => {
+          const userId = result.userId as string;
+          const stats = statsByUserId.get(userId);
+
+          if (!stats) {
+            throw new Error('Player stats row missing after initialization');
+          }
+
+          return {
+            userId,
+            ratingBefore: stats.currentRating,
+            ratingAfter: stats.currentRating,
+            ratingDelta: 0,
+          };
+        });
 
     const ratingChangeByUserId = new Map(
       ratingChanges.map((change) => [change.userId, change]),
     );
 
-    for (const result of rankedResults) {
+    for (const result of userResults) {
       const userId = result.userId as string;
       const stats = statsByUserId.get(userId);
       const ratingChange = ratingChangeByUserId.get(userId);
@@ -100,7 +117,7 @@ export class GameStatsService {
     }
   }
 
-  private shouldApplyStats(state: GameEngineState): boolean {
+  private shouldRateGame(state: GameEngineState): boolean {
     if (state.mode !== 'ranked') {
       return false;
     }

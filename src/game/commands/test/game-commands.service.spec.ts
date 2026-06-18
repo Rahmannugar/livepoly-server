@@ -309,6 +309,35 @@ describe('GameCommandsService', () => {
     expect(result.state.players[0].consecutiveMissedTurns).toBe(1);
   });
 
+  it('does not increment missed turns after non-roll timer commands', async () => {
+    const { service } = makeService(
+      makeState({
+        phase: 'awaiting_turn_end',
+        players: [
+          {
+            ...makeState().players[0],
+            consecutiveMissedTurns: 2,
+          },
+          makeState().players[1],
+        ],
+      }),
+    );
+
+    const result = await service.executeIntent({
+      gameId,
+      roomPlayerId,
+      source: 'timer',
+      intent: {
+        type: 'end_turn',
+        payload: {
+          roomPlayerId,
+        },
+      },
+    });
+
+    expect(result.state.players[0].consecutiveMissedTurns).toBe(2);
+  });
+
   it('does not increment missed turns after a bot command', async () => {
     const { service } = makeService(
       makeState({

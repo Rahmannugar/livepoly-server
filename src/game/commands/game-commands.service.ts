@@ -356,6 +356,7 @@ export class GameCommandsService {
           const sourceAppliedState = this.applyCommandSourceToState(
             engineResult.state,
             source,
+            intent.type,
             actorRoomPlayerId,
             commandTurnRoomPlayerId,
             commandTurnNumber,
@@ -462,6 +463,7 @@ export class GameCommandsService {
   private applyCommandSourceToState(
     state: GameCommandResult['state'],
     source: GameCommandSource,
+    intentType: GameCommandResult['intentType'],
     actorRoomPlayerId: string | null,
     commandTurnRoomPlayerId: string,
     commandTurnNumber: number,
@@ -471,6 +473,10 @@ export class GameCommandsService {
     }
 
     if (source === 'timer') {
+      if (intentType !== 'roll_and_move') {
+        return state;
+      }
+
       if (actorRoomPlayerId !== commandTurnRoomPlayerId) {
         return state;
       }

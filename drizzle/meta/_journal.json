@@ -176,6 +176,20 @@
       "when": 1781936400000,
       "tag": "0024_add_abandoned_game_result_reason",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1781940000000,
+      "tag": "0025_update_notification_type_enum",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1781943600000,
+      "tag": "0026_use_game_id_for_room_result_upserts",
+      "breakpoints": true
     }
   ]
 }

@@ -147,24 +147,48 @@ describe('GameStatsService', () => {
     );
   });
 
-  it('skips casual games', async () => {
+  it('updates casual game stats without changing rating', async () => {
     const { service, gameStatsRepository } = makeService();
 
     await service.applyFinishedGameStats(
       {
         roomId: 'room-1',
         state: createGameEngineState({ mode: 'casual' }),
-        playerResults: [],
+        playerResults: [
+          makePlayerResult({
+            roomPlayerId: 'room-player-1',
+            userId: 'user-1',
+            placement: 1,
+          }),
+        ],
       },
       tx,
     );
 
-    expect(gameStatsRepository.createMissingPlayerStats).not.toHaveBeenCalled();
-    expect(gameStatsRepository.recordRatingChange).not.toHaveBeenCalled();
-    expect(gameStatsRepository.updatePlayerStats).not.toHaveBeenCalled();
+    expect(gameStatsRepository.recordRatingChange).toHaveBeenCalledWith(
+      {
+        userId: 'user-1',
+        roomId: 'room-1',
+        ratingBefore: 500,
+        ratingAfter: 500,
+        ratingDelta: 0,
+        placement: 1,
+      },
+      tx,
+    );
+    expect(gameStatsRepository.updatePlayerStats).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        gamesPlayed: 6,
+        firstPlace: 2,
+        currentRating: 500,
+        peakRating: 500,
+      }),
+      tx,
+    );
   });
 
-  it('does not apply stats unless every player is human-owned', async () => {
+  it('updates human stats in bot-filled games without changing rating', async () => {
     const { service, gameStatsRepository } = makeService();
 
     await service.applyFinishedGameStats(
@@ -183,14 +207,43 @@ describe('GameStatsService', () => {
               : player,
           ),
         }),
-        playerResults: [],
+        playerResults: [
+          makePlayerResult({
+            roomPlayerId: 'room-player-1',
+            userId: 'user-1',
+            placement: 1,
+          }),
+          makePlayerResult({
+            roomPlayerId: 'room-player-2',
+            userId: null,
+            placement: 2,
+          }),
+        ],
       },
       tx,
     );
 
-    expect(gameStatsRepository.createMissingPlayerStats).not.toHaveBeenCalled();
-    expect(gameStatsRepository.recordRatingChange).not.toHaveBeenCalled();
-    expect(gameStatsRepository.updatePlayerStats).not.toHaveBeenCalled();
+    expect(gameStatsRepository.createMissingPlayerStats).toHaveBeenCalledWith(
+      ['user-1'],
+      tx,
+    );
+    expect(gameStatsRepository.recordRatingChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        ratingBefore: 500,
+        ratingAfter: 500,
+        ratingDelta: 0,
+      }),
+      tx,
+    );
+    expect(gameStatsRepository.updatePlayerStats).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: 'user-1',
+        gamesPlayed: 6,
+        currentRating: 500,
+      }),
+      tx,
+    );
   });
 
   it('does not update stats when rating change was already recorded', async () => {

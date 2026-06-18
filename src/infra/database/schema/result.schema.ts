@@ -50,7 +50,7 @@ export const roomResults = pgTable(
     createdAt: createdAt(),
   },
   (table) => [
-    uniqueIndex('room_results_room_id_unique_idx').on(table.roomId),
+    index('room_results_room_id_idx').on(table.roomId),
     uniqueIndex('room_results_game_id_unique_idx').on(table.gameId),
     index('room_results_winner_user_id_idx').on(table.winnerUserId),
     index('room_results_completed_at_idx').on(table.completedAt),

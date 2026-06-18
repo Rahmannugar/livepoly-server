@@ -1,3 +1,4 @@
+SET search_path TO "livepoly";--> statement-breakpoint
 ALTER TABLE "player_stats" DROP CONSTRAINT "player_stats_current_rating_chk";--> statement-breakpoint
 ALTER TABLE "player_stats" DROP CONSTRAINT "player_stats_peak_rating_chk";--> statement-breakpoint
 ALTER TABLE "rating_history" DROP CONSTRAINT "rating_history_rating_before_chk";--> statement-breakpoint

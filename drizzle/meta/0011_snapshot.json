@@ -4,7 +4,7 @@
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.friendships": {
+    "livepoly.friendships": {
       "name": "friendships",
       "schema": "",
       "columns": {
@@ -30,7 +30,7 @@
         "status": {
           "name": "status",
           "type": "friendship_status",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -153,7 +153,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.player_stats": {
+    "livepoly.player_stats": {
       "name": "player_stats",
       "schema": "",
       "columns": {
@@ -353,7 +353,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.user_avatar_uploads": {
+    "livepoly.user_avatar_uploads": {
       "name": "user_avatar_uploads",
       "schema": "",
       "columns": {
@@ -523,7 +523,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.users": {
+    "livepoly.users": {
       "name": "users",
       "schema": "",
       "columns": {
@@ -647,7 +647,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.oauth_accounts": {
+    "livepoly.oauth_accounts": {
       "name": "oauth_accounts",
       "schema": "",
       "columns": {
@@ -667,7 +667,7 @@
         "provider": {
           "name": "provider",
           "type": "oauth_provider",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -778,7 +778,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.sessions": {
+    "livepoly.sessions": {
       "name": "sessions",
       "schema": "",
       "columns": {
@@ -941,7 +941,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.room_players": {
+    "livepoly.room_players": {
       "name": "room_players",
       "schema": "",
       "columns": {
@@ -967,14 +967,14 @@
         "player_type": {
           "name": "player_type",
           "type": "room_player_type",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
         "bot_difficulty": {
           "name": "bot_difficulty",
           "type": "bot_difficulty",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": false
         },
@@ -993,7 +993,7 @@
         "status": {
           "name": "status",
           "type": "room_player_status",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true,
           "default": "'joined'"
@@ -1167,7 +1167,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.room_spectators": {
+    "livepoly.room_spectators": {
       "name": "room_spectators",
       "schema": "",
       "columns": {
@@ -1292,7 +1292,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.rooms": {
+    "livepoly.rooms": {
       "name": "rooms",
       "schema": "",
       "columns": {
@@ -1318,7 +1318,7 @@
         "status": {
           "name": "status",
           "type": "room_status",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true,
           "default": "'waiting'"
@@ -1459,7 +1459,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.games": {
+    "livepoly.games": {
       "name": "games",
       "schema": "",
       "columns": {
@@ -1479,14 +1479,14 @@
         "mode": {
           "name": "mode",
           "type": "game_mode",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
         "status": {
           "name": "status",
           "type": "game_status",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true,
           "default": "'active'"
@@ -1645,7 +1645,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.leaderboard_snapshots": {
+    "livepoly.leaderboard_snapshots": {
       "name": "leaderboard_snapshots",
       "schema": "",
       "columns": {
@@ -1659,7 +1659,7 @@
         "period_type": {
           "name": "period_type",
           "type": "leaderboard_period",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -1730,7 +1730,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.rating_history": {
+    "livepoly.rating_history": {
       "name": "rating_history",
       "schema": "",
       "columns": {
@@ -1900,7 +1900,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.room_player_results": {
+    "livepoly.room_player_results": {
       "name": "room_player_results",
       "schema": "",
       "columns": {
@@ -2143,7 +2143,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.room_results": {
+    "livepoly.room_results": {
       "name": "room_results",
       "schema": "",
       "columns": {
@@ -2175,7 +2175,7 @@
         "end_reason": {
           "name": "end_reason",
           "type": "game_end_reason",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -2319,7 +2319,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.notifications": {
+    "livepoly.notifications": {
       "name": "notifications",
       "schema": "",
       "columns": {
@@ -2339,7 +2339,7 @@
         "type": {
           "name": "type",
           "type": "notification_type",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -2452,7 +2452,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.push_subscriptions": {
+    "livepoly.push_subscriptions": {
       "name": "push_subscriptions",
       "schema": "",
       "columns": {
@@ -2555,7 +2555,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.jobs": {
+    "livepoly.jobs": {
       "name": "jobs",
       "schema": "",
       "columns": {
@@ -2581,7 +2581,7 @@
         "status": {
           "name": "status",
           "type": "job_status",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true,
           "default": "'queued'"
@@ -2718,7 +2718,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.outbox_events": {
+    "livepoly.outbox_events": {
       "name": "outbox_events",
       "schema": "",
       "columns": {
@@ -2750,7 +2750,7 @@
         "status": {
           "name": "status",
           "type": "outbox_event_status",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true,
           "default": "'queued'"
@@ -2883,52 +2883,52 @@
     }
   },
   "enums": {
-    "public.friendship_status": {
+    "livepoly.friendship_status": {
       "name": "friendship_status",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "pending",
         "accepted",
         "blocked"
       ]
     },
-    "public.oauth_provider": {
+    "livepoly.oauth_provider": {
       "name": "oauth_provider",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "google",
         "discord"
       ]
     },
-    "public.bot_difficulty": {
+    "livepoly.bot_difficulty": {
       "name": "bot_difficulty",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "easy",
         "normal",
         "hard"
       ]
     },
-    "public.room_player_status": {
+    "livepoly.room_player_status": {
       "name": "room_player_status",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "joined",
         "left",
         "kicked"
       ]
     },
-    "public.room_player_type": {
+    "livepoly.room_player_type": {
       "name": "room_player_type",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "human",
         "bot"
       ]
     },
-    "public.room_status": {
+    "livepoly.room_status": {
       "name": "room_status",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "waiting",
         "active",
@@ -2936,43 +2936,43 @@
         "cancelled"
       ]
     },
-    "public.game_mode": {
+    "livepoly.game_mode": {
       "name": "game_mode",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "ranked",
         "casual"
       ]
     },
-    "public.game_status": {
+    "livepoly.game_status": {
       "name": "game_status",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "active",
         "finished",
         "cancelled"
       ]
     },
-    "public.game_end_reason": {
+    "livepoly.game_end_reason": {
       "name": "game_end_reason",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "bankruptcy",
         "time_elapsed",
         "cancelled"
       ]
     },
-    "public.leaderboard_period": {
+    "livepoly.leaderboard_period": {
       "name": "leaderboard_period",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "weekly",
         "monthly"
       ]
     },
-    "public.notification_type": {
+    "livepoly.notification_type": {
       "name": "notification_type",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "friend_request",
         "friend_accepted",
@@ -2983,9 +2983,9 @@
         "system"
       ]
     },
-    "public.job_status": {
+    "livepoly.job_status": {
       "name": "job_status",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "queued",
         "processing",
@@ -2993,9 +2993,9 @@
         "failed"
       ]
     },
-    "public.outbox_event_status": {
+    "livepoly.outbox_event_status": {
       "name": "outbox_event_status",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "queued",
         "processing",

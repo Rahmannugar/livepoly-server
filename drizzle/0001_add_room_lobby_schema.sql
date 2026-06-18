@@ -1,7 +1,8 @@
-CREATE TYPE "public"."bot_difficulty" AS ENUM('easy', 'normal', 'hard');--> statement-breakpoint
-CREATE TYPE "public"."room_player_status" AS ENUM('joined', 'left', 'kicked');--> statement-breakpoint
-CREATE TYPE "public"."room_player_type" AS ENUM('human', 'bot');--> statement-breakpoint
-CREATE TYPE "public"."room_status" AS ENUM('waiting', 'active', 'finished', 'cancelled');--> statement-breakpoint
+SET search_path TO "livepoly";--> statement-breakpoint
+CREATE TYPE "livepoly"."bot_difficulty" AS ENUM('easy', 'normal', 'hard');--> statement-breakpoint
+CREATE TYPE "livepoly"."room_player_status" AS ENUM('joined', 'left', 'kicked');--> statement-breakpoint
+CREATE TYPE "livepoly"."room_player_type" AS ENUM('human', 'bot');--> statement-breakpoint
+CREATE TYPE "livepoly"."room_status" AS ENUM('waiting', 'active', 'finished', 'cancelled');--> statement-breakpoint
 CREATE TABLE "room_players" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"room_id" uuid NOT NULL,
@@ -54,11 +55,11 @@ CREATE TABLE "rooms" (
 	CONSTRAINT "rooms_duration_minutes_chk" CHECK ("rooms"."duration_minutes" in (30, 60, 120, 180))
 );
 --> statement-breakpoint
-ALTER TABLE "room_players" ADD CONSTRAINT "room_players_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "public"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_players" ADD CONSTRAINT "room_players_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_spectators" ADD CONSTRAINT "room_spectators_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "public"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "room_spectators" ADD CONSTRAINT "room_spectators_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "rooms" ADD CONSTRAINT "rooms_host_user_id_users_id_fk" FOREIGN KEY ("host_user_id") REFERENCES "public"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_players" ADD CONSTRAINT "room_players_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "livepoly"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_players" ADD CONSTRAINT "room_players_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "livepoly"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_spectators" ADD CONSTRAINT "room_spectators_room_id_rooms_id_fk" FOREIGN KEY ("room_id") REFERENCES "livepoly"."rooms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "room_spectators" ADD CONSTRAINT "room_spectators_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "livepoly"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "rooms" ADD CONSTRAINT "rooms_host_user_id_users_id_fk" FOREIGN KEY ("host_user_id") REFERENCES "livepoly"."users"("id") ON DELETE restrict ON UPDATE no action;--> statement-breakpoint
 CREATE UNIQUE INDEX "room_players_room_user_unique_idx" ON "room_players" USING btree ("room_id","user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "room_players_active_room_seat_unique_idx" ON "room_players" USING btree ("room_id","seat_number") WHERE "room_players"."status" = 'joined';--> statement-breakpoint
 CREATE INDEX "room_players_room_id_idx" ON "room_players" USING btree ("room_id");--> statement-breakpoint

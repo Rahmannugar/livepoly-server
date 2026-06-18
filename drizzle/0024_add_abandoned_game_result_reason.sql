@@ -1,4 +1,5 @@
-ALTER TYPE "public"."game_end_reason" ADD VALUE IF NOT EXISTS 'abandoned';--> statement-breakpoint
+SET search_path TO "livepoly";--> statement-breakpoint
+ALTER TYPE "livepoly"."game_end_reason" ADD VALUE IF NOT EXISTS 'abandoned';--> statement-breakpoint
 ALTER TABLE "room_results" DROP CONSTRAINT IF EXISTS "room_results_winner_required_chk";--> statement-breakpoint
 -- Bot winners have no user id, so completed games require a winning room player,
 -- not a winning user.

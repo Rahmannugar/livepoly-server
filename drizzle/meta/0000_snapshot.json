@@ -4,7 +4,7 @@
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.oauth_accounts": {
+    "livepoly.oauth_accounts": {
       "name": "oauth_accounts",
       "schema": "",
       "columns": {
@@ -24,7 +24,7 @@
         "provider": {
           "name": "provider",
           "type": "oauth_provider",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -114,7 +114,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.otp_tokens": {
+    "livepoly.otp_tokens": {
       "name": "otp_tokens",
       "schema": "",
       "columns": {
@@ -134,7 +134,7 @@
         "purpose": {
           "name": "purpose",
           "type": "otp_purpose",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -245,7 +245,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.sessions": {
+    "livepoly.sessions": {
       "name": "sessions",
       "schema": "",
       "columns": {
@@ -408,7 +408,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.friendships": {
+    "livepoly.friendships": {
       "name": "friendships",
       "schema": "",
       "columns": {
@@ -434,7 +434,7 @@
         "status": {
           "name": "status",
           "type": "friendship_status",
-          "typeSchema": "public",
+          "typeSchema": "livepoly",
           "primaryKey": false,
           "notNull": true
         },
@@ -557,7 +557,7 @@
       },
       "isRLSEnabled": false
     },
-    "public.player_stats": {
+    "livepoly.player_stats": {
       "name": "player_stats",
       "schema": "",
       "columns": {
@@ -712,7 +712,7 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.users": {
+    "livepoly.users": {
       "name": "users",
       "schema": "",
       "columns": {
@@ -822,25 +822,25 @@
     }
   },
   "enums": {
-    "public.oauth_provider": {
+    "livepoly.oauth_provider": {
       "name": "oauth_provider",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "google",
         "discord"
       ]
     },
-    "public.otp_purpose": {
+    "livepoly.otp_purpose": {
       "name": "otp_purpose",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "email_verification",
         "password_reset"
       ]
     },
-    "public.friendship_status": {
+    "livepoly.friendship_status": {
       "name": "friendship_status",
-      "schema": "public",
+      "schema": "livepoly",
       "values": [
         "pending",
         "accepted",

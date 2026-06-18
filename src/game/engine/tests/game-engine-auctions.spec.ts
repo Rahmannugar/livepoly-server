@@ -86,7 +86,36 @@ describe('game-engine-auctions', () => {
     ]);
   });
 
-  it('rejects bids below the next auction step', () => {
+  it('allows the next auction bid to be any whole amount above current bid', () => {
+    const auctionState = placeAuctionBid(
+      declinePropertyPurchase(
+        createGameEngineState({
+          phase: 'awaiting_property_decision',
+          pendingTileKey: TEST_BOARD_TILES.cheapProperty,
+        }),
+        {
+          roomPlayerId: 'room-player-1',
+        },
+      ).state,
+      {
+        roomPlayerId: 'room-player-1',
+        amount: 75,
+      },
+    ).state;
+
+    const result = placeAuctionBid(auctionState, {
+      roomPlayerId: 'room-player-2',
+      amount: 76,
+    });
+
+    expect(result.state.auction).toMatchObject({
+      currentBid: 76,
+      highestBidderRoomPlayerId: 'room-player-2',
+      currentBidderRoomPlayerId: 'room-player-3',
+    });
+  });
+
+  it('rejects bids that do not beat the current auction bid', () => {
     const auctionState = placeAuctionBid(
       declinePropertyPurchase(
         createGameEngineState({
@@ -106,12 +135,12 @@ describe('game-engine-auctions', () => {
     expect(() =>
       placeAuctionBid(auctionState, {
         roomPlayerId: 'room-player-2',
-        amount: 80,
+        amount: 75,
       }),
     ).toThrow(
       new GameEngineError(
         'INVALID_AUCTION_BID',
-        'Auction bid must be at least 85',
+        'Auction bid must be at least 76',
       ),
     );
   });

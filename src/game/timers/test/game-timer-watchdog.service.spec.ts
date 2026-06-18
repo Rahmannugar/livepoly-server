@@ -1,5 +1,6 @@
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import type { GameBotQueueService } from '../../bots/game-bot-queue.service';
+import type { GameBotService } from '../../bots/game-bot.service';
 import type { GameCommandsService } from '../../commands/game-commands.service';
 import { createGameEnginePlayer, createGameEngineState } from '../../engine/tests/game-engine.test-factory';
 import { GAME_EVENTS, GAME_METRICS, GAME_TIMER_WATCHDOG } from '../../game.constants';
@@ -21,6 +22,11 @@ type GameRecoveryServiceMock = {
 
 type GameBotQueueServiceMock = {
   enqueueIfBotCanAct: jest.Mock;
+};
+
+type GameBotServiceMock = {
+  hasActionableBot: jest.Mock;
+  chooseDecision: jest.Mock;
 };
 
 type GameTurnTimerQueueServiceMock = {
@@ -52,6 +58,7 @@ describe('GameTimerWatchdogService', () => {
   let repository: GameTimerWatchdogRepositoryMock;
   let gameRecoveryService: GameRecoveryServiceMock;
   let gameBotQueueService: GameBotQueueServiceMock;
+  let gameBotService: GameBotServiceMock;
   let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
   let gameCommandsService: GameCommandsServiceMock;
   let gameResultsService: GameResultsServiceMock;
@@ -72,6 +79,10 @@ describe('GameTimerWatchdogService', () => {
     };
     gameBotQueueService = {
       enqueueIfBotCanAct: jest.fn().mockResolvedValue(undefined),
+    };
+    gameBotService = {
+      hasActionableBot: jest.fn().mockReturnValue(false),
+      chooseDecision: jest.fn(),
     };
     gameTurnTimerQueueService = {
       enqueueTurnTimer: jest.fn().mockResolvedValue(undefined),
@@ -96,6 +107,7 @@ describe('GameTimerWatchdogService', () => {
       repository as unknown as GameTimerWatchdogRepository,
       gameRecoveryService as unknown as GameRecoveryService,
       gameBotQueueService as unknown as GameBotQueueService,
+      gameBotService as unknown as GameBotService,
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
       gameCommandsService as unknown as GameCommandsService,
       gameResultsService as unknown as GameResultsService,
@@ -228,6 +240,79 @@ describe('GameTimerWatchdogService', () => {
       state,
     );
     expect(gameTurnTimerQueueService.enqueueGameExpiry).not.toHaveBeenCalled();
+  });
+
+  it('executes an overdue bot action directly when queue recovery is not enough', async () => {
+    const state = createGameEngineState({
+      expiresAt: now + 60_000,
+      turnExpiresAt: now - GAME_TIMER_WATCHDOG.deadlineGraceMs,
+      phase: 'awaiting_turn_end',
+      currentTurnRoomPlayerId: 'bot-player-1',
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'normal',
+          botName: 'Nova',
+        }),
+      ],
+    });
+    const result = {
+      state: {
+        ...state,
+        turnNumber: 2,
+        currentTurnRoomPlayerId: 'room-player-2',
+      },
+      events: [
+        {
+          type: 'turn_ended' as const,
+          roomPlayerId: 'bot-player-1',
+          nextRoomPlayerId: 'room-player-2',
+          turnNumber: 2,
+        },
+      ],
+      intentType: 'end_turn' as const,
+    };
+
+    repository.listActiveGames.mockResolvedValue([
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
+    ]);
+    gameRecoveryService.getOrRecover.mockResolvedValue(state);
+    gameBotService.hasActionableBot.mockReturnValue(true);
+    gameBotService.chooseDecision.mockReturnValue({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'end_turn',
+        payload: { roomPlayerId: 'bot-player-1' },
+      },
+    });
+    gameCommandsService.executeIntent.mockResolvedValue(result);
+
+    await service.runOnce();
+
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      roomPlayerId: 'bot-player-1',
+      source: 'bot',
+      intent: {
+        type: 'end_turn',
+        payload: { roomPlayerId: 'bot-player-1' },
+      },
+    });
+    expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
+      'game-1',
+      result,
+    );
+    expect(gameBotQueueService.enqueueIfBotCanAct).toHaveBeenCalledWith(
+      'game-1',
+      result.state,
+    );
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).toHaveBeenCalledWith(
+      'game-1',
+      result.state,
+    );
   });
 
   it('re-enqueues game expiry when an active game has passed its match deadline', async () => {

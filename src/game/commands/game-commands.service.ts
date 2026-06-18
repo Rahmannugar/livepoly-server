@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
@@ -37,6 +38,8 @@ import type {
 
 @Injectable()
 export class GameCommandsService {
+  private readonly logger = new Logger(GameCommandsService.name);
+
   constructor(
     private readonly gameStateService: GameStateService,
     private readonly observabilityService: ObservabilityService,
@@ -372,7 +375,7 @@ export class GameCommandsService {
         },
       );
 
-      const result = commandResult ?? {
+      const result: GameCommandResult = commandResult ?? {
         state,
         events: [],
         intentType: input.intent.type,
@@ -387,6 +390,18 @@ export class GameCommandsService {
 
       await this.afterSuccessfulCommand(input.gameId, result);
 
+      this.logger.log({
+        message: 'game_flow.command.succeeded',
+        gameId: input.gameId,
+        roomPlayerId: input.roomPlayerId,
+        source: input.source ?? 'player',
+        intentType: result.intentType,
+        phase: result.state.phase,
+        turnNumber: result.state.turnNumber,
+        currentTurnRoomPlayerId: result.state.currentTurnRoomPlayerId,
+        eventTypes: result.events.map((event) => event.type),
+      });
+
       return result;
     } catch (error) {
       if (!recovered && error instanceof NotFoundException) {
@@ -400,6 +415,18 @@ export class GameCommandsService {
         input.roomPlayerId,
         error,
       );
+
+      this.logger.error({
+        message: 'game_flow.command.failed',
+        gameId: input.gameId,
+        roomPlayerId: input.roomPlayerId,
+        source: input.source ?? 'player',
+        intentType: input.intent.type,
+        errorCode: error instanceof GameEngineError ? error.code : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
 
       throw error;
     }

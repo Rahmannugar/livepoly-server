@@ -1,4 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
@@ -32,6 +33,8 @@ import { GAME_EVENTS, GAME_METRICS } from '../game.constants';
 
 @Processor(QUEUES.game)
 export class GameProcessor extends WorkerHost {
+  private readonly logger = new Logger(GameProcessor.name);
+
   constructor(
     private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameBotService: GameBotService,
@@ -81,7 +84,27 @@ export class GameProcessor extends WorkerHost {
     const state = await this.gameRecoveryService.getOrRecover(job.data.gameId);
     const decision = this.gameBotService.chooseDecision(state);
 
+    this.logger.log({
+      message: 'game_flow.bot.started',
+      jobId: job.id,
+      gameId: job.data.gameId,
+      phase: state.phase,
+      turnNumber: state.turnNumber,
+      currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
+      botRoomPlayerId: decision?.roomPlayerId ?? null,
+      intentType: decision?.intent.type ?? null,
+    });
+
     if (!decision) {
+      this.logger.warn({
+        message: 'game_flow.bot.skipped',
+        jobId: job.id,
+        gameId: job.data.gameId,
+        phase: state.phase,
+        turnNumber: state.turnNumber,
+        currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
+      });
+
       this.observabilityService.recordEvent(GAME_EVENTS.botTurnSkipped, {
         jobId: job.id,
         gameId: job.data.gameId,
@@ -105,6 +128,17 @@ export class GameProcessor extends WorkerHost {
 
       await this.afterAutomatedCommand(job.data.gameId, result.state, result);
 
+      this.logger.log({
+        message: 'game_flow.bot.executed',
+        jobId: job.id,
+        gameId: job.data.gameId,
+        roomPlayerId: decision.roomPlayerId,
+        intentType: decision.intent.type,
+        phase: result.state.phase,
+        turnNumber: result.state.turnNumber,
+        currentTurnRoomPlayerId: result.state.currentTurnRoomPlayerId,
+      });
+
       this.observabilityService.recordEvent(GAME_EVENTS.botTurnExecuted, {
         jobId: job.id,
         gameId: job.data.gameId,
@@ -116,6 +150,18 @@ export class GameProcessor extends WorkerHost {
 
       this.observabilityService.recordMetric(GAME_METRICS.botTurnExecuted);
     } catch (error) {
+      this.logger.error({
+        message: 'game_flow.bot.failed',
+        jobId: job.id,
+        gameId: job.data.gameId,
+        roomPlayerId: decision.roomPlayerId,
+        intentType: decision.intent.type,
+        errorCode: error instanceof GameEngineError ? error.code : undefined,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
       this.observabilityService.recordEvent(GAME_EVENTS.botTurnFailed, {
         jobId: job.id,
         gameId: job.data.gameId,

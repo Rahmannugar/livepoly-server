@@ -1,5 +1,5 @@
 import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
 import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import { ObservabilityService } from '../../infra/observability/observability.service';
@@ -11,6 +11,8 @@ import { exponentialBackoffWithJitter } from '../../infra/queue/queue-jitter';
 
 @Injectable()
 export class GameBotQueueService {
+  private readonly logger = new Logger(GameBotQueueService.name);
+
   constructor(
     @InjectQueue(QUEUES.game) private readonly gameQueue: Queue,
     private readonly gameBotService: GameBotService,
@@ -34,7 +36,7 @@ export class GameBotQueueService {
       this.getActionStateKey(state),
     ].join('__');
 
-    await this.removeFailedDuplicateJob(jobId);
+    const existingJobState = await this.removeRecoverableDuplicateJob(jobId);
 
     await this.gameQueue.add(
       GAME_JOBS.executeBotTurn,
@@ -49,6 +51,18 @@ export class GameBotQueueService {
       },
     );
 
+    this.logger.log({
+      message: 'game_flow.bot.queued',
+      gameId,
+      roomPlayerId: decision.roomPlayerId,
+      phase: state.phase,
+      turnNumber: state.turnNumber,
+      delay,
+      jobId,
+      intentType: decision.intent.type,
+      existingJobState,
+    });
+
     this.observabilityService.recordEvent(GAME_EVENTS.botTurnQueued, {
       gameId,
       roomPlayerId: decision.roomPlayerId,
@@ -60,14 +74,22 @@ export class GameBotQueueService {
     this.observabilityService.recordMetric(GAME_METRICS.botTurnQueued);
   }
 
-  private async removeFailedDuplicateJob(jobId: string): Promise<void> {
+  private async removeRecoverableDuplicateJob(
+    jobId: string,
+  ): Promise<string | null> {
     const existingJob = await this.gameQueue.getJob(jobId);
 
-    if (!existingJob || (await existingJob.getState()) !== 'failed') {
-      return;
+    if (!existingJob) {
+      return null;
     }
 
-    await existingJob.remove();
+    const state = await existingJob.getState();
+
+    if (state === 'failed' || state === 'completed') {
+      await existingJob.remove();
+    }
+
+    return state;
   }
 
   private getActionDelay(state: GameEngineState): number {

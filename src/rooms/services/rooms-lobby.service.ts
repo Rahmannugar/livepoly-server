@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { randomInt } from 'crypto';
@@ -35,6 +36,8 @@ import {
 
 @Injectable()
 export class RoomsLobbyService {
+  private readonly logger = new Logger(RoomsLobbyService.name);
+
   constructor(
     private readonly roomsLobbyRepository: RoomsLobbyRepository,
     private readonly databaseService: DatabaseService,
@@ -417,10 +420,26 @@ export class RoomsLobbyService {
     roomCode: string;
     gameId: string;
   }) {
+    this.logger.log({
+      message: 'game_flow.last_human.finalization_started',
+      roomId: input.roomId,
+      roomCode: input.roomCode,
+      gameId: input.gameId,
+    });
+
     const state = await this.gameRecoveryService.getOrRecover(input.gameId);
     const finishedAt = Date.now();
 
     if (state.phase === 'finished') {
+      this.logger.log({
+        message: 'game_flow.last_human.already_finished',
+        roomId: input.roomId,
+        roomCode: input.roomCode,
+        gameId: input.gameId,
+        phase: state.phase,
+        turnNumber: state.turnNumber,
+      });
+
       await this.gameResultsService.finalizeAbandonedFinishedGame({
         gameId: input.gameId,
         state,
@@ -439,6 +458,16 @@ export class RoomsLobbyService {
           finishedAt,
         },
       },
+    });
+
+    this.logger.log({
+      message: 'game_flow.last_human.finish_intent_executed',
+      roomId: input.roomId,
+      roomCode: input.roomCode,
+      gameId: input.gameId,
+      phase: result.state.phase,
+      turnNumber: result.state.turnNumber,
+      eventTypes: result.events.map((event) => event.type),
     });
 
     try {

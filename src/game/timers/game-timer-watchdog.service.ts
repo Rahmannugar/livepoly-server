@@ -1,11 +1,14 @@
 import {
   Injectable,
+  Logger,
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
+import { GameBotService } from '../bots/game-bot.service';
 import { GameCommandsService } from '../commands/game-commands.service';
+import type { GameCommandResult } from '../commands/game-commands.types';
 import type { GameEngineState } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS, GAME_TIMER_WATCHDOG } from '../game.constants';
 import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
@@ -18,6 +21,7 @@ import { GameTimerWatchdogRepository } from './game-timer-watchdog.repository';
 export class GameTimerWatchdogService
   implements OnApplicationBootstrap, OnModuleDestroy
 {
+  private readonly logger = new Logger(GameTimerWatchdogService.name);
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private scanInProgress = false;
 
@@ -25,6 +29,7 @@ export class GameTimerWatchdogService
     private readonly gameTimerWatchdogRepository: GameTimerWatchdogRepository,
     private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameBotQueueService: GameBotQueueService,
+    private readonly gameBotService: GameBotService,
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
     private readonly gameCommandsService: GameCommandsService,
     private readonly gameResultsService: GameResultsService,
@@ -78,6 +83,14 @@ export class GameTimerWatchdogService
           if (this.isTerminal(state)) {
             if (state.phase === 'finished') {
               if (joinedHumanCount === 0) {
+                this.logger.warn({
+                  message: 'game_flow.watchdog.persisting_no_human_result',
+                  gameId: candidate.id,
+                  roomId: candidate.roomId,
+                  phase: state.phase,
+                  turnNumber: state.turnNumber,
+                });
+
                 await this.gameResultsService.finalizeAbandonedFinishedGame({
                   gameId: candidate.id,
                   state,
@@ -98,6 +111,15 @@ export class GameTimerWatchdogService
           }
 
           if (joinedHumanCount === 0) {
+            this.logger.warn({
+              message: 'game_flow.watchdog.finishing_no_human_game',
+              gameId: candidate.id,
+              roomId: candidate.roomId,
+              phase: state.phase,
+              turnNumber: state.turnNumber,
+              currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
+            });
+
             const result = await this.gameCommandsService.executeIntent({
               gameId: candidate.id,
               source: 'timer',
@@ -112,6 +134,14 @@ export class GameTimerWatchdogService
               candidate.id,
               result,
             );
+            this.logger.log({
+              message: 'game_flow.watchdog.no_human_finish_published',
+              gameId: candidate.id,
+              roomId: candidate.roomId,
+              phase: result.state.phase,
+              turnNumber: result.state.turnNumber,
+              eventTypes: result.events.map((event) => event.type),
+            });
             continue;
           }
 
@@ -121,6 +151,28 @@ export class GameTimerWatchdogService
               state.expiresAt ?? candidate.expiresAt.getTime(),
             );
             expiryJobsEnsured += 1;
+            continue;
+          }
+
+          if (
+            this.isTurnDeadlineOverdue(state) &&
+            this.gameBotService.hasActionableBot(state)
+          ) {
+            const result = await this.executeOverdueBotAction(
+              candidate.id,
+              state,
+            );
+            botJobsEnsured += 1;
+
+            await this.gameBotQueueService.enqueueIfBotCanAct(
+              candidate.id,
+              result.state,
+            );
+            await this.gameTurnTimerQueueService.enqueueTurnTimer(
+              candidate.id,
+              result.state,
+            );
+            turnTimersEnsured += 1;
             continue;
           }
 
@@ -170,6 +222,49 @@ export class GameTimerWatchdogService
 
   private isTerminal(state: GameEngineState): boolean {
     return state.phase === 'finished' || state.phase === 'cancelled';
+  }
+
+  private async executeOverdueBotAction(
+    gameId: string,
+    state: GameEngineState,
+  ): Promise<GameCommandResult> {
+    const decision = this.gameBotService.chooseDecision(state);
+
+    if (!decision) {
+      throw new Error('Watchdog found no bot decision for overdue bot action');
+    }
+
+    this.logger.warn({
+      message: 'game_flow.watchdog.executing_overdue_bot_action',
+      gameId,
+      roomId: state.roomId,
+      phase: state.phase,
+      turnNumber: state.turnNumber,
+      roomPlayerId: decision.roomPlayerId,
+      intentType: decision.intent.type,
+    });
+
+    const result = await this.gameCommandsService.executeIntent({
+      gameId,
+      roomPlayerId: decision.roomPlayerId,
+      source: 'bot',
+      intent: decision.intent,
+    });
+
+    await this.gameRealtimePublisher.publishCommandResult(gameId, result);
+
+    this.logger.log({
+      message: 'game_flow.watchdog.overdue_bot_action_published',
+      gameId,
+      roomId: result.state.roomId,
+      phase: result.state.phase,
+      turnNumber: result.state.turnNumber,
+      roomPlayerId: decision.roomPlayerId,
+      intentType: result.intentType,
+      eventTypes: result.events.map((event) => event.type),
+    });
+
+    return result;
   }
 
   private isGameExpired(state: GameEngineState, persistedExpiresAt: Date) {

@@ -184,4 +184,42 @@ describe('GameBotQueueService', () => {
       }),
     );
   });
+
+  it('replaces a completed duplicate job before enqueueing recovery', async () => {
+    const completedJob = {
+      getState: jest.fn().mockResolvedValue('completed'),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    gameQueue.getJob.mockResolvedValue(completedJob);
+
+    await service.enqueueIfBotCanAct('game-1', state);
+
+    expect(completedJob.remove).toHaveBeenCalledTimes(1);
+    expect(gameQueue.add).toHaveBeenCalledWith(
+      GAME_JOBS.executeBotTurn,
+      { gameId: 'game-1' },
+      expect.objectContaining({
+        jobId: 'bot-turn__game-1__3__awaiting_roll__bot-player-1__turn',
+      }),
+    );
+  });
+
+  it('keeps an active duplicate job instead of removing in-flight work', async () => {
+    const activeJob = {
+      getState: jest.fn().mockResolvedValue('active'),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    gameQueue.getJob.mockResolvedValue(activeJob);
+
+    await service.enqueueIfBotCanAct('game-1', state);
+
+    expect(activeJob.remove).not.toHaveBeenCalled();
+    expect(gameQueue.add).toHaveBeenCalledWith(
+      GAME_JOBS.executeBotTurn,
+      { gameId: 'game-1' },
+      expect.objectContaining({
+        jobId: 'bot-turn__game-1__3__awaiting_roll__bot-player-1__turn',
+      }),
+    );
+  });
 });

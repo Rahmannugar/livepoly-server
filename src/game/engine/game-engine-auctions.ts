@@ -304,7 +304,7 @@ export function getMinimumAuctionBid(auction: GameEngineAuction): number {
     return MINIMUM_AUCTION_BID;
   }
 
-  return auction.currentBid + AUCTION_BID_INCREMENT;
+  return auction.currentBid + 1;
 }
 
 export function getAuctionBidDelay(state: GameEngineState): number {

@@ -1,6 +1,7 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
@@ -32,6 +33,8 @@ import { UsersStatsService } from '../../users/services/users-stats.service';
 
 @Injectable()
 export class GameResultsService {
+  private readonly logger = new Logger(GameResultsService.name);
+
   constructor(
     private readonly gameResultsRepository: GameResultsRepository,
     private readonly databaseService: DatabaseService,
@@ -64,35 +67,72 @@ export class GameResultsService {
     const durationSeconds = this.getDurationSeconds(input.state, completedAt);
     const playerResults = this.buildPlayerResults(input.state, completedAt);
 
-    await this.databaseService.transaction(async (tx) => {
-      await this.gameSnapshotService.createFinalSnapshot(
-        input.gameId,
-        input.state,
-        tx,
-      );
+    this.logger.log({
+      message: 'game_flow.result.finalization_started',
+      gameId: input.gameId,
+      roomId: input.state.roomId,
+      phase: input.state.phase,
+      endReason,
+      winnerRoomPlayerId,
+      completedAt: completedAt.toISOString(),
+      durationSeconds,
+      playerCount: input.state.players.length,
+      eventTypes: input.events.map((event) => event.type),
+    });
 
-      await this.gameResultsRepository.saveFinishedGame(
-        {
-          gameId: input.gameId,
-          roomId: input.state.roomId,
-          state: input.state,
-          endReason,
-          winnerRoomPlayerId,
-          completedAt,
-          durationSeconds,
-          playerResults,
-        },
-        tx,
-      );
+    try {
+      await this.databaseService.transaction(async (tx) => {
+        await this.gameSnapshotService.createFinalSnapshot(
+          input.gameId,
+          input.state,
+          tx,
+        );
 
-      await this.gameStatsService.applyFinishedGameStats(
-        {
-          roomId: input.state.roomId,
-          state: input.state,
-          playerResults,
-        },
-        tx,
-      );
+        await this.gameResultsRepository.saveFinishedGame(
+          {
+            gameId: input.gameId,
+            roomId: input.state.roomId,
+            state: input.state,
+            endReason,
+            winnerRoomPlayerId,
+            completedAt,
+            durationSeconds,
+            playerResults,
+          },
+          tx,
+        );
+
+        await this.gameStatsService.applyFinishedGameStats(
+          {
+            roomId: input.state.roomId,
+            state: input.state,
+            playerResults,
+          },
+          tx,
+        );
+      });
+    } catch (error) {
+      this.logger.error({
+        message: 'game_flow.result.finalization_failed',
+        gameId: input.gameId,
+        roomId: input.state.roomId,
+        endReason,
+        winnerRoomPlayerId,
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : undefined,
+        stack: error instanceof Error ? error.stack : undefined,
+      });
+
+      throw error;
+    }
+
+    this.logger.log({
+      message: 'game_flow.result.finalization_persisted',
+      gameId: input.gameId,
+      roomId: input.state.roomId,
+      endReason,
+      winnerRoomPlayerId,
+      playerResultCount: playerResults.length,
     });
 
     if (this.shouldRefreshLeaderboards(input.state)) {

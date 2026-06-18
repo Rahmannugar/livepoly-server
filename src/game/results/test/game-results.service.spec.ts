@@ -254,6 +254,71 @@ describe('GameResultsService', () => {
     );
   });
 
+  it('persists abandoned results when a bot wins without a user id', async () => {
+    const { service, gameResultsRepository } = makeService();
+
+    const state = makeFinishedState({
+      players: createGameEngineState().players.map((player) => {
+        if (player.roomPlayerId === 'room-player-2') {
+          return {
+            ...player,
+            userId: null,
+            username: null,
+            playerType: 'bot' as const,
+            botDifficulty: 'normal' as const,
+            botName: 'Nova',
+            cash: 2_000,
+          };
+        }
+
+        return player;
+      }),
+    });
+
+    await service.finalizeFinishedGame({
+      gameId,
+      state,
+      events: [
+        {
+          type: 'game_finished_after_last_human_left',
+          finishedAt: 46_000,
+          winnerRoomPlayerId: 'room-player-2',
+          tiedRoomPlayerIds: ['room-player-2'],
+          standings: [
+            {
+              roomPlayerId: 'room-player-2',
+              seatNumber: 2,
+              cash: 2_000,
+              ownedPropertyCount: 0,
+              assetValue: 0,
+              netWorth: 2_000,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(gameResultsRepository.saveFinishedGame).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gameId,
+        roomId: state.roomId,
+        endReason: 'abandoned',
+        winnerRoomPlayerId: 'room-player-2',
+      }),
+      tx,
+    );
+    expect(
+      gameResultsRepository.saveFinishedGame.mock.calls[0][0].playerResults,
+    ).toContainEqual(
+      expect.objectContaining({
+        roomPlayerId: 'room-player-2',
+        userId: null,
+        finalCash: 2_000,
+        placement: 1,
+      }),
+    );
+  });
+
   it('breaks expired-game winner ties deterministically', async () => {
     const { service, gameResultsRepository } = makeService();
 

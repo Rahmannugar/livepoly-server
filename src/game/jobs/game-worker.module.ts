@@ -16,6 +16,8 @@ import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameStateService } from '../state/game-state.service';
 import { GameTurnTimerPolicyService } from '../timers/game-turn-timer-policy.service';
 import { GameTurnTimerQueueService } from '../timers/game-turn-timer-queue.service';
+import { GameTimerWatchdogRepository } from '../timers/game-timer-watchdog.repository';
+import { GameTimerWatchdogService } from '../timers/game-timer-watchdog.service';
 import { GameProcessor } from './game.processor';
 import { LeaderboardsModule } from '../../leaderboards/leaderboards.module';
 import { LeaderboardRefreshScheduler } from '../../leaderboards/jobs/leaderboard-refresh-scheduler.service';
@@ -47,6 +49,8 @@ import { GameEventsService } from '../events/game-events.service';
     GameBotQueueService,
     GameTurnTimerPolicyService,
     GameTurnTimerQueueService,
+    GameTimerWatchdogRepository,
+    GameTimerWatchdogService,
     GameSnapshotRepository,
     GameSnapshotService,
     GameRecoveryService,

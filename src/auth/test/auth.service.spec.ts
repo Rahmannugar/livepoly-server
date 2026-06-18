@@ -522,9 +522,9 @@ describe('AuthService', () => {
       getOrThrow: jest.fn((key: string) => {
         const values: Record<string, string> = {
           JWT_ACCESS_SECRET: 'x'.repeat(32),
-          OAUTH_SUCCESS_REDIRECT_URL: 'http://localhost:5173/auth/callback',
+          OAUTH_SUCCESS_REDIRECT_URL: 'http://localhost:5173/',
           OAUTH_FAILURE_REDIRECT_URL:
-            'http://localhost:5173/auth/callback?error=oauth_failed',
+            'http://localhost:5173/auth/login?oauth=failed',
         };
 
         return values[key];

@@ -20,6 +20,12 @@ export const GAME_TURN_TIMER = {
   maxConsecutiveMissedTurns: 3,
 } as const;
 
+export const GAME_TIMER_WATCHDOG = {
+  intervalMs: 10_000,
+  batchSize: 100,
+  deadlineGraceMs: 2_000,
+} as const;
+
 export const GAME_BOTS = {
   actionDelayMs: {
     min: 900,
@@ -170,6 +176,8 @@ export const GAME_EVENTS = {
   turnTimerSkipped: 'GameTurnTimerSkipped',
   turnTimerExecuted: 'GameTurnTimerExecuted',
   turnTimerFailed: 'GameTurnTimerFailed',
+  timerWatchdogCompleted: 'GameTimerWatchdogCompleted',
+  timerWatchdogFailed: 'GameTimerWatchdogFailed',
   unknownJobReceived: 'GameUnknownJobReceived',
   realtimePublished: 'GameRealtimePublished',
   realtimePublishFailed: 'GameRealtimePublishFailed',
@@ -199,6 +207,8 @@ export const GAME_METRICS = {
   turnTimerQueued: 'Custom/Game/TurnTimer/Queued',
   turnTimerExecuted: 'Custom/Game/TurnTimer/Executed',
   turnTimerFailed: 'Custom/Game/TurnTimer/Failed',
+  timerWatchdogCompleted: 'Custom/Game/TimerWatchdog/Completed',
+  timerWatchdogFailed: 'Custom/Game/TimerWatchdog/Failed',
   unknownJobReceived: 'Custom/Game/Job/Unknown',
   realtimePublished: 'Custom/Game/Realtime/Published',
   realtimePublishFailed: 'Custom/Game/Realtime/PublishFailed',

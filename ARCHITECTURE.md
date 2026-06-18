@@ -40,9 +40,11 @@ Owns the game engine, game state, commands, timers, bots, recovery, realtime gat
 
 The game engine is pure domain logic. Command services coordinate Redis state mutation, durable event append, snapshots, result finalization, follow-up jobs, and realtime publishing.
 
-Games persist `startedAt`, `expiresAt`, and `finishedAt`. Ranked games use the fixed ranked duration; casual games use the room duration selected before start. The live state also carries `turnExpiresAt` and auction `bidExpiresAt` so clients can render authoritative timers without inventing client-only deadlines.
+Games persist `startedAt`, `expiresAt`, and `finishedAt`. Ranked games use the fixed ranked duration; casual games use the room duration selected before start. The live state also carries `turnExpiresAt` and auction `bidExpiresAt` so clients can render authoritative timers without inventing client-only deadlines. Auction bidding uses its own short `bidExpiresAt`; when an auction resolves, the command layer reuses the current turn's existing `turnExpiresAt` only if that deadline is still in the future. If the old turn deadline has already passed, the command opens a fresh normal turn deadline.
 
 Game-changing commands check the authoritative expiry before normal mutation. If `now >= expiresAt`, the command finalizes the game by time and returns the finished state/result path instead of applying the requested move. A delayed expiry job is also scheduled when the game starts, but it is a safety net rather than the only finalizer; it refuses to finish early and exists to close games with no further player commands.
+
+Turn progress is protected by two backend-only layers. BullMQ is the primary path for bot turns, turn timeouts, auction bid timeouts, and game expiry. Those jobs use deterministic job IDs and stale-state guards, so duplicated or delayed jobs do not mutate newer state. The worker also runs a quiet timer watchdog every 10 seconds. Each pass scans a bounded batch of active games, recovers Redis state from snapshots when needed, and re-enqueues missing bot work, overdue turn/auction timeout work, or overdue game-expiry work through the same guarded queue paths. The watchdog does not create a second game engine path and is intentionally not exposed as a player-facing “retrying” state; clients continue to see normal turn, auction, or result state while the backend repairs missed queue execution.
 
 ### Friends
 
@@ -121,6 +123,7 @@ BullMQ handles background jobs for:
 - Outbox publishing.
 - Bot turns.
 - Turn timers.
+- Timer watchdog recovery.
 - Leaderboard refresh.
 
 The outbox is a durable “publish this later” table.

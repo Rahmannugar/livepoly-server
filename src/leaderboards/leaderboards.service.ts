@@ -7,6 +7,8 @@ import {
   LEADERBOARD_WINDOWS,
 } from './leaderboards.constants';
 import { LeaderboardsRepository } from './leaderboards.repository';
+import { NotificationsService } from '../notifications/notifications.service';
+import { OutboxQueueService } from '../outbox/jobs/outbox-queue.service';
 import type {
   LeaderboardPeriod,
   LeaderboardResponse,
@@ -19,6 +21,8 @@ export class LeaderboardsService {
     private readonly leaderboardsRepository: LeaderboardsRepository,
     private readonly cacheService: CacheService,
     private readonly configService: ConfigService,
+    private readonly notificationsService: NotificationsService,
+    private readonly outboxQueueService: OutboxQueueService,
   ) {}
 
   async getLeaderboard(
@@ -66,6 +70,7 @@ export class LeaderboardsService {
     };
 
     await this.leaderboardsRepository.saveSnapshot(snapshot);
+    await this.notifyLeaderboardEntries(snapshot);
 
     return snapshot;
   }
@@ -137,5 +142,65 @@ export class LeaderboardsService {
     const baseUrl = this.configService.getOrThrow<string>('R2_PUBLIC_BASE_URL');
 
     return `${baseUrl.replace(/\/$/, '')}/${avatarObjectKey}`;
+  }
+
+  private async notifyLeaderboardEntries(
+    snapshot: LeaderboardSnapshot,
+  ): Promise<void> {
+    await Promise.all(
+      snapshot.entries.map(async (entry) => {
+        const notificationResult =
+          await this.notificationsService.createLeaderboardNotification({
+            userId: entry.userId,
+            period: snapshot.period,
+            leaderboardKey: this.leaderboardNotificationKey(snapshot),
+            rank: entry.rank,
+            rating: entry.rating,
+            gamesPlayed: entry.gamesPlayed,
+            wins: entry.wins,
+          });
+
+        if (notificationResult.outboxEventId) {
+          await this.outboxQueueService.enqueuePublishEvent(
+            notificationResult.outboxEventId,
+          );
+        }
+      }),
+    );
+  }
+
+  private leaderboardNotificationKey(snapshot: LeaderboardSnapshot): string {
+    return `${snapshot.period}:${this.leaderboardPeriodBucket(
+      snapshot.period,
+      snapshot.periodEnd,
+    )}`;
+  }
+
+  private leaderboardPeriodBucket(period: LeaderboardPeriod, date: Date): string {
+    if (period === LEADERBOARD_PERIODS.monthly) {
+      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(
+        2,
+        '0',
+      )}`;
+    }
+
+    return `${date.getUTCFullYear()}-W${String(
+      this.getUtcIsoWeek(date),
+    ).padStart(2, '0')}`;
+  }
+
+  private getUtcIsoWeek(date: Date): number {
+    const normalizedDate = new Date(
+      Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+    );
+    const day = normalizedDate.getUTCDay() || 7;
+
+    normalizedDate.setUTCDate(normalizedDate.getUTCDate() + 4 - day);
+
+    const yearStart = new Date(Date.UTC(normalizedDate.getUTCFullYear(), 0, 1));
+
+    return Math.ceil(
+      ((normalizedDate.getTime() - yearStart.getTime()) / 86_400_000 + 1) / 7,
+    );
   }
 }

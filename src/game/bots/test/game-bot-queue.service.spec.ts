@@ -7,6 +7,7 @@ import { GameBotQueueService } from '../game-bot-queue.service';
 
 type QueueMock = {
   add: jest.Mock;
+  getJob: jest.Mock;
 };
 
 type GameBotServiceMock = {
@@ -75,6 +76,7 @@ describe('GameBotQueueService', () => {
 
     gameQueue = {
       add: jest.fn().mockResolvedValue(undefined),
+      getJob: jest.fn().mockResolvedValue(null),
     };
 
     gameBotService = {
@@ -117,6 +119,9 @@ describe('GameBotQueueService', () => {
   it('enqueues bot turn with randomized delay', async () => {
     await service.enqueueIfBotCanAct('game-1', state);
 
+    expect(gameQueue.getJob).toHaveBeenCalledWith(
+      'bot-turn__game-1__3__awaiting_roll__bot-player-1__turn',
+    );
     expect(gameQueue.add).toHaveBeenCalledWith(
       GAME_JOBS.executeBotTurn,
       { gameId: 'game-1' },
@@ -158,6 +163,25 @@ describe('GameBotQueueService', () => {
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
         removeOnFail: 100,
       },
+    );
+  });
+
+  it('replaces a failed duplicate job before enqueueing recovery', async () => {
+    const failedJob = {
+      getState: jest.fn().mockResolvedValue('failed'),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    gameQueue.getJob.mockResolvedValue(failedJob);
+
+    await service.enqueueIfBotCanAct('game-1', state);
+
+    expect(failedJob.remove).toHaveBeenCalledTimes(1);
+    expect(gameQueue.add).toHaveBeenCalledWith(
+      GAME_JOBS.executeBotTurn,
+      { gameId: 'game-1' },
+      expect.objectContaining({
+        jobId: 'bot-turn__game-1__3__awaiting_roll__bot-player-1__turn',
+      }),
     );
   });
 });

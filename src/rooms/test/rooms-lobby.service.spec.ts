@@ -740,7 +740,7 @@ describe('RoomsLobbyService', () => {
     );
   });
 
-  it('keeps leave successful when finalization fails after the last human leaves', async () => {
+  it('keeps leave successful and records when last-human result finalization fails', async () => {
     const error = new Error('finalization failed');
 
     roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);

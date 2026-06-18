@@ -15,8 +15,6 @@ import { GameStateService } from '../../game/state/game-state.service';
 import { GameTurnTimerQueueService } from '../../game/timers/game-turn-timer-queue.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
-import { NotificationsService } from '../../notifications/notifications.service';
-import { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import type { StartRoomDto } from '../dto/start-room.dto';
 import { RoomsGameRepository } from '../repositories/rooms-game.repository';
 import {
@@ -50,8 +48,6 @@ export class RoomsGameService {
   constructor(
     private readonly roomsGameRepository: RoomsGameRepository,
     private readonly databaseService: DatabaseService,
-    private readonly notificationsService: NotificationsService,
-    private readonly outboxQueueService: OutboxQueueService,
     private readonly gameStateService: GameStateService,
     private readonly observabilityService: ObservabilityService,
     private readonly gameSnapshotService: GameSnapshotService,
@@ -155,32 +151,12 @@ export class RoomsGameService {
         tx,
       );
 
-      const outboxEventIds: string[] = [];
-
-      for (const player of humanPlayers) {
-        if (!player.userId) continue;
-
-        const notificationResult =
-          await this.notificationsService.createGameStartedNotification(
-            {
-              userId: player.userId,
-              roomId: room.id,
-              roomCode: room.code,
-              gameId: game.id,
-            },
-            tx,
-          );
-
-        outboxEventIds.push(notificationResult.outboxEventId);
-      }
-
       return {
         room: activeRoom,
         game,
         mode,
         humanPlayerCount: humanPlayers.length,
         players: allPlayers,
-        outboxEventIds,
         initialState,
       };
     });
@@ -217,10 +193,6 @@ export class RoomsGameService {
       botPlayerCount: result.players.length - result.humanPlayerCount,
     });
     this.observabilityService.recordMetric(ROOM_METRICS.started(result.mode));
-
-    for (const outboxEventId of result.outboxEventIds) {
-      await this.outboxQueueService.enqueuePublishEvent(outboxEventId);
-    }
 
     return {
       room: {

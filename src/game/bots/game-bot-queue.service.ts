@@ -25,19 +25,22 @@ export class GameBotQueueService {
     }
 
     const delay = this.getActionDelay(state);
+    const jobId = [
+      'bot-turn',
+      gameId,
+      state.turnNumber,
+      state.phase,
+      decision.roomPlayerId,
+      this.getActionStateKey(state),
+    ].join('__');
+
+    await this.removeFailedDuplicateJob(jobId);
 
     await this.gameQueue.add(
       GAME_JOBS.executeBotTurn,
       { gameId } satisfies ExecuteBotTurnJob,
       {
-        jobId: [
-          'bot-turn',
-          gameId,
-          state.turnNumber,
-          state.phase,
-          decision.roomPlayerId,
-          this.getActionStateKey(state),
-        ].join('__'),
+        jobId,
         delay,
         attempts: 3,
         backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
@@ -55,6 +58,16 @@ export class GameBotQueueService {
     });
 
     this.observabilityService.recordMetric(GAME_METRICS.botTurnQueued);
+  }
+
+  private async removeFailedDuplicateJob(jobId: string): Promise<void> {
+    const existingJob = await this.gameQueue.getJob(jobId);
+
+    if (!existingJob || (await existingJob.getState()) !== 'failed') {
+      return;
+    }
+
+    await existingJob.remove();
   }
 
   private getActionDelay(state: GameEngineState): number {

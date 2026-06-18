@@ -4,6 +4,8 @@ import { AuthModule } from '../auth/auth.module';
 import { CacheModule } from '../infra/cache/cache.module';
 import { DatabaseModule } from '../infra/database/database.module';
 import { QUEUES } from '../infra/queue/queue.constants';
+import { NotificationsModule } from '../notifications/notifications.module';
+import { OutboxModule } from '../outbox/outbox.module';
 import { RateLimitModule } from '../rate-limit/rate-limit.module';
 import { LeaderboardQueueService } from './jobs/leaderboard-queue.service';
 import { LeaderboardsController } from './leaderboards.controller';
@@ -16,6 +18,8 @@ import { LeaderboardsService } from './leaderboards.service';
     AuthModule,
     CacheModule,
     DatabaseModule,
+    NotificationsModule,
+    OutboxModule,
     RateLimitModule,
   ],
   controllers: [LeaderboardsController],

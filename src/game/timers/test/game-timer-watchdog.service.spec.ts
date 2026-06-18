@@ -1,14 +1,18 @@
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import type { GameBotQueueService } from '../../bots/game-bot-queue.service';
+import type { GameCommandsService } from '../../commands/game-commands.service';
 import { createGameEnginePlayer, createGameEngineState } from '../../engine/tests/game-engine.test-factory';
 import { GAME_EVENTS, GAME_METRICS, GAME_TIMER_WATCHDOG } from '../../game.constants';
+import type { GameRealtimePublisher } from '../../realtime/game-realtime.publisher';
 import type { GameRecoveryService } from '../../recovery/game-recovery.service';
+import type { GameResultsService } from '../../results/game-results.service';
 import type { GameTurnTimerQueueService } from '../game-turn-timer-queue.service';
 import type { GameTimerWatchdogRepository } from '../game-timer-watchdog.repository';
 import { GameTimerWatchdogService } from '../game-timer-watchdog.service';
 
 type GameTimerWatchdogRepositoryMock = {
   listActiveGames: jest.Mock;
+  countJoinedHumanPlayers: jest.Mock;
 };
 
 type GameRecoveryServiceMock = {
@@ -24,6 +28,19 @@ type GameTurnTimerQueueServiceMock = {
   enqueueGameExpiry: jest.Mock;
 };
 
+type GameCommandsServiceMock = {
+  executeIntent: jest.Mock;
+};
+
+type GameResultsServiceMock = {
+  finalizeAbandonedFinishedGame: jest.Mock;
+  finalizeExpiredFinishedGame: jest.Mock;
+};
+
+type GameRealtimePublisherMock = {
+  publishCommandResult: jest.Mock;
+};
+
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
   recordMetric: jest.Mock;
@@ -36,6 +53,9 @@ describe('GameTimerWatchdogService', () => {
   let gameRecoveryService: GameRecoveryServiceMock;
   let gameBotQueueService: GameBotQueueServiceMock;
   let gameTurnTimerQueueService: GameTurnTimerQueueServiceMock;
+  let gameCommandsService: GameCommandsServiceMock;
+  let gameResultsService: GameResultsServiceMock;
+  let gameRealtimePublisher: GameRealtimePublisherMock;
   let observabilityService: ObservabilityServiceMock;
 
   const now = 1_000_000;
@@ -45,6 +65,7 @@ describe('GameTimerWatchdogService', () => {
 
     repository = {
       listActiveGames: jest.fn().mockResolvedValue([]),
+      countJoinedHumanPlayers: jest.fn().mockResolvedValue(1),
     };
     gameRecoveryService = {
       getOrRecover: jest.fn(),
@@ -56,6 +77,16 @@ describe('GameTimerWatchdogService', () => {
       enqueueTurnTimer: jest.fn().mockResolvedValue(undefined),
       enqueueGameExpiry: jest.fn().mockResolvedValue(undefined),
     };
+    gameCommandsService = {
+      executeIntent: jest.fn(),
+    };
+    gameResultsService = {
+      finalizeAbandonedFinishedGame: jest.fn().mockResolvedValue(undefined),
+      finalizeExpiredFinishedGame: jest.fn().mockResolvedValue(undefined),
+    };
+    gameRealtimePublisher = {
+      publishCommandResult: jest.fn().mockResolvedValue(undefined),
+    };
     observabilityService = {
       recordEvent: jest.fn(),
       recordMetric: jest.fn(),
@@ -66,6 +97,9 @@ describe('GameTimerWatchdogService', () => {
       gameRecoveryService as unknown as GameRecoveryService,
       gameBotQueueService as unknown as GameBotQueueService,
       gameTurnTimerQueueService as unknown as GameTurnTimerQueueService,
+      gameCommandsService as unknown as GameCommandsService,
+      gameResultsService as unknown as GameResultsService,
+      gameRealtimePublisher as unknown as GameRealtimePublisher,
       observabilityService as unknown as ObservabilityService,
     );
   });
@@ -94,7 +128,7 @@ describe('GameTimerWatchdogService', () => {
     });
 
     repository.listActiveGames.mockResolvedValue([
-      { id: 'game-1', expiresAt: new Date(now + 60_000) },
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
     ]);
     gameRecoveryService.getOrRecover.mockResolvedValue(state);
 
@@ -111,6 +145,70 @@ describe('GameTimerWatchdogService', () => {
     expect(gameTurnTimerQueueService.enqueueGameExpiry).not.toHaveBeenCalled();
   });
 
+  it('finishes an active game when no joined human players remain', async () => {
+    const state = createGameEngineState({
+      expiresAt: now + 60_000,
+      turnExpiresAt: now + 30_000,
+      phase: 'awaiting_turn_end',
+    });
+    const result = {
+      state: { ...state, phase: 'finished' as const },
+      events: [],
+      intentType: 'finish_game_after_last_human_left' as const,
+    };
+
+    repository.listActiveGames.mockResolvedValue([
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
+    ]);
+    repository.countJoinedHumanPlayers.mockResolvedValue(0);
+    gameRecoveryService.getOrRecover.mockResolvedValue(state);
+    gameCommandsService.executeIntent.mockResolvedValue(result);
+
+    await service.runOnce();
+
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      source: 'timer',
+      intent: {
+        type: 'finish_game_after_last_human_left',
+        payload: {
+          finishedAt: now,
+        },
+      },
+    });
+    expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
+      'game-1',
+      result,
+    );
+    expect(gameBotQueueService.enqueueIfBotCanAct).not.toHaveBeenCalled();
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).not.toHaveBeenCalled();
+  });
+
+  it('repairs result finalization for a finished game with no joined humans', async () => {
+    const state = createGameEngineState({
+      expiresAt: now + 60_000,
+      turnExpiresAt: null,
+      phase: 'finished',
+    });
+
+    repository.listActiveGames.mockResolvedValue([
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
+    ]);
+    repository.countJoinedHumanPlayers.mockResolvedValue(0);
+    gameRecoveryService.getOrRecover.mockResolvedValue(state);
+
+    await service.runOnce();
+
+    expect(
+      gameResultsService.finalizeAbandonedFinishedGame,
+    ).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      state,
+      finishedAt: now,
+    });
+    expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
+  });
+
   it('re-enqueues a turn timeout when the current turn deadline is overdue', async () => {
     const state = createGameEngineState({
       expiresAt: now + 60_000,
@@ -119,7 +217,7 @@ describe('GameTimerWatchdogService', () => {
     });
 
     repository.listActiveGames.mockResolvedValue([
-      { id: 'game-1', expiresAt: new Date(now + 60_000) },
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
     ]);
     gameRecoveryService.getOrRecover.mockResolvedValue(state);
 
@@ -140,7 +238,7 @@ describe('GameTimerWatchdogService', () => {
     });
 
     repository.listActiveGames.mockResolvedValue([
-      { id: 'game-1', expiresAt: new Date(now + 60_000) },
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
     ]);
     gameRecoveryService.getOrRecover.mockResolvedValue(state);
 
@@ -161,8 +259,8 @@ describe('GameTimerWatchdogService', () => {
     });
 
     repository.listActiveGames.mockResolvedValue([
-      { id: 'game-1', expiresAt: new Date(now + 60_000) },
-      { id: 'game-2', expiresAt: new Date(now + 60_000) },
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
+      { id: 'game-2', roomId: 'room-2', expiresAt: new Date(now + 60_000) },
     ]);
     gameRecoveryService.getOrRecover
       .mockRejectedValueOnce(new Error('missing state'))

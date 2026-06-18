@@ -123,26 +123,47 @@ export class NotificationsService {
     );
   }
 
-  async createGameStartedNotification(
+  async createLeaderboardNotification(
     input: {
       userId: string;
-      roomId: string;
-      roomCode: string;
-      gameId: string;
+      period: 'weekly' | 'monthly';
+      leaderboardKey: string;
+      rank: number;
+      rating: number;
+      gamesPlayed: number;
+      wins: number;
     },
     executor?: DatabaseExecutor,
   ) {
+    const existingNotification =
+      await this.notificationsRepository.findLeaderboardNotification({
+        userId: input.userId,
+        leaderboardKey: input.leaderboardKey,
+      });
+
+    if (existingNotification) {
+      return {
+        notification: existingNotification,
+        outboxEventId: null,
+      };
+    }
+
+    const periodLabel = input.period === 'weekly' ? 'weekly' : 'monthly';
+
     return this.createNotificationOutbox(
       {
         userId: input.userId,
-        type: 'game_started',
-        title: 'Game started',
-        body: `Room ${input.roomCode} has started`,
+        type: 'leaderboard',
+        title: `You made the ${periodLabel} leaderboard`,
+        body: `You placed #${input.rank} with a ${input.rating} rating`,
         data: {
-          roomId: input.roomId,
-          roomCode: input.roomCode,
-          gameId: input.gameId,
-          link: `/rooms/${input.roomCode}`,
+          period: input.period,
+          leaderboardKey: input.leaderboardKey,
+          rank: input.rank,
+          rating: input.rating,
+          gamesPlayed: input.gamesPlayed,
+          wins: input.wins,
+          link: `/leaderboard?period=${input.period}`,
         },
       },
       executor,

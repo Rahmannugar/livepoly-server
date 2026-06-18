@@ -44,7 +44,7 @@ Games persist `startedAt`, `expiresAt`, and `finishedAt`. Ranked games use the f
 
 Game-changing commands check the authoritative expiry before normal mutation. If `now >= expiresAt`, the command finalizes the game by time and returns the finished state/result path instead of applying the requested move. A delayed expiry job is also scheduled when the game starts, but it is a safety net rather than the only finalizer; it refuses to finish early and exists to close games with no further player commands.
 
-Turn progress is protected by two backend-only layers. BullMQ is the primary path for bot turns, turn timeouts, auction bid timeouts, and game expiry. Those jobs use deterministic job IDs and stale-state guards, so duplicated or delayed jobs do not mutate newer state. The worker also runs a quiet timer watchdog every 10 seconds. Each pass scans a bounded batch of active games, recovers Redis state from snapshots when needed, and re-enqueues missing bot work, overdue turn/auction timeout work, or overdue game-expiry work through the same guarded queue paths. The watchdog does not create a second game engine path and is intentionally not exposed as a player-facing “retrying” state; clients continue to see normal turn, auction, or result state while the backend repairs missed queue execution.
+Turn progress is protected by two backend-only layers. BullMQ is the primary path for bot turns, turn timeouts, auction bid timeouts, and game expiry. Those jobs use deterministic job IDs and stale-state guards, so duplicated or delayed jobs do not mutate newer state. When a recovery path sees that a deterministic job ID is stuck in BullMQ's failed set, it removes that failed duplicate before re-adding the guarded job, which lets retries recover from stale failed jobs instead of being blocked by job-id dedupe. The worker also runs a quiet timer watchdog every 10 seconds. Each pass scans a bounded batch of active games, recovers Redis state from snapshots when needed, and re-enqueues missing bot work, overdue turn/auction timeout work, overdue game-expiry work, or abandoned active games whose room has no joined human players through the same guarded command/result paths. The watchdog does not create a second game engine path and is intentionally not exposed as a player-facing “retrying” state; clients continue to see normal turn, auction, or result state while the backend repairs missed queue execution.
 
 ### Friends
 
@@ -52,11 +52,11 @@ Owns friend request lifecycle and friend lists. Friend list and request reads ar
 
 ### Notifications
 
-Owns notification creation, listing, read state, unread count, and delivery through outbox/realtime flows.
+Owns notification creation, listing, read state, unread count, and delivery through outbox/realtime flows. Notifications are for out-of-band attention such as friend requests, room invites, and leaderboard placement. Active gameplay state such as a room starting is handled by room/current-game APIs and realtime game state rather than a separate notification.
 
 ### Leaderboards
 
-Owns weekly and monthly leaderboard snapshots. The service reads cached snapshots and refreshes snapshots through queued jobs.
+Owns weekly and monthly leaderboard snapshots. The service reads cached snapshots and refreshes snapshots through queued jobs. When a refreshed snapshot includes users on the weekly or monthly leaderboard, the service creates one `leaderboard` notification per user per calendar leaderboard bucket, such as one weekly notification for `weekly:2026-W22` or one monthly notification for `monthly:2026-05`. Notification creation still uses the notifications outbox, and the deterministic bucket key prevents repeated snapshot refreshes from spamming the same user.
 
 ## Data Stores
 

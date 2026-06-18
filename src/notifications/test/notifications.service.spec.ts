@@ -9,6 +9,7 @@ import { NotificationsService } from '../notifications.service';
 
 type NotificationsRepositoryMock = {
   createNotification: jest.Mock;
+  findLeaderboardNotification: jest.Mock;
   listNotifications: jest.Mock;
   markAsRead: jest.Mock;
   markAllAsRead: jest.Mock;
@@ -48,6 +49,7 @@ describe('NotificationsService', () => {
   beforeEach(() => {
     notificationsRepository = {
       createNotification: jest.fn(),
+      findLeaderboardNotification: jest.fn().mockResolvedValue(null),
       listNotifications: jest.fn(),
       markAsRead: jest.fn(),
       markAllAsRead: jest.fn(),
@@ -73,6 +75,93 @@ describe('NotificationsService', () => {
       configService as unknown as ConfigService,
       outboxService as unknown as OutboxService,
     );
+  });
+
+  it('creates leaderboard notification and outbox event once per leaderboard key', async () => {
+    const createdAt = new Date('2026-05-30T12:00:00.000Z');
+
+    notificationsRepository.createNotification.mockResolvedValue({
+      id: 'notification-2',
+      userId: 'user-1',
+      type: 'leaderboard' as const,
+      title: 'You made the weekly leaderboard',
+      body: 'You placed #1 with a 560 rating',
+      data: {},
+      read: false,
+      createdAt,
+      readAt: null,
+    });
+
+    const result = await service.createLeaderboardNotification({
+      userId: 'user-1',
+      period: 'weekly',
+      leaderboardKey: 'weekly:2026-W22',
+      rank: 1,
+      rating: 560,
+      gamesPlayed: 4,
+      wins: 2,
+    });
+
+    expect(result.outboxEventId).toBe('outbox-event-1');
+    expect(notificationsRepository.findLeaderboardNotification).toHaveBeenCalledWith(
+      {
+        userId: 'user-1',
+        leaderboardKey: 'weekly:2026-W22',
+      },
+    );
+    expect(notificationsRepository.createNotification).toHaveBeenCalledWith(
+      {
+        userId: 'user-1',
+        type: 'leaderboard',
+        title: 'You made the weekly leaderboard',
+        body: 'You placed #1 with a 560 rating',
+        data: {
+          period: 'weekly',
+          leaderboardKey: 'weekly:2026-W22',
+          rank: 1,
+          rating: 560,
+          gamesPlayed: 4,
+          wins: 2,
+          link: '/leaderboard?period=weekly',
+        },
+      },
+      undefined,
+    );
+  });
+
+  it('returns existing leaderboard notification without creating another outbox event', async () => {
+    const existingNotification = {
+      id: 'notification-2',
+      userId: 'user-1',
+      type: 'leaderboard' as const,
+      title: 'You made the weekly leaderboard',
+      body: 'You placed #1 with a 560 rating',
+      data: {},
+      read: false,
+      createdAt: new Date('2026-05-30T12:00:00.000Z'),
+      readAt: null,
+    };
+    notificationsRepository.findLeaderboardNotification.mockResolvedValue(
+      existingNotification,
+    );
+
+    await expect(
+      service.createLeaderboardNotification({
+        userId: 'user-1',
+        period: 'weekly',
+        leaderboardKey: 'weekly:2026-W22',
+        rank: 1,
+        rating: 560,
+        gamesPlayed: 4,
+        wins: 2,
+      }),
+    ).resolves.toEqual({
+      notification: existingNotification,
+      outboxEventId: null,
+    });
+
+    expect(notificationsRepository.createNotification).not.toHaveBeenCalled();
+    expect(outboxService.createOrGet).not.toHaveBeenCalled();
   });
 
   it('creates friend request notification and outbox event with the same executor', async () => {

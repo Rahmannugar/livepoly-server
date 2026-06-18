@@ -10,7 +10,7 @@ export type NotificationType =
   | 'friend_request'
   | 'friend_accepted'
   | 'room_invite'
-  | 'game_started'
+  | 'leaderboard'
   | 'game_finished'
   | 'turn_reminder'
   | 'system';
@@ -100,6 +100,35 @@ export class NotificationsRepository {
       )
       .orderBy(desc(notifications.createdAt), desc(notifications.id))
       .limit(input.limit + 1);
+  }
+
+  async findLeaderboardNotification(input: {
+    userId: string;
+    leaderboardKey: string;
+  }) {
+    const [notification] = await this.databaseService.db
+      .select({
+        id: notifications.id,
+        userId: notifications.userId,
+        type: notifications.type,
+        title: notifications.title,
+        body: notifications.body,
+        data: notifications.data,
+        read: notifications.read,
+        createdAt: notifications.createdAt,
+        readAt: notifications.readAt,
+      })
+      .from(notifications)
+      .where(
+        and(
+          eq(notifications.userId, input.userId),
+          eq(notifications.type, 'leaderboard'),
+          sql`${notifications.data}->>'leaderboardKey' = ${input.leaderboardKey}`,
+        ),
+      )
+      .limit(1);
+
+    return notification ?? null;
   }
 
   async markAsRead(notificationId: string, userId: string) {

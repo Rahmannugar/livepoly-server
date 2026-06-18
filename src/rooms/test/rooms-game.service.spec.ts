@@ -5,8 +5,6 @@ import type { GameStateService } from '../../game/state/game-state.service';
 import type { GameTurnTimerQueueService } from '../../game/timers/game-turn-timer-queue.service';
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
-import type { NotificationsService } from '../../notifications/notifications.service';
-import type { OutboxQueueService } from '../../outbox/jobs/outbox-queue.service';
 import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
 import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsGameService } from '../services/rooms-game.service';
@@ -23,14 +21,6 @@ type RoomsGameRepositoryMock = {
 
 type DatabaseServiceMock = {
   transaction: jest.Mock;
-};
-
-type NotificationsServiceMock = {
-  createGameStartedNotification: jest.Mock;
-};
-
-type OutboxQueueServiceMock = {
-  enqueuePublishEvent: jest.Mock;
 };
 
 type GameStateServiceMock = {
@@ -129,8 +119,6 @@ describe('RoomsGameService', () => {
   let service: RoomsGameService;
   let roomsGameRepository: RoomsGameRepositoryMock;
   let databaseService: DatabaseServiceMock;
-  let notificationsService: NotificationsServiceMock;
-  let outboxQueueService: OutboxQueueServiceMock;
   let gameStateService: GameStateServiceMock;
   let observabilityService: ObservabilityServiceMock;
   let gameSnapshotService: GameSnapshotServiceMock;
@@ -155,27 +143,6 @@ describe('RoomsGameService', () => {
       ),
     };
 
-    notificationsService = {
-      createGameStartedNotification: jest
-        .fn()
-        .mockResolvedValueOnce({
-          notification: { id: 'notification-1' },
-          outboxEventId: 'outbox-1',
-        })
-        .mockResolvedValueOnce({
-          notification: { id: 'notification-2' },
-          outboxEventId: 'outbox-2',
-        })
-        .mockResolvedValueOnce({
-          notification: { id: 'notification-3' },
-          outboxEventId: 'outbox-3',
-        }),
-    };
-
-    outboxQueueService = {
-      enqueuePublishEvent: jest.fn().mockResolvedValue(undefined),
-    };
-
     gameStateService = {
       set: jest.fn().mockResolvedValue(undefined),
       delete: jest.fn().mockResolvedValue(undefined),
@@ -198,8 +165,6 @@ describe('RoomsGameService', () => {
     service = new RoomsGameService(
       roomsGameRepository as unknown as RoomsGameRepository,
       databaseService as unknown as DatabaseService,
-      notificationsService as unknown as NotificationsService,
-      outboxQueueService as unknown as OutboxQueueService,
       gameStateService as unknown as GameStateService,
       observabilityService as unknown as ObservabilityService,
       gameSnapshotService as unknown as GameSnapshotService,
@@ -281,20 +246,6 @@ describe('RoomsGameService', () => {
         turnNumber: 1,
       }),
       tx,
-    );
-
-    expect(
-      notificationsService.createGameStartedNotification,
-    ).toHaveBeenCalledTimes(3);
-
-    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
-      'outbox-1',
-    );
-    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
-      'outbox-2',
-    );
-    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
-      'outbox-3',
     );
 
     expect(gameStateService.set).toHaveBeenCalledWith(
@@ -436,7 +387,6 @@ describe('RoomsGameService', () => {
       },
       tx,
     );
-    expect(outboxQueueService.enqueuePublishEvent).not.toHaveBeenCalled();
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       ROOM_EVENTS.startSetupFailed,
       {
@@ -589,13 +539,6 @@ describe('RoomsGameService', () => {
         turnNumber: 1,
       }),
       tx,
-    );
-
-    expect(
-      notificationsService.createGameStartedNotification,
-    ).toHaveBeenCalledTimes(1);
-    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
-      'outbox-1',
     );
 
     expect(gameStateService.set).toHaveBeenCalledWith(
@@ -788,9 +731,6 @@ describe('RoomsGameService', () => {
     );
     expect(roomsGameRepository.createGame).not.toHaveBeenCalled();
     expect(gameSnapshotService.createStartSnapshot).not.toHaveBeenCalled();
-    expect(
-      notificationsService.createGameStartedNotification,
-    ).not.toHaveBeenCalled();
   });
 
   it('rejects starting a room that is not waiting', async () => {

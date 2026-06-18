@@ -7,6 +7,7 @@ import { GameTurnTimerQueueService } from '../game-turn-timer-queue.service';
 
 type QueueMock = {
   add: jest.Mock;
+  getJob: jest.Mock;
 };
 
 type ObservabilityServiceMock = {
@@ -51,6 +52,7 @@ describe('GameTurnTimerQueueService', () => {
   beforeEach(() => {
     gameQueue = {
       add: jest.fn().mockResolvedValue(undefined),
+      getJob: jest.fn().mockResolvedValue(null),
     };
 
     observabilityService = {
@@ -76,6 +78,9 @@ describe('GameTurnTimerQueueService', () => {
   it('enqueues a turn timeout with stale guards', async () => {
     await service.enqueueTurnTimer('game-1', state);
 
+    expect(gameQueue.getJob).toHaveBeenCalledWith(
+      'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn',
+    );
     expect(gameQueue.add).toHaveBeenCalledWith(
       GAME_JOBS.executeTurnTimeout,
       {
@@ -93,6 +98,49 @@ describe('GameTurnTimerQueueService', () => {
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
         removeOnFail: 100,
       },
+    );
+  });
+
+  it('replaces a failed duplicate turn timeout before enqueueing recovery', async () => {
+    const failedJob = {
+      getState: jest.fn().mockResolvedValue('failed'),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    gameQueue.getJob.mockResolvedValue(failedJob);
+
+    await service.enqueueTurnTimer('game-1', state);
+
+    expect(failedJob.remove).toHaveBeenCalledTimes(1);
+    expect(gameQueue.add).toHaveBeenCalledWith(
+      GAME_JOBS.executeTurnTimeout,
+      expect.objectContaining({
+        gameId: 'game-1',
+      }),
+      expect.objectContaining({
+        jobId: 'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn',
+      }),
+    );
+  });
+
+  it('replaces a failed duplicate game expiry before enqueueing recovery', async () => {
+    const failedJob = {
+      getState: jest.fn().mockResolvedValue('failed'),
+      remove: jest.fn().mockResolvedValue(undefined),
+    };
+    gameQueue.getJob.mockResolvedValue(failedJob);
+
+    await service.enqueueGameExpiry('game-1', Date.now() + 60_000);
+
+    expect(gameQueue.getJob).toHaveBeenCalledWith('game-expiry__game-1');
+    expect(failedJob.remove).toHaveBeenCalledTimes(1);
+    expect(gameQueue.add).toHaveBeenCalledWith(
+      GAME_JOBS.finishExpiredGame,
+      expect.objectContaining({
+        gameId: 'game-1',
+      }),
+      expect.objectContaining({
+        jobId: 'game-expiry__game-1',
+      }),
     );
   });
 });

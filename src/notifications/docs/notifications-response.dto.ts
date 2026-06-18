@@ -13,7 +13,7 @@ export class NotificationResponseDto {
       'friend_request',
       'friend_accepted',
       'room_invite',
-      'game_started',
+      'leaderboard',
       'game_finished',
       'turn_reminder',
       'system',

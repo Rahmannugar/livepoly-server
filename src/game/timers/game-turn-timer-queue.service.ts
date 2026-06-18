@@ -34,8 +34,12 @@ export class GameTurnTimerQueueService {
 
     const delay = this.getTurnTimerDelay(state);
 
+    const jobId = this.jobId(data);
+
+    await this.removeFailedDuplicateJob(jobId);
+
     await this.gameQueue.add(GAME_JOBS.executeTurnTimeout, data, {
-      jobId: this.jobId(data),
+      jobId,
       delay,
       attempts: 3,
       backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
@@ -61,8 +65,12 @@ export class GameTurnTimerQueueService {
       expiresAt,
     };
 
+    const jobId = ['game-expiry', gameId].join('__');
+
+    await this.removeFailedDuplicateJob(jobId);
+
     await this.gameQueue.add(GAME_JOBS.finishExpiredGame, data, {
-      jobId: ['game-expiry', gameId].join('__'),
+      jobId,
       delay: Math.max(expiresAt - Date.now(), 0),
       attempts: 3,
       backoff: exponentialBackoffWithJitter({ delay: 1_000 }),
@@ -77,6 +85,16 @@ export class GameTurnTimerQueueService {
     });
 
     this.observabilityService.recordMetric(GAME_METRICS.turnTimerQueued);
+  }
+
+  private async removeFailedDuplicateJob(jobId: string): Promise<void> {
+    const existingJob = await this.gameQueue.getJob(jobId);
+
+    if (!existingJob || (await existingJob.getState()) !== 'failed') {
+      return;
+    }
+
+    await existingJob.remove();
   }
 
   private jobId(data: ExecuteTurnTimeoutJob): string {

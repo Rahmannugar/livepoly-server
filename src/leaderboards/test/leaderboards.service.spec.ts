@@ -51,10 +51,23 @@ describe('LeaderboardsService', () => {
       getOrThrow: jest.fn().mockReturnValue('https://pub-example.r2.dev'),
     };
 
+    const notificationsService = {
+      createLeaderboardNotification: jest.fn().mockResolvedValue({
+        notification: { id: 'notification-1' },
+        outboxEventId: 'outbox-1',
+      }),
+    };
+
+    const outboxQueueService = {
+      enqueuePublishEvent: jest.fn().mockResolvedValue(undefined),
+    };
+
     const service = new LeaderboardsService(
       leaderboardsRepository as never,
       cacheService as never,
       configService as never,
+      notificationsService as never,
+      outboxQueueService as never,
     );
 
     return {
@@ -63,6 +76,8 @@ describe('LeaderboardsService', () => {
       cacheService,
       redisClient,
       configService,
+      notificationsService,
+      outboxQueueService,
     };
   };
 
@@ -125,7 +140,12 @@ describe('LeaderboardsService', () => {
   });
 
   it('refreshes weekly snapshot with rolling seven-day window', async () => {
-    const { service, leaderboardsRepository } = makeService();
+    const {
+      service,
+      leaderboardsRepository,
+      notificationsService,
+      outboxQueueService,
+    } = makeService();
     const now = new Date('2026-05-30T12:00:00.000Z');
 
     await expect(
@@ -147,6 +167,43 @@ describe('LeaderboardsService', () => {
       periodEnd: now,
       entries: snapshot.entries,
     });
+    expect(
+      notificationsService.createLeaderboardNotification,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      period: 'weekly',
+      leaderboardKey: 'weekly:2026-W22',
+      rank: 1,
+      rating: 560,
+      gamesPlayed: 4,
+      wins: 2,
+    });
+    expect(outboxQueueService.enqueuePublishEvent).toHaveBeenCalledWith(
+      'outbox-1',
+    );
+  });
+
+  it('does not enqueue an outbox job when leaderboard notification already exists', async () => {
+    const { service, notificationsService, outboxQueueService } = makeService();
+    notificationsService.createLeaderboardNotification.mockResolvedValue({
+      notification: { id: 'notification-1' },
+      outboxEventId: null,
+    });
+
+    await service.refreshPeriod(
+      LEADERBOARD_PERIODS.monthly,
+      new Date('2026-05-30T12:00:00.000Z'),
+    );
+
+    expect(
+      notificationsService.createLeaderboardNotification,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        period: 'monthly',
+        leaderboardKey: 'monthly:2026-05',
+      }),
+    );
+    expect(outboxQueueService.enqueuePublishEvent).not.toHaveBeenCalled();
   });
 
   it('refreshes monthly snapshot with rolling thirty-day window', async () => {

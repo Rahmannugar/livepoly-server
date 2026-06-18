@@ -5,9 +5,12 @@ import {
 } from '@nestjs/common';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
+import { GameCommandsService } from '../commands/game-commands.service';
 import type { GameEngineState } from '../engine/game-engine.types';
 import { GAME_EVENTS, GAME_METRICS, GAME_TIMER_WATCHDOG } from '../game.constants';
+import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
 import { GameRecoveryService } from '../recovery/game-recovery.service';
+import { GameResultsService } from '../results/game-results.service';
 import { GameTurnTimerQueueService } from './game-turn-timer-queue.service';
 import { GameTimerWatchdogRepository } from './game-timer-watchdog.repository';
 
@@ -23,6 +26,9 @@ export class GameTimerWatchdogService
     private readonly gameRecoveryService: GameRecoveryService,
     private readonly gameBotQueueService: GameBotQueueService,
     private readonly gameTurnTimerQueueService: GameTurnTimerQueueService,
+    private readonly gameCommandsService: GameCommandsService,
+    private readonly gameResultsService: GameResultsService,
+    private readonly gameRealtimePublisher: GameRealtimePublisher,
     private readonly observabilityService: ObservabilityService,
   ) {}
 
@@ -64,7 +70,48 @@ export class GameTimerWatchdogService
             candidate.id,
           );
 
+          const joinedHumanCount =
+            await this.gameTimerWatchdogRepository.countJoinedHumanPlayers(
+              candidate.roomId,
+            );
+
           if (this.isTerminal(state)) {
+            if (state.phase === 'finished') {
+              if (joinedHumanCount === 0) {
+                await this.gameResultsService.finalizeAbandonedFinishedGame({
+                  gameId: candidate.id,
+                  state,
+                  finishedAt: Date.now(),
+                });
+              } else if (this.isGameExpired(state, candidate.expiresAt)) {
+                await this.gameResultsService.finalizeExpiredFinishedGame({
+                  gameId: candidate.id,
+                  state,
+                  finishedAt: Math.max(
+                    Date.now(),
+                    state.expiresAt ?? candidate.expiresAt.getTime(),
+                  ),
+                });
+              }
+            }
+            continue;
+          }
+
+          if (joinedHumanCount === 0) {
+            const result = await this.gameCommandsService.executeIntent({
+              gameId: candidate.id,
+              source: 'timer',
+              intent: {
+                type: 'finish_game_after_last_human_left',
+                payload: {
+                  finishedAt: Date.now(),
+                },
+              },
+            });
+            await this.gameRealtimePublisher.publishCommandResult(
+              candidate.id,
+              result,
+            );
             continue;
           }
 

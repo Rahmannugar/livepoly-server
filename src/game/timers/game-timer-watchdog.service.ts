@@ -110,13 +110,17 @@ export class GameTimerWatchdogService
             continue;
           }
 
-          if (joinedHumanCount === 0) {
+          if (
+            joinedHumanCount === 0 ||
+            this.hasNoActiveHumanPlayers(state)
+          ) {
             this.logger.warn({
-              message: 'game_flow.watchdog.finishing_no_human_game',
+              message: 'game_flow.watchdog.finishing_no_active_human_game',
               gameId: candidate.id,
               roomId: candidate.roomId,
               phase: state.phase,
               turnNumber: state.turnNumber,
+              joinedHumanCount,
               currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
             });
 
@@ -135,7 +139,7 @@ export class GameTimerWatchdogService
               result,
             );
             this.logger.log({
-              message: 'game_flow.watchdog.no_human_finish_published',
+              message: 'game_flow.watchdog.no_active_human_finish_published',
               gameId: candidate.id,
               roomId: candidate.roomId,
               phase: result.state.phase,
@@ -222,6 +226,16 @@ export class GameTimerWatchdogService
 
   private isTerminal(state: GameEngineState): boolean {
     return state.phase === 'finished' || state.phase === 'cancelled';
+  }
+
+  private hasNoActiveHumanPlayers(state: GameEngineState): boolean {
+    const hasHumanPlayers = state.players.some(
+      (player) => player.playerType === 'human',
+    );
+
+    return hasHumanPlayers && !state.players.some(
+      (player) => player.playerType === 'human' && !player.bankrupt,
+    );
   }
 
   private async executeOverdueBotAction(

@@ -410,23 +410,39 @@ export class RoomsLobbyService {
             gameId: leaveResult.activeGameId,
           });
         } else {
-          const result = await this.gameCommandsService.executeIntent({
-            gameId: leaveResult.activeGameId,
-            roomPlayerId: leaveResult.leavingRoomPlayerId,
-            source: 'player',
-            intent: {
-              type: 'declare_bankruptcy',
-              payload: {
-                roomPlayerId: leaveResult.leavingRoomPlayerId,
-                creditorRoomPlayerId: null,
-              },
-            },
-          });
+          const leavingPlayerAlreadyBankrupt =
+            await this.isRoomPlayerBankruptInGame({
+              gameId: leaveResult.activeGameId,
+              roomPlayerId: leaveResult.leavingRoomPlayerId,
+            });
 
-          await this.publishGameCommandResultBestEffort({
-            gameId: leaveResult.activeGameId,
-            result,
-          });
+          if (!leavingPlayerAlreadyBankrupt) {
+            const result = await this.gameCommandsService.executeIntent({
+              gameId: leaveResult.activeGameId,
+              roomPlayerId: leaveResult.leavingRoomPlayerId,
+              source: 'player',
+              intent: {
+                type: 'declare_bankruptcy',
+                payload: {
+                  roomPlayerId: leaveResult.leavingRoomPlayerId,
+                  creditorRoomPlayerId: null,
+                },
+              },
+            });
+
+            await this.publishGameCommandResultBestEffort({
+              gameId: leaveResult.activeGameId,
+              result,
+            });
+          } else {
+            this.logger.log({
+              message: 'game_flow.leave.skipped_bankrupt_player_forfeit',
+              roomId: room.id,
+              roomCode: room.code,
+              gameId: leaveResult.activeGameId,
+              roomPlayerId: leaveResult.leavingRoomPlayerId,
+            });
+          }
         }
 
         await this.databaseService.transaction(async (tx) => {
@@ -478,6 +494,18 @@ export class RoomsLobbyService {
     });
 
     return { message: 'Room left' };
+  }
+
+  private async isRoomPlayerBankruptInGame(input: {
+    gameId: string;
+    roomPlayerId: string;
+  }) {
+    const state = await this.gameRecoveryService.getOrRecover(input.gameId);
+    const player = state.players.find(
+      (candidate) => candidate.roomPlayerId === input.roomPlayerId,
+    );
+
+    return Boolean(player?.bankrupt);
   }
 
   private async finalizeRoomAfterLastHumanLeft(input: {

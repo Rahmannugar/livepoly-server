@@ -196,6 +196,64 @@ describe('GameTimerWatchdogService', () => {
     expect(gameTurnTimerQueueService.enqueueTurnTimer).not.toHaveBeenCalled();
   });
 
+  it('finishes an active game when every joined human is bankrupt', async () => {
+    const state = createGameEngineState({
+      expiresAt: now + 60_000,
+      turnExpiresAt: now + 30_000,
+      phase: 'awaiting_auction_bid',
+      players: createGameEngineState().players.map((player, index) => {
+        if (index < 2) {
+          return {
+            ...player,
+            bankrupt: true,
+          };
+        }
+
+        return {
+          ...player,
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot' as const,
+          botDifficulty: 'normal' as const,
+          botName: 'Midas',
+          bankrupt: false,
+        };
+      }),
+    });
+    const result = {
+      state: { ...state, phase: 'finished' as const },
+      events: [],
+      intentType: 'finish_game_after_last_human_left' as const,
+    };
+
+    repository.listActiveGames.mockResolvedValue([
+      { id: 'game-1', roomId: 'room-1', expiresAt: new Date(now + 60_000) },
+    ]);
+    repository.countJoinedHumanPlayers.mockResolvedValue(2);
+    gameRecoveryService.getOrRecover.mockResolvedValue(state);
+    gameCommandsService.executeIntent.mockResolvedValue(result);
+
+    await service.runOnce();
+
+    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      source: 'timer',
+      intent: {
+        type: 'finish_game_after_last_human_left',
+        payload: {
+          finishedAt: now,
+        },
+      },
+    });
+    expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
+      'game-1',
+      result,
+    );
+    expect(gameBotQueueService.enqueueIfBotCanAct).not.toHaveBeenCalled();
+    expect(gameTurnTimerQueueService.enqueueTurnTimer).not.toHaveBeenCalled();
+  });
+
   it('repairs result finalization for a finished game with no joined humans', async () => {
     const state = createGameEngineState({
       expiresAt: now + 60_000,

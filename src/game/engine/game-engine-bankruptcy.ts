@@ -45,7 +45,10 @@ export function declareBankruptcy(
   });
   const activePlayersAfterBankruptcy = getActivePlayers(liquidatedState);
 
-  if (activePlayersAfterBankruptcy.length <= 1) {
+  if (
+    activePlayersAfterBankruptcy.length <= 1 ||
+    hasNoActiveHumanPlayers(activePlayersAfterBankruptcy)
+  ) {
     const standings = calculateNetWorthStandings(liquidatedState);
     const winners = getNetWorthWinners(standings);
 
@@ -59,6 +62,8 @@ export function declareBankruptcy(
         shouldCurrentPlayerPlayAgain: false,
         consecutiveDoublesCount: 0,
         auction: null,
+        tradeOffer: null,
+        debt: null,
         pendingTileKey: null,
       },
       events: [
@@ -231,6 +236,10 @@ function getActivePlayers(state: GameEngineState): GameEnginePlayer[] {
   return state.players
     .filter((player) => !player.bankrupt)
     .sort((left, right) => left.seatNumber - right.seatNumber);
+}
+
+function hasNoActiveHumanPlayers(players: GameEnginePlayer[]): boolean {
+  return !players.some((player) => player.playerType === 'human');
 }
 
 function findPlayer(

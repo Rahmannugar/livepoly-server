@@ -198,6 +198,77 @@ describe('game-engine-bankruptcy', () => {
     ]);
   });
 
+  it('finishes game when no active human players remain', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_debt_resolution',
+      currentTurnRoomPlayerId: 'room-player-2',
+      players: [
+        {
+          ...createGameEngineState().players[0],
+          roomPlayerId: 'room-player-1',
+          playerType: 'human' as const,
+          bankrupt: true,
+        },
+        {
+          ...createGameEngineState().players[1],
+          roomPlayerId: 'room-player-2',
+          playerType: 'human' as const,
+          bankrupt: false,
+        },
+        {
+          ...createGameEngineState().players[2],
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot' as const,
+          botDifficulty: 'normal' as const,
+          botName: 'Midas',
+          seatNumber: 3,
+          cash: 831,
+          bankrupt: false,
+        },
+        {
+          ...createGameEngineState().players[2],
+          roomPlayerId: 'bot-player-2',
+          userId: null,
+          username: null,
+          playerType: 'bot' as const,
+          botDifficulty: 'normal' as const,
+          botName: 'Echo',
+          seatNumber: 4,
+          cash: 1265,
+          bankrupt: false,
+        },
+      ],
+    });
+
+    const result = service.declareBankruptcy(state, {
+      roomPlayerId: 'room-player-2',
+    });
+
+    expect(result.state).toMatchObject({
+      phase: 'finished',
+      auction: null,
+      debt: null,
+      tradeOffer: null,
+    });
+    expect(result.events).toContainEqual({
+      type: 'game_finished_by_bankruptcy',
+      winnerRoomPlayerId: 'bot-player-2',
+      tiedRoomPlayerIds: ['bot-player-2'],
+      standings: expect.arrayContaining([
+        expect.objectContaining({
+          roomPlayerId: 'bot-player-2',
+          netWorth: 1265,
+        }),
+        expect.objectContaining({
+          roomPlayerId: 'bot-player-1',
+          netWorth: 831,
+        }),
+      ]),
+    });
+  });
+
   it('uses active debt creditor by default', () => {
     const state = createGameEngineState({
       phase: 'awaiting_debt_resolution',

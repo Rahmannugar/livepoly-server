@@ -3,14 +3,13 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  MessageEvent,
   Param,
   Patch,
   Query,
-  Sse,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Observable } from 'rxjs';
+import type { Response } from 'express';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
@@ -33,9 +32,12 @@ export class NotificationsController {
 
   @NotificationsDocs.Stream()
   @RateLimit(...NOTIFICATIONS_RATE_LIMIT_RULES.read)
-  @Sse('stream')
-  stream(@AuthUserDecorator() authUser: AuthUser): Observable<MessageEvent> {
-    return this.notificationsStreamService.streamForUser(authUser.id);
+  @Get('stream')
+  stream(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Res() response: Response,
+  ): void {
+    this.notificationsStreamService.streamForUser(authUser.id, response);
   }
 
   @NotificationsDocs.List()

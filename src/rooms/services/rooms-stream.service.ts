@@ -1,7 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import type { Response } from 'express';
+import {
+  prepareSseResponse,
+  SSE_HEARTBEAT_MS,
+  writeSseComment,
+  writeSseEvent,
+} from '../../common/sse/sse-stream';
 import { PubSubService } from '../../infra/pubsub/pubsub.service';
-import type { PubSubPayload } from '../../infra/pubsub/pubsub.types';
 
 type RoomStreamEvent =
   | 'room.created'
@@ -12,8 +17,6 @@ type RoomStreamEvent =
   | 'room.spectator_left'
   | 'room.started';
 
-const ROOM_STREAM_HEARTBEAT_MS = 25_000;
-
 @Injectable()
 export class RoomsStreamService {
   private readonly logger = new Logger(RoomsStreamService.name);
@@ -23,17 +26,7 @@ export class RoomsStreamService {
   streamRoom(code: string, response: Response): void {
     const channel = this.getRoomChannel(code);
 
-    response.status(200);
-    response.set({
-      'Content-Type': 'text/event-stream',
-      'Cache-Control':
-        'private, no-cache, no-store, must-revalidate, max-age=0, no-transform',
-      Connection: 'keep-alive',
-      Pragma: 'no-cache',
-      Expires: '0',
-      'X-Accel-Buffering': 'no',
-    });
-    response.flushHeaders?.();
+    prepareSseResponse(response);
 
     let closed = false;
     let unsubscribe: (() => Promise<void>) | null = null;
@@ -52,10 +45,10 @@ export class RoomsStreamService {
     };
 
     const heartbeat = setInterval(() => {
-      this.writeSseComment(response, 'ping');
-    }, ROOM_STREAM_HEARTBEAT_MS);
+      writeSseComment(response, 'ping');
+    }, SSE_HEARTBEAT_MS);
 
-    this.writeSseComment(response, 'connected');
+    writeSseComment(response, 'connected');
 
     response.on('close', close);
     response.on('error', close);
@@ -66,7 +59,7 @@ export class RoomsStreamService {
           return;
         }
 
-        this.writeSseEvent(response, 'room.updated', payload);
+        writeSseEvent(response, 'room.updated', payload);
       })
       .then((subscription) => {
         if (closed) {
@@ -113,26 +106,5 @@ export class RoomsStreamService {
 
   private getRoomChannel(code: string): string {
     return `room:${code}:updates`;
-  }
-
-  private writeSseComment(response: Response, comment: string): void {
-    if (response.writableEnded) {
-      return;
-    }
-
-    response.write(`: ${comment}\n\n`);
-  }
-
-  private writeSseEvent(
-    response: Response,
-    event: string,
-    payload: PubSubPayload,
-  ): void {
-    if (response.writableEnded) {
-      return;
-    }
-
-    response.write(`event: ${event}\n`);
-    response.write(`data: ${JSON.stringify(payload)}\n\n`);
   }
 }

@@ -44,7 +44,7 @@ Games persist `startedAt`, `expiresAt`, and `finishedAt`. Ranked games use the f
 
 Game-changing commands check the authoritative expiry before normal mutation. If `now >= expiresAt`, the command finalizes the game by time and returns the finished state/result path instead of applying the requested move. A delayed expiry job is also scheduled when the game starts, but it is a safety net rather than the only finalizer; it refuses to finish early and exists to close games with no further player commands.
 
-Turn progress is protected by two backend-only layers. BullMQ is the primary path for bot turns, turn timeouts, auction bid timeouts, and game expiry. Those jobs use deterministic job IDs and stale-state guards, so duplicated or delayed jobs do not mutate newer state. When a recovery path sees that a deterministic job ID is stuck in BullMQ's failed set, it removes that failed duplicate before re-adding the guarded job, which lets retries recover from stale failed jobs instead of being blocked by job-id dedupe. The worker also runs a quiet timer watchdog every 10 seconds. Each pass scans a bounded batch of active games, recovers Redis state from snapshots when needed, and re-enqueues missing bot work, overdue turn/auction timeout work, overdue game-expiry work, or abandoned active games whose room has no joined human players through the same guarded command/result paths. The watchdog does not create a second game engine path and is intentionally not exposed as a player-facing “retrying” state; clients continue to see normal turn, auction, or result state while the backend repairs missed queue execution.
+Turn progress is protected by two backend-only layers. BullMQ is the primary path for bot turns, turn timeouts, auction bid timeouts, and game expiry. Those jobs use deterministic job IDs and stale-state guards, so duplicated or delayed jobs do not mutate newer state. When a recovery path sees that a deterministic job ID is stuck in BullMQ's failed set, it removes that failed duplicate before re-adding the guarded job, which lets retries recover from stale failed jobs instead of being blocked by job-id dedupe. The worker also runs a quiet timer watchdog every 10 seconds. Each pass scans a bounded batch of active games, recovers Redis state from snapshots when needed, and re-enqueues missing bot work, overdue turn/auction timeout work, overdue game-expiry work, or abandoned active games whose room has no joined human players or no non-bankrupt human players through the same guarded command/result paths. The watchdog scan uses a Redis singleton lock, so multiple worker processes can be deployed without every instance scanning and repairing the same games at once. The watchdog does not create a second game engine path and is intentionally not exposed as a player-facing “retrying” state; clients continue to see normal turn, auction, or result state while the backend repairs missed queue execution.
 
 ### Friends
 
@@ -132,6 +132,12 @@ BullMQ handles background jobs for:
 - Turn timers.
 - Timer watchdog recovery.
 - Leaderboard refresh.
+
+There is one worker entrypoint, `src/worker.ts`. A worker process hosts the mail, users, outbox, and game processors; the game queue also processes leaderboard refresh jobs. The process is horizontally scalable because BullMQ claims individual jobs from Redis, while startup/recovery duties that should run once are guarded by short Redis singleton locks:
+
+- Outbox startup recovery re-enqueues available unpublished outbox events once per worker boot window.
+- Leaderboard repeat-job scheduling is registered once per worker boot window.
+- The game timer watchdog scan is singleton per scan interval.
 
 The outbox is a durable “publish this later” table.
 

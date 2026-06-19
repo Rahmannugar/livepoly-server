@@ -17,3 +17,19 @@ export type WithLockInput<T> = {
   waitTimeoutMs?: number;
   retryDelayMs?: number;
 };
+
+export type WithLockOrSkipInput<T> = {
+  key: string;
+  ttlSeconds: number;
+  callback: () => Promise<T>;
+};
+
+export type LockOrSkipResult<T> =
+  | {
+      acquired: true;
+      value: T;
+    }
+  | {
+      acquired: false;
+      value: null;
+    };

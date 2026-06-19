@@ -4,6 +4,7 @@ import {
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
+import { CacheService } from '../../infra/cache/cache.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import { GameBotService } from '../bots/game-bot.service';
@@ -22,6 +23,8 @@ export class GameTimerWatchdogService
   implements OnApplicationBootstrap, OnModuleDestroy
 {
   private readonly logger = new Logger(GameTimerWatchdogService.name);
+  private static readonly SCAN_LOCK_KEY = 'worker:singleton:game-watchdog';
+  private static readonly SCAN_LOCK_TTL_SECONDS = 30;
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private scanInProgress = false;
 
@@ -35,6 +38,7 @@ export class GameTimerWatchdogService
     private readonly gameResultsService: GameResultsService,
     private readonly gameRealtimePublisher: GameRealtimePublisher,
     private readonly observabilityService: ObservabilityService,
+    private readonly cacheService: CacheService,
   ) {}
 
   async onApplicationBootstrap(): Promise<void> {
@@ -59,6 +63,28 @@ export class GameTimerWatchdogService
 
     this.scanInProgress = true;
 
+    try {
+      const lockResult = await this.cacheService.withLockOrSkip({
+        key: GameTimerWatchdogService.SCAN_LOCK_KEY,
+        ttlSeconds: GameTimerWatchdogService.SCAN_LOCK_TTL_SECONDS,
+        callback: () => this.scanActiveGames(),
+      });
+
+      if (!lockResult.acquired) {
+        return;
+      }
+    } catch (error) {
+      this.observabilityService.recordEvent(GAME_EVENTS.timerWatchdogFailed, {
+        errorName: error instanceof Error ? error.name : undefined,
+        errorMessage: error instanceof Error ? error.message : undefined,
+      });
+      this.observabilityService.recordMetric(GAME_METRICS.timerWatchdogFailed);
+    } finally {
+      this.scanInProgress = false;
+    }
+  }
+
+  private async scanActiveGames(): Promise<void> {
     try {
       const candidates =
         await this.gameTimerWatchdogRepository.listActiveGames(
@@ -219,8 +245,6 @@ export class GameTimerWatchdogService
         errorMessage: error instanceof Error ? error.message : undefined,
       });
       this.observabilityService.recordMetric(GAME_METRICS.timerWatchdogFailed);
-    } finally {
-      this.scanInProgress = false;
     }
   }
 

@@ -1,4 +1,5 @@
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
+import type { CacheService } from '../../../infra/cache/cache.service';
 import type { GameBotQueueService } from '../../bots/game-bot-queue.service';
 import type { GameBotService } from '../../bots/game-bot.service';
 import type { GameCommandsService } from '../../commands/game-commands.service';
@@ -52,6 +53,10 @@ type ObservabilityServiceMock = {
   recordMetric: jest.Mock;
 };
 
+type CacheServiceMock = {
+  withLockOrSkip: jest.Mock;
+};
+
 describe('GameTimerWatchdogService', () => {
   let service: GameTimerWatchdogService;
   let nowSpy: jest.SpyInstance<number, []>;
@@ -64,6 +69,7 @@ describe('GameTimerWatchdogService', () => {
   let gameResultsService: GameResultsServiceMock;
   let gameRealtimePublisher: GameRealtimePublisherMock;
   let observabilityService: ObservabilityServiceMock;
+  let cacheService: CacheServiceMock;
 
   const now = 1_000_000;
 
@@ -102,6 +108,12 @@ describe('GameTimerWatchdogService', () => {
       recordEvent: jest.fn(),
       recordMetric: jest.fn(),
     };
+    cacheService = {
+      withLockOrSkip: jest.fn(async ({ callback }) => ({
+        acquired: true,
+        value: await callback(),
+      })),
+    };
 
     service = new GameTimerWatchdogService(
       repository as unknown as GameTimerWatchdogRepository,
@@ -113,12 +125,25 @@ describe('GameTimerWatchdogService', () => {
       gameResultsService as unknown as GameResultsService,
       gameRealtimePublisher as unknown as GameRealtimePublisher,
       observabilityService as unknown as ObservabilityService,
+      cacheService as unknown as CacheService,
     );
   });
 
   afterEach(() => {
     nowSpy.mockRestore();
     service.onModuleDestroy();
+  });
+
+  it('skips a scan when another worker owns the watchdog lock', async () => {
+    cacheService.withLockOrSkip.mockResolvedValue({
+      acquired: false,
+      value: null,
+    });
+
+    await service.runOnce();
+
+    expect(repository.listActiveGames).not.toHaveBeenCalled();
+    expect(gameBotQueueService.enqueueIfBotCanAct).not.toHaveBeenCalled();
   });
 
   it('re-enqueues a bot action when an active game is waiting on a bot', async () => {

@@ -2,7 +2,13 @@ import { randomUUID } from 'crypto';
 import { Injectable, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import Redis from 'ioredis';
-import { CacheSetOptions, GetOrSetInput, WithLockInput } from './cache.types';
+import {
+  CacheSetOptions,
+  GetOrSetInput,
+  type LockOrSkipResult,
+  WithLockInput,
+  WithLockOrSkipInput,
+} from './cache.types';
 import { withTtlJitter } from '../../common/utils/jitter';
 
 const RELEASE_LOCK_SCRIPT = `
@@ -107,6 +113,35 @@ export class CacheService implements OnModuleDestroy {
     }
 
     throw new Error('Could not acquire cache lock');
+  }
+
+  async withLockOrSkip<T>(
+    input: WithLockOrSkipInput<T>,
+  ): Promise<LockOrSkipResult<T>> {
+    const token = randomUUID();
+    const acquired = await this.redis.set(
+      input.key,
+      token,
+      'EX',
+      input.ttlSeconds,
+      'NX',
+    );
+
+    if (acquired !== 'OK') {
+      return {
+        acquired: false,
+        value: null,
+      };
+    }
+
+    try {
+      return {
+        acquired: true,
+        value: await input.callback(),
+      };
+    } finally {
+      await this.redis.eval(RELEASE_LOCK_SCRIPT, 1, input.key, token);
+    }
   }
 
   async onModuleDestroy(): Promise<void> {

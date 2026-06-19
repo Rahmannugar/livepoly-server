@@ -12,6 +12,8 @@ type RoomStreamEvent =
   | 'room.spectator_left'
   | 'room.started';
 
+const ROOM_STREAM_HEARTBEAT_MS = 25_000;
+
 @Injectable()
 export class RoomsStreamService {
   private readonly logger = new Logger(RoomsStreamService.name);
@@ -24,6 +26,23 @@ export class RoomsStreamService {
     return new Observable<MessageEvent>((subscriber) => {
       let closed = false;
       let unsubscribe: (() => Promise<void>) | null = null;
+      const heartbeat = setInterval(() => {
+        subscriber.next({
+          type: 'room.heartbeat',
+          data: {
+            roomCode: code,
+            changedAt: new Date().toISOString(),
+          },
+        });
+      }, ROOM_STREAM_HEARTBEAT_MS);
+
+      subscriber.next({
+        type: 'room.connected',
+        data: {
+          roomCode: code,
+          changedAt: new Date().toISOString(),
+        },
+      });
 
       void this.pubSubService
         .subscribe(channel, (payload) => {
@@ -45,6 +64,7 @@ export class RoomsStreamService {
 
       return () => {
         closed = true;
+        clearInterval(heartbeat);
 
         if (unsubscribe) {
           void unsubscribe();

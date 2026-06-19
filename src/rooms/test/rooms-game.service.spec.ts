@@ -6,7 +6,7 @@ import type { GameTurnTimerQueueService } from '../../game/timers/game-turn-time
 import type { DatabaseService } from '../../infra/database/database.service';
 import type { ObservabilityService } from '../../infra/observability/observability.service';
 import type { RoomsGameRepository } from '../repositories/rooms-game.repository';
-import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
+import { BOT_NAMES, ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsGameService } from '../services/rooms-game.service';
 import type { RoomsStreamService } from '../services/rooms-stream.service';
 
@@ -473,15 +473,23 @@ describe('RoomsGameService', () => {
 
     expect(roomsGameRepository.addBotPlayer).toHaveBeenCalledTimes(3);
 
-    expect(roomsGameRepository.addBotPlayer).toHaveBeenCalledWith(
-      {
-        roomId: waitingRoom.id,
-        seatNumber: 2,
-        botName: 'Nova',
-        botDifficulty: 'normal',
-      },
-      tx,
+    const addedBots = roomsGameRepository.addBotPlayer.mock.calls.map(
+      ([bot]) => bot,
     );
+    const addedBotNames = addedBots.map((bot) => bot.botName);
+
+    expect(addedBots).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          roomId: waitingRoom.id,
+          seatNumber: 2,
+          botDifficulty: 'normal',
+        }),
+      ]),
+    );
+    expect(new Set(addedBotNames).size).toBe(3);
+    expect(addedBotNames.every((name) => BOT_NAMES.includes(name))).toBe(true);
+    expect(addedBotNames).not.toEqual(['Nova', 'Midas', 'Echo']);
 
     expect(roomsGameRepository.createGame).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -640,7 +648,7 @@ describe('RoomsGameService', () => {
     expect(roomsGameRepository.addBotPlayer).toHaveBeenCalledWith(
       expect.objectContaining({
         seatNumber: 2,
-        botName: 'Nova',
+        botName: expect.any(String),
         botDifficulty: 'hard',
       }),
       tx,

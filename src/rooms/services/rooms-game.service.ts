@@ -259,6 +259,15 @@ export class RoomsGameService {
     const occupiedSeats = new Set(
       joinedPlayers.map((player) => player.seatNumber),
     );
+    const assignedBotNames = new Set(
+      joinedPlayers.flatMap((player) =>
+        player.botName ? [player.botName] : [],
+      ),
+    );
+    const availableBotNames = BOT_NAMES.filter(
+      (botName) => !assignedBotNames.has(botName),
+    );
+    const nameOffset = this.getBotNameOffset(roomId, availableBotNames.length);
     const bots: BotPlayerInput[] = [];
 
     for (let seatNumber = 1; seatNumber <= ROOM_MAX_PLAYERS; seatNumber += 1) {
@@ -267,12 +276,25 @@ export class RoomsGameService {
       bots.push({
         roomId,
         seatNumber,
-        botName: BOT_NAMES[(seatNumber - 1) % BOT_NAMES.length],
+        botName:
+          availableBotNames[
+            (nameOffset + bots.length) % availableBotNames.length
+          ],
         botDifficulty,
       });
     }
 
     return bots;
+  }
+
+  private getBotNameOffset(roomId: string, nameCount: number): number {
+    const hash = Array.from(roomId).reduce(
+      (value, character) =>
+        (Math.imul(value, 31) + character.charCodeAt(0)) >>> 0,
+      0,
+    );
+
+    return hash % nameCount;
   }
 
   private createInitialGameState(input: {

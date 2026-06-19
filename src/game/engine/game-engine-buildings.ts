@@ -15,7 +15,7 @@ export function buildProperty(
   state: GameEngineState,
   input: BuildPropertyInput,
 ): GameEngineResult {
-  assertCanManageBuildings(state, input.roomPlayerId);
+  assertCanManageBuildings(state, input.roomPlayerId, false);
 
   if (state.phase === 'awaiting_debt_resolution' || state.debt) {
     throw new GameEngineError(
@@ -89,7 +89,7 @@ export function sellBuilding(
   state: GameEngineState,
   input: SellBuildingInput,
 ): GameEngineResult {
-  assertCanManageBuildings(state, input.roomPlayerId);
+  assertCanManageBuildings(state, input.roomPlayerId, true);
 
   const board = getGameBoard(state.boardKey);
   const tile = getPropertyTileByKey(board, input.tileKey);
@@ -152,12 +152,18 @@ export function sellBuilding(
 function assertCanManageBuildings(
   state: GameEngineState,
   roomPlayerId: string,
+  allowDebtResolution: boolean,
 ): void {
   if (state.phase === 'finished' || state.phase === 'cancelled') {
     throw new GameEngineError('GAME_NOT_ACTIVE', 'Game is not active');
   }
 
-  if (state.phase !== 'awaiting_turn_end') {
+  const resolvingOwnDebt =
+    allowDebtResolution &&
+    state.phase === 'awaiting_debt_resolution' &&
+    state.debt?.roomPlayerId === roomPlayerId;
+
+  if (state.phase !== 'awaiting_turn_end' && !resolvingOwnDebt) {
     throw new GameEngineError(
       'BUILDING_NOT_ALLOWED',
       'Buildings cannot be managed during this phase',

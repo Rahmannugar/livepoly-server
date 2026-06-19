@@ -23,7 +23,7 @@ export function mortgageProperty(
   state: GameEngineState,
   input: MortgagePropertyInput,
 ): GameEngineResult {
-  assertCanManageMortgage(state, input.roomPlayerId);
+  assertCanManageMortgage(state, input.roomPlayerId, true);
 
   const board = getGameBoard(state.boardKey);
   const tile = getMortgageableTileByKey(board, input.tileKey);
@@ -65,7 +65,7 @@ export function unmortgageProperty(
   state: GameEngineState,
   input: UnmortgagePropertyInput,
 ): GameEngineResult {
-  assertCanManageMortgage(state, input.roomPlayerId);
+  assertCanManageMortgage(state, input.roomPlayerId, false);
 
   const board = getGameBoard(state.boardKey);
   const tile = getMortgageableTileByKey(board, input.tileKey);
@@ -101,12 +101,18 @@ export function unmortgageProperty(
 function assertCanManageMortgage(
   state: GameEngineState,
   roomPlayerId: string,
+  allowDebtResolution: boolean,
 ): void {
   if (state.phase === 'finished' || state.phase === 'cancelled') {
     throw new GameEngineError('GAME_NOT_ACTIVE', 'Game is not active');
   }
 
-  if (state.phase !== 'awaiting_turn_end') {
+  const resolvingOwnDebt =
+    allowDebtResolution &&
+    state.phase === 'awaiting_debt_resolution' &&
+    state.debt?.roomPlayerId === roomPlayerId;
+
+  if (state.phase !== 'awaiting_turn_end' && !resolvingOwnDebt) {
     throw new GameEngineError(
       'MORTGAGE_NOT_ALLOWED',
       'Mortgage cannot be managed during this phase',

@@ -197,6 +197,44 @@ describe('game-engine-buildings', () => {
     ]);
   });
 
+  it('lets the debtor sell a house to raise cash', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: null,
+        amount: 1600,
+        reason: 'tax',
+      },
+      properties: createGameEngineState().properties.map((property) => {
+        if (
+          property.tileKey === TEST_BOARD_TILES.cheapProperty ||
+          property.tileKey === TEST_BOARD_TILES.cheapPropertyPair
+        ) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-1',
+            houseCount: 1,
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    const result = service.sellBuilding(state, {
+      roomPlayerId: 'room-player-1',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
+    });
+
+    expect(result.state.players[0].cash).toBe(1525);
+    expect(
+      result.state.properties.find(
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
+      ),
+    ).toMatchObject({ houseCount: 0 });
+  });
+
   it('sells a hotel back to four houses', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',

@@ -50,6 +50,38 @@ describe('game-engine-mortgage', () => {
     ]);
   });
 
+  it('lets the debtor mortgage property to raise cash', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: null,
+        amount: 1600,
+        reason: 'tax',
+      },
+      properties: createGameEngineState().properties.map((property) =>
+        property.tileKey === TEST_BOARD_TILES.cheapProperty
+          ? {
+              ...property,
+              ownerRoomPlayerId: 'room-player-1',
+            }
+          : property,
+      ),
+    });
+
+    const result = service.mortgageProperty(state, {
+      roomPlayerId: 'room-player-1',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
+    });
+
+    expect(result.state.players[0].cash).toBe(1530);
+    expect(
+      result.state.properties.find(
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
+      ),
+    ).toMatchObject({ mortgaged: true });
+  });
+
   it('mortgages airports and utilities', () => {
     const state = createGameEngineState({
       phase: 'awaiting_turn_end',
@@ -186,6 +218,34 @@ describe('game-engine-mortgage', () => {
         amount: 33,
       },
     ]);
+  });
+
+  it('rejects unmortgaging while resolving debt', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'room-player-1',
+        creditorRoomPlayerId: null,
+        amount: 1600,
+        reason: 'tax',
+      },
+      properties: createGameEngineState().properties.map((property) =>
+        property.tileKey === TEST_BOARD_TILES.cheapProperty
+          ? {
+              ...property,
+              ownerRoomPlayerId: 'room-player-1',
+              mortgaged: true,
+            }
+          : property,
+      ),
+    });
+
+    expect(() =>
+      service.unmortgageProperty(state, {
+        roomPlayerId: 'room-player-1',
+        tileKey: TEST_BOARD_TILES.cheapProperty,
+      }),
+    ).toThrow(GameEngineError);
   });
 
   it('rejects unmortgage when property is not mortgaged', () => {

@@ -29,6 +29,7 @@ describe('GameTurnTimerQueueService', () => {
     phase: 'awaiting_roll',
     turnNumber: 4,
     currentTurnRoomPlayerId: 'room-player-1',
+    turnExpiresAt: 100_000,
     consecutiveDoublesCount: 0,
     shouldCurrentPlayerPlayAgain: false,
     lastDiceRoll: null,
@@ -79,7 +80,7 @@ describe('GameTurnTimerQueueService', () => {
     await service.enqueueTurnTimer('game-1', state);
 
     expect(gameQueue.getJob).toHaveBeenCalledWith(
-      'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn',
+      'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn_100000',
     );
     expect(gameQueue.add).toHaveBeenCalledWith(
       GAME_JOBS.executeTurnTimeout,
@@ -88,11 +89,12 @@ describe('GameTurnTimerQueueService', () => {
         turnNumber: 4,
         phase: 'awaiting_roll',
         currentTurnRoomPlayerId: 'room-player-1',
-        actionStateKey: 'turn',
+        actionStateKey: 'turn_100000',
       },
       {
-        jobId: 'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn',
-        delay: GAME_TURN_TIMER.timeoutMs,
+        jobId:
+          'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn_100000',
+        delay: expect.any(Number),
         attempts: 3,
         backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },
         removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
@@ -117,7 +119,26 @@ describe('GameTurnTimerQueueService', () => {
         gameId: 'game-1',
       }),
       expect.objectContaining({
-        jobId: 'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn',
+        jobId:
+          'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn_100000',
+      }),
+    );
+  });
+
+  it('uses the deadline in the job id for repeated same-turn phases', async () => {
+    await service.enqueueTurnTimer('game-1', {
+      ...state,
+      turnExpiresAt: 200_000,
+    });
+
+    expect(gameQueue.add).toHaveBeenCalledWith(
+      GAME_JOBS.executeTurnTimeout,
+      expect.objectContaining({
+        actionStateKey: 'turn_200000',
+      }),
+      expect.objectContaining({
+        jobId:
+          'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn_200000',
       }),
     );
   });

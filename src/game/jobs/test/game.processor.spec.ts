@@ -76,6 +76,7 @@ describe('GameProcessor', () => {
     turnNumber: 7,
     currentTurnRoomPlayerId: 'room-player-1',
   });
+  const currentTurnActionStateKey = `turn_${state.turnExpiresAt}`;
 
   const rollIntent: GameEngineIntent = {
     type: 'roll_and_move',
@@ -243,7 +244,7 @@ describe('GameProcessor', () => {
         turnNumber: 7,
         phase: 'awaiting_roll',
         currentTurnRoomPlayerId: 'room-player-1',
-        actionStateKey: 'turn',
+        actionStateKey: currentTurnActionStateKey,
       }),
     );
 
@@ -298,7 +299,7 @@ describe('GameProcessor', () => {
         turnNumber: 7,
         phase: 'awaiting_roll',
         currentTurnRoomPlayerId: 'room-player-1',
-        actionStateKey: 'turn',
+        actionStateKey: currentTurnActionStateKey,
       }),
     );
 

@@ -410,7 +410,7 @@ export class GameProcessor extends WorkerHost {
 
   private getActionStateKey(state: GameEngineState): string {
     if (state.phase !== 'awaiting_auction_bid' || !state.auction) {
-      return 'turn';
+      return ['turn', state.turnExpiresAt ?? 'none'].join('_');
     }
 
     return [

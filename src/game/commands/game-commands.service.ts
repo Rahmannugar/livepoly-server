@@ -506,7 +506,8 @@ export class GameCommandsService {
     const isSameTurn =
       previousState.turnNumber === nextState.turnNumber &&
       previousState.currentTurnRoomPlayerId ===
-        nextState.currentTurnRoomPlayerId;
+        nextState.currentTurnRoomPlayerId &&
+      previousState.phase === nextState.phase;
     const previousTurnExpiresAt = previousState.turnExpiresAt;
     const previousDeadlineIsValid =
       previousTurnExpiresAt !== null &&

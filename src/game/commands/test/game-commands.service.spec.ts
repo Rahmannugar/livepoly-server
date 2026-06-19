@@ -199,6 +199,30 @@ describe('GameCommandsService', () => {
     ]);
   });
 
+  it('renews the deadline when doubles keep the same player on a new roll phase', async () => {
+    const oldDeadline = Date.now() + 1_000;
+    const { service } = makeService(
+      makeState({
+        phase: 'awaiting_turn_end',
+        lastDiceRoll: [2, 2],
+        shouldCurrentPlayerPlayAgain: true,
+        turnExpiresAt: oldDeadline,
+      }),
+    );
+
+    const result = await service.endTurn({
+      gameId,
+      roomPlayerId,
+    });
+
+    expect(result.state).toMatchObject({
+      phase: 'awaiting_roll',
+      currentTurnRoomPlayerId: roomPlayerId,
+      turnNumber: 1,
+    });
+    expect(result.state.turnExpiresAt).toBeGreaterThan(oldDeadline);
+  });
+
   it('rejects a command when the actor does not match the intent player', async () => {
     const { service, gameStateService } = makeService();
 

@@ -32,7 +32,7 @@ Owns admin-only account status changes. Admin role is intended to be granted man
 
 ### Rooms
 
-Owns lobby rooms, invites, joining/leaving, room start, spectators, and live room listings. Room start creates game state and durable start snapshot in one transaction.
+Owns lobby rooms, invites, joining/leaving, room start, spectators, and live room listings. Room start creates game state and durable start snapshot in one transaction. Room lobbies expose an authenticated SSE stream at `GET /rooms/stream/:code`; join, leave, spectator, cancel, and start changes publish to the room's Redis pub/sub channel so all lobby clients can refetch the room without polling.
 
 ### Game
 
@@ -52,7 +52,7 @@ Owns friend request lifecycle and friend lists. Friend list and request reads ar
 
 ### Notifications
 
-Owns notification creation, listing, read state, unread count, and delivery through outbox/realtime flows. Notifications are for out-of-band attention such as friend requests, room invites, and leaderboard placement. Active gameplay state such as a room starting is handled by room/current-game APIs and realtime game state rather than a separate notification.
+Owns notification creation, listing, read state, unread count, and delivery through outbox/realtime flows. Notifications are for out-of-band attention such as friend requests, room invites, and leaderboard placement. Active gameplay state such as a room starting is handled by room/current-game APIs and realtime game state rather than a separate notification. Notification clients subscribe through `GET /notifications/stream`; outbox publishing fans notification-created events to the user's Redis pub/sub channel.
 
 ### Leaderboards
 
@@ -104,6 +104,13 @@ Horizontal scaling uses the Socket.IO Redis adapter/emitter:
 Presence uses Redis keys with TTL. Heartbeats refresh presence. Presence summary groups multiple sockets/devices by user.
 
 Reconnect pressure is handled with a layered approach. The frontend reconnects with exponential backoff and jitter, while the backend applies soft Redis-backed guards around expensive websocket reconnect actions such as connection auth, game join, event recovery, heartbeat, and presence summary. These guards are intentionally lenient so real reconnects keep working, but broken clients or outage loops cannot trigger unlimited gateway work.
+
+Room lobby updates and notification delivery use authenticated Server-Sent Events instead of Socket.IO. Both SSE endpoints are explicit streaming responses, not buffered JSON requests. The shared SSE helper sets `text/event-stream`, no-cache/no-transform headers, writes an immediate `: connected` comment, and writes `: ping` comment heartbeats every 25 seconds. Comments keep browser/proxy connections alive without creating fake application events; real application messages are emitted with normal `event:` and JSON `data:` lines. The services unsubscribe from Redis pub/sub and clear heartbeat timers when the HTTP connection closes.
+
+SSE stream ownership:
+
+- `GET /rooms/stream/:code`: lobby membership/status stream. Backend publishes `room.updated` events whose payload identifies the underlying room event, such as `room.joined` or `room.started`.
+- `GET /notifications/stream`: per-user notification stream. Backend publishes notification event names such as `notification.created`.
 
 ## Recovery Model
 

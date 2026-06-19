@@ -5,13 +5,12 @@ import {
   Get,
   HttpCode,
   HttpStatus,
-  MessageEvent,
   Param,
   Post,
-  Sse,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Observable } from 'rxjs';
+import type { Response } from 'express';
 import { AuthUser as AuthUserDecorator } from '../auth/decorators/auth-user.decorator';
 import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
@@ -64,9 +63,9 @@ export class RoomsController {
   }
 
   @RateLimit(...ROOMS_RATE_LIMIT_RULES.read)
-  @Sse('stream/:code')
-  streamRoom(@Param('code') code: string): Observable<MessageEvent> {
-    return this.roomsStreamService.streamRoom(code);
+  @Get('stream/:code')
+  streamRoom(@Param('code') code: string, @Res() response: Response): void {
+    this.roomsStreamService.streamRoom(code, response);
   }
 
   @RoomsDocs.GetRoomByCode()

@@ -25,10 +25,8 @@ jobs:
       REDIS_URL: redis://127.0.0.1:6379
       JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
       MAIL_FROM: ci@livepoly.site
-      SMTP_HOST: smtp.example.com
-      SMTP_PORT: 465
-      SMTP_USER: ci@livepoly.site
-      SMTP_PASS: ci-only-password
+      RESEND_API_KEY: re_ci_not_a_secret
+      RESEND_WEBHOOK_SECRET: whsec_ci_not_a_secret
       GOOGLE_OAUTH_CLIENT_ID: ci-google-client
       GOOGLE_OAUTH_CLIENT_SECRET: ci-google-secret
       GOOGLE_OAUTH_REDIRECT_URI: https://api.livepoly.site/api/auth/oauth/google/callback

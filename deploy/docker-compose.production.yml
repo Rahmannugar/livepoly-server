@@ -10,6 +10,7 @@ x-application: &application
   environment:
     NODE_ENV: production
     PORT: 3002
+    DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
     INSTANCE_ROLE: server
   restart: unless-stopped
   stop_grace_period: 30s
@@ -121,10 +122,10 @@ services:
     <<: *application
     environment:
       NODE_ENV: production
-      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL}
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     command:
       - node
-      - dist/migrate.js
+      - dist/scripts/migrate.js
     depends_on:
       postgres:
         condition: service_healthy

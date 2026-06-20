@@ -24,7 +24,7 @@ export class DatabaseService implements OnModuleDestroy {
       max: 10,
       idle_timeout: 30,
       connect_timeout: 5,
-      // Supabase transaction pooler does not reliably support prepared statements.
+      // PgBouncer runs in transaction mode in the deployed stack.
       prepare: false,
     });
 

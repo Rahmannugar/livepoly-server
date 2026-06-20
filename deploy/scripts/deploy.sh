@@ -11,7 +11,7 @@ deployment_root="${LIVEPOLY_DEPLOYMENT_ROOT:-/opt/livepoly}"
 repository_dir="${LIVEPOLY_REPOSITORY_DIR:-${deployment_root}/repository}"
 releases_dir="${deployment_root}/releases"
 release_dir="${releases_dir}/${commit_sha}"
-secret_id="${LIVEPOLY_SECRET_ID:-livepoly/server}"
+secret_id="${LIVEPOLY_SECRET_ID:-livepoly}"
 aws_region="${AWS_REGION:-eu-west-1}"
 
 mkdir -p "$releases_dir"

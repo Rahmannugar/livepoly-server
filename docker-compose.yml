@@ -13,13 +13,17 @@ services:
     environment:
       NODE_ENV: development
       PORT: 3002
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       INSTANCE_ROLE: server
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: npm run start:dev
     restart: unless-stopped
 
@@ -32,22 +36,58 @@ services:
       - .env
     environment:
       NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       REDIS_URL: redis://redis:6379
       INSTANCE_ROLE: worker
     volumes:
       - .:/app
       - /app/node_modules
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     command: npm run start:worker:dev
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - '5432:5432'
+    volumes:
+      - livepoly-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     restart: unless-stopped
 
   redis:
     image: redis:7-alpine
+    ports:
+      - '6379:6379'
     volumes:
       - livepoly-redis-data:/data
     command: redis-server --appendonly yes
+    healthcheck:
+      test:
+        - CMD
+        - redis-cli
+        - ping
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
     restart: unless-stopped
 
 volumes:
+  livepoly-postgres-data:
   livepoly-redis-data:

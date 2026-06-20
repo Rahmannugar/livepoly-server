@@ -1,4 +1,5 @@
 import './infra/observability/newrelic';
+import type { Server } from 'node:http';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger } from 'nestjs-pino';
@@ -23,7 +24,7 @@ async function bootstrap() {
   configureApp(app);
 
   const port = configService.getOrThrow<number>('PORT');
-  const server = app.getHttpServer();
+  const server = app.getHttpServer() as Server;
 
   server.requestTimeout = SERVER_TIMEOUTS.requestTimeoutMs;
   server.headersTimeout = SERVER_TIMEOUTS.headersTimeoutMs;

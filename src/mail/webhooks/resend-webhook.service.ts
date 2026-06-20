@@ -78,8 +78,6 @@ export class ResendWebhookService {
       eventType: event.type,
       emailId,
     });
-    this.observabilityService.recordMetric(
-      `Custom/Mail/Webhook/${event.type}`,
-    );
+    this.observabilityService.recordMetric(`Custom/Mail/Webhook/${event.type}`);
   }
 }

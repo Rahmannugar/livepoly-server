@@ -4,7 +4,7 @@ set -Eeuo pipefail
 deployment_root="${LIVEPOLY_DEPLOYMENT_ROOT:-/opt/livepoly}"
 current_release="${deployment_root}/current"
 backup_dir="${deployment_root}/backups"
-secret_id="${LIVEPOLY_SECRET_ID:-livepoly/server}"
+secret_id="${LIVEPOLY_SECRET_ID:-livepoly}"
 aws_region="${AWS_REGION:-eu-west-1}"
 timestamp="$(date -u +%Y%m%dT%H%M%SZ)"
 backup_name="livepoly-${timestamp}.dump"

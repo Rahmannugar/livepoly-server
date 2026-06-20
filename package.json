@@ -11,7 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:worker": "node dist/worker.js",
-    "start:migrate": "node dist/migrate.js",
+    "start:migrate": "node dist/scripts/migrate.js",
     "start:worker:dev": "nest start --watch --entryFile worker",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
@@ -24,6 +24,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "db:generate": "drizzle-kit generate --name",
     "db:migrate": "drizzle-kit migrate",
+    "db:seed": "ts-node src/scripts/seed.ts",
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {

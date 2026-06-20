@@ -9,5 +9,5 @@ Type=oneshot
 User=ubuntu
 Group=ubuntu
 Environment=AWS_REGION=eu-west-1
-Environment=LIVEPOLY_SECRET_ID=livepoly/server
+Environment=LIVEPOLY_SECRET_ID=livepoly
 ExecStart=/opt/livepoly/current/deploy/scripts/backup-postgres.sh

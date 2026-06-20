@@ -47,16 +47,23 @@ Create local env:
 cp .env.example .env
 ```
 
-Start the API server, worker, and Redis with Docker Compose:
+Set a local PostgreSQL password in `.env` and use that same value in
+`DATABASE_URL`. Then start PostgreSQL, Redis, the API server, and worker:
 
 ```bash
 docker compose up -d --build
 ```
 
-Run migrations:
+Run local migrations:
 
 ```bash
-docker compose exec server npm run db:migrate
+npm run db:migrate
+```
+
+Clear local application data when a fresh development database is needed:
+
+```bash
+npm run db:seed
 ```
 
 View logs:
@@ -76,7 +83,8 @@ docker compose down
 ```bash
 docker compose up -d --build
 docker compose logs -f server worker
-docker compose exec server npm run db:migrate
+npm run db:migrate
+npm run db:seed
 npm test
 npm run build
 npm run db:generate migration_name

@@ -13,9 +13,9 @@ The deployment runs on one EC2 host with Docker Compose:
 
 ## Secret
 
-Create an AWS Secrets Manager JSON secret named `livepoly/server`. Use the keys
-shown in `.env.example`. Generate URL-safe alphanumeric PostgreSQL and Redis
-passwords so the same values can safely appear inside their connection URLs.
+Create an AWS Secrets Manager JSON secret named `livepoly`. Use the keys shown
+in `.env.example`. Generate URL-safe alphanumeric PostgreSQL and Redis passwords
+because Compose uses them to construct internal connection URLs.
 
 The EC2 role needs narrowly scoped permission to read this secret and access the
 backup bucket. The GitHub deployment role does not read application secrets; it
@@ -27,7 +27,7 @@ Add these repository Actions variables:
 
 - `AWS_INSTANCE_ID`: the EC2 instance ID.
 - `AWS_DEPLOY_ROLE_ARN`: the GitHub OIDC deployment role ARN.
-- `AWS_SECRET_ID`: `livepoly/server`.
+- `AWS_SECRET_ID`: `livepoly`.
 
 The repository must be readable by the EC2 deployment process. A public
 repository works directly. A private repository requires a read-only deploy key

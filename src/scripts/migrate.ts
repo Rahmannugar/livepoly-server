@@ -4,11 +4,10 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 
 async function runMigrations(): Promise<void> {
-  const databaseUrl =
-    process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL;
+  const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
-    throw new Error('MIGRATION_DATABASE_URL or DATABASE_URL is required');
+    throw new Error('DATABASE_URL is required');
   }
 
   const client = postgres(databaseUrl, {

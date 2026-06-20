@@ -200,6 +200,31 @@ describe('game-engine-intents', () => {
     });
   });
 
+  it('allows active non-current players to propose trades during stable table phases', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_roll',
+      currentTurnRoomPlayerId: 'room-player-1',
+    });
+
+    const result = reduceGameEngineIntent(state, {
+      type: 'propose_trade',
+      payload: {
+        roomPlayerId: 'room-player-2',
+        toRoomPlayerId: 'room-player-1',
+        offeredCash: 25,
+        requestedCash: 0,
+        offeredPropertyKeys: [],
+        requestedPropertyKeys: [],
+      },
+    });
+
+    expect(result.state.tradeOffer).toMatchObject({
+      fromRoomPlayerId: 'room-player-2',
+      toRoomPlayerId: 'room-player-1',
+      offeredCash: 25,
+    });
+  });
+
   it('runs timed finish intent', () => {
     const result = reduceGameEngineIntent(
       createGameEngineState({

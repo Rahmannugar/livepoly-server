@@ -1,4 +1,4 @@
-export const ROOM_DURATIONS = [90, 120] as const;
+export const ROOM_DURATIONS = [60, 90] as const;
 
 export type RoomDurationMinutes = (typeof ROOM_DURATIONS)[number];
 
@@ -7,9 +7,9 @@ export const ROOM_CODE_ALPHABET =
 
 export const ROOM_CODE_LENGTH = 8;
 
-export const DEFAULT_ROOM_DURATION_MINUTES = 90;
+export const DEFAULT_ROOM_DURATION_MINUTES = 60;
 
-export const RANKED_ROOM_DURATION_MINUTES = 90;
+export const RANKED_ROOM_DURATION_MINUTES = 60;
 
 export const ROOM_BOARD_KEY = 'classic';
 
@@ -59,8 +59,7 @@ export const ROOM_METRICS = {
   joined: 'Custom/Room/Joined',
   left: 'Custom/Room/Left',
   finishedAfterLastHumanLeft: 'Custom/Room/FinishedAfterLastHumanLeft',
-  finishAfterLastHumanLeftFailed:
-    'Custom/Room/FinishAfterLastHumanLeftFailed',
+  finishAfterLastHumanLeftFailed: 'Custom/Room/FinishAfterLastHumanLeftFailed',
   startSetupFailed: 'Custom/Room/StartSetupFailed',
   cancelled: 'Custom/Room/Cancelled',
   inviteSent: 'Custom/Room/InviteSent',

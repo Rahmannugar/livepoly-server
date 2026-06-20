@@ -701,6 +701,7 @@ describe('RoomsLobbyService', () => {
       roomId: activeRoom.id,
       status: 'active' as const,
     });
+    gameRecoveryService.getOrRecover.mockResolvedValue(activeGameState);
     gameCommandsService.executeIntent.mockResolvedValueOnce({
       state: {
         ...activeGameState,
@@ -927,13 +928,13 @@ describe('RoomsLobbyService', () => {
 
     expect(databaseService.transaction).toHaveBeenCalledTimes(2);
     expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
-    expect(gameResultsService.finalizeAbandonedFinishedGame).toHaveBeenCalledWith(
-      {
-        gameId: 'game-1',
-        state: finishedState,
-        finishedAt: expect.any(Number),
-      },
-    );
+    expect(
+      gameResultsService.finalizeAbandonedFinishedGame,
+    ).toHaveBeenCalledWith({
+      gameId: 'game-1',
+      state: finishedState,
+      finishedAt: expect.any(Number),
+    });
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       ROOM_EVENTS.finishedAfterLastHumanLeft,
       {

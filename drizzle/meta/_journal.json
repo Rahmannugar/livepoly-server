@@ -190,6 +190,13 @@
       "when": 1781943600000,
       "tag": "0026_use_game_id_for_room_result_upserts",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1781985600000,
+      "tag": "0027_update_room_duration_options_to_60_90",
+      "breakpoints": true
     }
   ]
 }

@@ -32,7 +32,7 @@ export const RoomsDocs = {
         examples: {
           casualRoom: {
             summary: 'Create casual room',
-            value: { durationMinutes: 90 },
+            value: { durationMinutes: 60 },
           },
         },
       }),
@@ -222,7 +222,7 @@ export const RoomsDocs = {
       ApiOperation({
         summary: 'Start room',
         description:
-          'Starts a waiting room. Three or more human players start ranked with the fixed 90 minute ranked duration. Fewer than three human players are filled with bots and start casual using the selected 90 or 120 minute room duration.',
+          'Starts a waiting room. Three or more human players start ranked with the fixed 60 minute ranked duration. Fewer than three human players are filled with bots and start casual using the selected 60 or 90 minute room duration.',
       }),
       ApiParam({ name: 'code', example: 'AbC23xYz' }),
       ApiBody({

@@ -257,17 +257,16 @@ function assertCanTrade(state: GameEngineState, roomPlayerId: string): void {
     throw new GameEngineError('GAME_NOT_ACTIVE', 'Game is not active');
   }
 
-  if (state.phase !== 'awaiting_turn_end') {
+  const tradeablePhase =
+    state.phase === 'awaiting_first_turn' ||
+    state.phase === 'awaiting_roll' ||
+    state.phase === 'awaiting_property_decision' ||
+    state.phase === 'awaiting_turn_end';
+
+  if (!tradeablePhase) {
     throw new GameEngineError(
       'TRADE_NOT_ALLOWED',
-      'Trades can only be made after a move is settled',
-    );
-  }
-
-  if (state.currentTurnRoomPlayerId !== roomPlayerId) {
-    throw new GameEngineError(
-      'NOT_CURRENT_TURN',
-      "It is not this player's turn",
+      'Trades cannot be made while this game action is unresolved',
     );
   }
 
@@ -276,6 +275,12 @@ function assertCanTrade(state: GameEngineState, roomPlayerId: string): void {
       'DEBT_RESOLUTION_REQUIRED',
       'Player must resolve debt before trading',
     );
+  }
+
+  const player = findPlayer(state, roomPlayerId);
+
+  if (player.bankrupt) {
+    throw new GameEngineError('INVALID_TRADE', 'Bankrupt players cannot trade');
   }
 }
 

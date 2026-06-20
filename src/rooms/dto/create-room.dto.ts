@@ -4,7 +4,7 @@ import { ROOM_DURATIONS, type RoomDurationMinutes } from '../rooms.constants';
 
 export class CreateRoomDto {
   @ApiPropertyOptional({
-    example: 90,
+    example: 60,
     enum: ROOM_DURATIONS,
     description: 'Casual room duration in minutes.',
   })

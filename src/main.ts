@@ -10,6 +10,7 @@ import { SocketIoAdapter } from './infra/realtime/socket-io.adapter';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, {
     bufferLogs: true,
+    rawBody: true,
   });
 
   const configService = app.get(ConfigService);

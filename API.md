@@ -30,6 +30,12 @@ Base path: `/auth`
 - `GET /auth/oauth/discord`
 - `GET /auth/oauth/discord/callback`
 
+## Webhooks
+
+- `POST /webhooks/resend`: signed Resend delivery events. This provider route
+  requires the `svix-id`, `svix-timestamp`, and `svix-signature` headers and the
+  unmodified raw request body; it does not use player authentication.
+
 ## Users
 
 Base path: `/users`

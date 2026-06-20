@@ -125,7 +125,7 @@ On reconnect, the client joins the game, requests missed events with a cursor, a
 
 BullMQ handles background jobs for:
 
-- Mail.
+- Transactional mail delivery through Resend.
 - User cleanup.
 - Outbox publishing.
 - Bot turns.
@@ -144,6 +144,11 @@ The outbox is a durable “publish this later” table.
 LivePoly uses it for notification-created events. When a feature creates a notification, it saves both the notification row and an outbox event in the same database transaction. A worker later claims the outbox event and publishes it to the user notification channel.
 
 That means if publishing fails after the database write, the notification event is still stored and can be retried instead of being lost.
+
+Resend posts signed delivery events to `POST /api/webhooks/resend`. The API
+verifies the raw request with `RESEND_WEBHOOK_SECRET` before processing it,
+deduplicates the provider event ID in Redis for seven days, and emits structured
+Pino/New Relic diagnostics without recording recipient addresses or secrets.
 
 ## Deployment Model
 

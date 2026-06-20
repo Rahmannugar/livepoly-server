@@ -15,11 +15,12 @@ const envSchema = z
     NEW_RELIC_LICENSE_KEY: z.string().optional(),
     NEW_RELIC_LOG_LEVEL: z.string().min(1).default('info'),
     JWT_ACCESS_SECRET: z.string().min(32),
-    MAIL_FROM: z.string().min(1),
-    SMTP_HOST: z.string().min(1),
-    SMTP_PORT: z.coerce.number().int().positive().max(65535),
-    SMTP_USER: z.email(),
-    SMTP_PASS: z.string().min(1),
+    MAIL_FROM: z
+      .string()
+      .min(1)
+      .default('LivePoly <noreply@livepoly.site>'),
+    RESEND_API_KEY: z.string().startsWith('re_'),
+    RESEND_WEBHOOK_SECRET: z.string().startsWith('whsec_'),
     REDIS_URL: z.url(),
     GOOGLE_OAUTH_CLIENT_ID: z.string().min(1),
     GOOGLE_OAUTH_CLIENT_SECRET: z.string().min(1),

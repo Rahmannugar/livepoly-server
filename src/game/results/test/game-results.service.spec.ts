@@ -201,6 +201,74 @@ describe('GameResultsService', () => {
     ]);
   });
 
+  it('assigns unique placements to bankrupt players from final net worth', async () => {
+    const { service, gameResultsRepository } = makeService();
+    const baseState = createGameEngineState();
+    const state = makeFinishedState({
+      players: [
+        {
+          ...baseState.players[0],
+          cash: 1200,
+        },
+        {
+          ...baseState.players[1],
+          cash: 0,
+          bankrupt: true,
+        },
+        {
+          ...baseState.players[2],
+          cash: 700,
+        },
+        {
+          ...baseState.players[0],
+          roomPlayerId: 'room-player-4',
+          userId: 'user-4',
+          username: 'playerfour',
+          seatNumber: 4,
+          cash: 0,
+          bankrupt: true,
+        },
+      ],
+    });
+
+    await service.finalizeFinishedGame({
+      gameId,
+      state,
+      events: [
+        {
+          type: 'game_finished_by_bankruptcy',
+          winnerRoomPlayerId: 'room-player-1',
+          tiedRoomPlayerIds: ['room-player-1'],
+          standings: [
+            {
+              roomPlayerId: 'room-player-1',
+              seatNumber: 1,
+              cash: 1200,
+              ownedPropertyCount: 0,
+              assetValue: 0,
+              netWorth: 1200,
+            },
+          ],
+        },
+      ],
+    });
+
+    expect(
+      gameResultsRepository.saveFinishedGame.mock.calls[0][0].playerResults.map(
+        (playerResult) => ({
+          roomPlayerId: playerResult.roomPlayerId,
+          placement: playerResult.placement,
+          finalNetWorth: playerResult.finalNetWorth,
+        }),
+      ),
+    ).toEqual([
+      { roomPlayerId: 'room-player-1', placement: 1, finalNetWorth: 1200 },
+      { roomPlayerId: 'room-player-2', placement: 3, finalNetWorth: 0 },
+      { roomPlayerId: 'room-player-3', placement: 2, finalNetWorth: 700 },
+      { roomPlayerId: 'room-player-4', placement: 4, finalNetWorth: 0 },
+    ]);
+  });
+
   it('persists results after a game has expired', async () => {
     const { service, gameResultsRepository } = makeService();
 

@@ -8,12 +8,16 @@ import { ObservabilityService } from '../../infra/observability/observability.se
 import { DatabaseService } from '../../infra/database/database.service';
 import {
   calculateNetWorthStandings,
+  calculatePlayerNetWorth,
   getNetWorthWinner,
 } from '../engine/game-engine-derived-state';
 import type {
   GameEngineEvent,
+  GameEnginePlayer,
   GameEngineState,
+  PlayerNetWorth,
 } from '../engine/game-engine.types';
+import { getGameBoard } from '../engine/game-board';
 import { GameSnapshotService } from '../snapshots/game-snapshots.service';
 import { GameResultsRepository } from './game-results.repository';
 import type {
@@ -309,7 +313,7 @@ export class GameResultsService {
     state: GameEngineState,
     completedAt: Date,
   ): SaveRoomPlayerResultInput[] {
-    const standings = calculateNetWorthStandings(state);
+    const standings = this.calculateFinalResultStandings(state);
     const placementByRoomPlayerId = new Map(
       standings.map((standing, index) => [standing.roomPlayerId, index + 1]),
     );
@@ -333,6 +337,49 @@ export class GameResultsService {
         bankruptAt: player.bankrupt ? completedAt : null,
       };
     });
+  }
+
+  private calculateFinalResultStandings(
+    state: GameEngineState,
+  ): PlayerNetWorth[] {
+    const board = getGameBoard(state.boardKey);
+
+    return state.players
+      .map((player) => calculatePlayerNetWorth(state, board, player))
+      .sort((left, right) =>
+        this.compareFinalResultStanding(left, right, state.players),
+      );
+  }
+
+  private compareFinalResultStanding(
+    left: PlayerNetWorth,
+    right: PlayerNetWorth,
+    players: GameEnginePlayer[],
+  ): number {
+    if (right.netWorth !== left.netWorth) {
+      return right.netWorth - left.netWorth;
+    }
+
+    if (right.cash !== left.cash) {
+      return right.cash - left.cash;
+    }
+
+    if (right.ownedPropertyCount !== left.ownedPropertyCount) {
+      return right.ownedPropertyCount - left.ownedPropertyCount;
+    }
+
+    const leftPlayer = players.find(
+      (player) => player.roomPlayerId === left.roomPlayerId,
+    );
+    const rightPlayer = players.find(
+      (player) => player.roomPlayerId === right.roomPlayerId,
+    );
+
+    if (leftPlayer?.bankrupt !== rightPlayer?.bankrupt) {
+      return leftPlayer?.bankrupt ? 1 : -1;
+    }
+
+    return left.seatNumber - right.seatNumber;
   }
 
   private shouldRefreshLeaderboards(state: GameEngineState): boolean {

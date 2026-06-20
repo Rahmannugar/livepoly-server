@@ -4,7 +4,7 @@ x-application: &application
   image: livepoly-server:${IMAGE_TAG:-latest}
   build:
     context: ..
-    dockerfile: deploy/Dockerfile
+    dockerfile: deploy/Dockerfile.production
   env_file:
     - ../.env
   environment:
@@ -69,6 +69,7 @@ services:
   pgbouncer:
     build:
       context: ./pgbouncer
+      dockerfile: Dockerfile.pgbouncer
     env_file:
       - ../.env
     environment:

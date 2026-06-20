@@ -48,7 +48,9 @@ cp .env.example .env
 ```
 
 Set a local PostgreSQL password in `.env` and use that same value in
-`DATABASE_URL`. Then start PostgreSQL, Redis, the API server, and worker:
+`DATABASE_URL`. The local database is named `livepoly-local` by default so it is
+easy to distinguish from the deployed database in tools like DBeaver. Then start
+PostgreSQL, Redis, the API server, and worker:
 
 ```bash
 docker compose up -d --build

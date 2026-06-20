@@ -14,8 +14,10 @@ The deployment runs on one EC2 host with Docker Compose:
 ## Secret
 
 Create an AWS Secrets Manager JSON secret named `livepoly`. Use the keys shown
-in `.env.example`. Generate URL-safe alphanumeric PostgreSQL and Redis passwords
-because Compose uses them to construct internal connection URLs.
+in `deploy/.env.example`. Keep the deployed database name as `livepoly`; the
+local example uses `livepoly-local` so DBeaver and other clients make the
+environment obvious. Generate URL-safe alphanumeric PostgreSQL and Redis
+passwords because Compose uses them to construct internal connection URLs.
 
 The EC2 role needs narrowly scoped permission to read this secret and access the
 backup bucket. The GitHub deployment role does not read application secrets; it
@@ -58,4 +60,7 @@ named `letsencrypt` volume.
 `backup-postgres.sh` creates a custom-format PostgreSQL dump, uploads it to
 `BACKUP_S3_URI`, confirms the object exists, and only then removes old backups.
 The newest five dumps are retained locally and in S3. Install and enable the
-provided systemd service and timer after the first successful deployment.
+provided systemd service and timer after the first successful deployment. The
+timer runs on EC2, not GitHub Actions, at `02:30 UTC` with a small randomized
+delay so backups avoid the usual midnight boundary while still happening during
+quiet hours for Europe/Africa.

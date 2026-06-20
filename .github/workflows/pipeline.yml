@@ -39,7 +39,7 @@ jobs:
       OAUTH_FAILURE_REDIRECT_URL: https://livepoly.site/auth/login?oauth=failed
       R2_ACCOUNT_ID: ci-r2-account
       R2_ACCESS_KEY_ID: ci-r2-access-key
-      R2_SECRET_ACCESS_KEY: ci-r2-secret-key
+      R2_SECRET_ACCESS_KEY: not-a-secret
       R2_BUCKET_NAME: ci-livepoly-images
       R2_PUBLIC_BASE_URL: https://images.example.com
 

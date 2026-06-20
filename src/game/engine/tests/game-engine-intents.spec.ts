@@ -225,6 +225,107 @@ describe('game-engine-intents', () => {
     });
   });
 
+  it('rejects a stale trade when property ownership changed before acceptance', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_roll',
+      properties: createGameEngineState().properties.map((property) => {
+        if (property.tileKey === TEST_BOARD_TILES.cheapPropertyPair) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-2',
+          };
+        }
+
+        return property;
+      }),
+    });
+    const proposed = reduceGameEngineIntent(state, {
+      type: 'propose_trade',
+      payload: {
+        roomPlayerId: 'room-player-1',
+        toRoomPlayerId: 'room-player-2',
+        offeredCash: 25,
+        requestedCash: 0,
+        offeredPropertyKeys: [],
+        requestedPropertyKeys: [TEST_BOARD_TILES.cheapPropertyPair],
+      },
+    });
+    const changedState = {
+      ...proposed.state,
+      properties: proposed.state.properties.map((property) =>
+        property.tileKey === TEST_BOARD_TILES.cheapPropertyPair
+          ? { ...property, ownerRoomPlayerId: 'room-player-3' }
+          : property,
+      ),
+    };
+
+    expect(() =>
+      reduceGameEngineIntent(changedState, {
+        type: 'accept_trade',
+        payload: {
+          roomPlayerId: 'room-player-2',
+          tradeId: proposed.state.tradeOffer!.id,
+        },
+      }),
+    ).toThrow('Player does not own one of the traded properties');
+  });
+
+  it('charges the new owner when a player lands after an accepted trade', () => {
+    const baseState = createGameEngineState();
+    const state = createGameEngineState({
+      phase: 'awaiting_roll',
+      currentTurnRoomPlayerId: 'room-player-3',
+      players: baseState.players.map((player) =>
+        player.roomPlayerId === 'room-player-3'
+          ? { ...player, position: 39 }
+          : player,
+      ),
+      properties: baseState.properties.map((property) =>
+        property.tileKey === TEST_BOARD_TILES.cheapProperty
+          ? { ...property, ownerRoomPlayerId: 'room-player-1' }
+          : property,
+      ),
+    });
+    const proposed = reduceGameEngineIntent(state, {
+      type: 'propose_trade',
+      payload: {
+        roomPlayerId: 'room-player-1',
+        toRoomPlayerId: 'room-player-2',
+        offeredCash: 0,
+        requestedCash: 0,
+        offeredPropertyKeys: [TEST_BOARD_TILES.cheapProperty],
+        requestedPropertyKeys: [],
+      },
+    });
+    const accepted = reduceGameEngineIntent(proposed.state, {
+      type: 'accept_trade',
+      payload: {
+        roomPlayerId: 'room-player-2',
+        tradeId: proposed.state.tradeOffer!.id,
+      },
+    });
+    const landed = reduceGameEngineIntent(accepted.state, {
+      type: 'roll_and_move',
+      payload: {
+        roomPlayerId: 'room-player-3',
+        dice: [1, 1],
+      },
+    });
+
+    expect(
+      accepted.state.properties.find(
+        (property) => property.tileKey === TEST_BOARD_TILES.cheapProperty,
+      ),
+    ).toMatchObject({ ownerRoomPlayerId: 'room-player-2' });
+    expect(landed.events).toContainEqual({
+      type: 'rent_paid',
+      payerRoomPlayerId: 'room-player-3',
+      ownerRoomPlayerId: 'room-player-2',
+      tileKey: TEST_BOARD_TILES.cheapProperty,
+      amount: 2,
+    });
+  });
+
   it('runs timed finish intent', () => {
     const result = reduceGameEngineIntent(
       createGameEngineState({

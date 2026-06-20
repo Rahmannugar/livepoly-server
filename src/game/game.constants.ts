@@ -71,6 +71,21 @@ export const GAME_BOTS = {
     normal: 35,
     hard: 0,
   },
+  maxDevelopmentLevel: {
+    easy: 1,
+    normal: 3,
+    hard: 5,
+  },
+  tradeOfferPriceRatio: {
+    easy: 1.3,
+    normal: 1.2,
+    hard: 1.15,
+  },
+  tradeAcceptanceMargin: {
+    easy: 1,
+    normal: 1.12,
+    hard: 1.25,
+  },
 } as const;
 
 export const GAME_PRESENCE = {

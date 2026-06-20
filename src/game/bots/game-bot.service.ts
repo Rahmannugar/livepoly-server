@@ -7,6 +7,7 @@ import {
 import type {
   AirportTile,
   GameTile,
+  PropertySetKey,
   PropertyTile,
   UtilityTile,
 } from '../engine/game-board.types';
@@ -85,6 +86,40 @@ export class GameBotService {
     }
 
     if (state.phase === 'awaiting_turn_end') {
+      if (state.tradeOffer) {
+        return this.chooseTradeResponseDecision(state, bot);
+      }
+
+      const unmortgageTileKey = this.findPropertyToUnmortgage(state, bot);
+
+      if (unmortgageTileKey) {
+        return {
+          type: 'unmortgage_property',
+          payload: {
+            roomPlayerId: bot.roomPlayerId,
+            tileKey: unmortgageTileKey,
+          },
+        };
+      }
+
+      const buildTileKey = this.findPropertyToBuild(state, bot);
+
+      if (buildTileKey) {
+        return {
+          type: 'build_property',
+          payload: {
+            roomPlayerId: bot.roomPlayerId,
+            tileKey: buildTileKey,
+          },
+        };
+      }
+
+      const tradeIntent = this.chooseTradeProposal(state, bot);
+
+      if (tradeIntent) {
+        return tradeIntent;
+      }
+
       return {
         type: 'end_turn',
         payload: { roomPlayerId: bot.roomPlayerId },
@@ -278,6 +313,283 @@ export class GameBotService {
     return score;
   }
 
+  private chooseTradeResponseDecision(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+  ): GameEngineIntent | null {
+    if (
+      !state.tradeOffer ||
+      state.tradeOffer.toRoomPlayerId !== bot.roomPlayerId
+    ) {
+      return null;
+    }
+
+    return {
+      type: this.shouldAcceptTrade(state, bot)
+        ? 'accept_trade'
+        : 'reject_trade',
+      payload: {
+        roomPlayerId: bot.roomPlayerId,
+        tradeId: state.tradeOffer.id,
+      },
+    };
+  }
+
+  private findPropertyToUnmortgage(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+  ): string | null {
+    const board = getGameBoard(state.boardKey);
+    const candidates = state.properties
+      .filter(
+        (property) =>
+          property.ownerRoomPlayerId === bot.roomPlayerId && property.mortgaged,
+      )
+      .map((property) => {
+        const tile = this.getOwnableTile(state, property.tileKey);
+
+        return tile
+          ? {
+              tileKey: property.tileKey,
+              cost: this.getUnmortgageCost(tile.mortgageValue),
+              score:
+                this.rentPotentialScore(tile) +
+                (tile.kind === 'property' &&
+                this.ownsCompletePropertySet(
+                  state,
+                  board,
+                  bot.roomPlayerId,
+                  tile.setKey,
+                )
+                  ? GAME_BOTS.setCompletionBonus[this.difficulty(bot)]
+                  : 0),
+            }
+          : null;
+      })
+      .filter((candidate): candidate is NonNullable<typeof candidate> =>
+        Boolean(candidate),
+      )
+      .filter((candidate) => bot.cash - candidate.cost >= this.cashReserve(bot))
+      .sort((left, right) => right.score - left.score);
+
+    return candidates[0]?.tileKey ?? null;
+  }
+
+  private findPropertyToBuild(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+  ): string | null {
+    const board = getGameBoard(state.boardKey);
+    const maxDevelopmentLevel =
+      GAME_BOTS.maxDevelopmentLevel[this.difficulty(bot)];
+    const setKeys = new Set<PropertySetKey>();
+
+    for (const tile of board.tiles) {
+      if (tile.kind === 'property') {
+        setKeys.add(tile.setKey);
+      }
+    }
+
+    const candidates: Array<{
+      tileKey: string;
+      cost: number;
+      score: number;
+      level: number;
+    }> = [];
+
+    for (const setKey of setKeys) {
+      const setTiles = this.getPropertySetTiles(board, setKey);
+      const setProperties = setTiles.map((tile) =>
+        this.findPropertyState(state, tile.key),
+      );
+
+      if (
+        setProperties.some(
+          (property) =>
+            property.ownerRoomPlayerId !== bot.roomPlayerId ||
+            property.mortgaged,
+        )
+      ) {
+        continue;
+      }
+
+      const lowestLevel = Math.min(
+        ...setProperties.map((property) => this.getDevelopmentLevel(property)),
+      );
+
+      if (lowestLevel >= maxDevelopmentLevel) {
+        continue;
+      }
+
+      for (const tile of setTiles) {
+        const property = this.findPropertyState(state, tile.key);
+        const level = this.getDevelopmentLevel(property);
+
+        if (level !== lowestLevel || level >= maxDevelopmentLevel) {
+          continue;
+        }
+
+        if (bot.cash - tile.houseCost < this.cashReserve(bot)) {
+          continue;
+        }
+
+        candidates.push({
+          tileKey: tile.key,
+          cost: tile.houseCost,
+          level,
+          score: this.rentPotentialScore(tile),
+        });
+      }
+    }
+
+    candidates.sort(
+      (left, right) => left.level - right.level || right.score - left.score,
+    );
+
+    return candidates[0]?.tileKey ?? null;
+  }
+
+  private chooseTradeProposal(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+  ): GameEngineIntent | null {
+    if (bot.lastBotTradeProposalTurnNumber === state.turnNumber) {
+      return null;
+    }
+
+    const board = getGameBoard(state.boardKey);
+    const candidates = this.findSetCompletingTradeCandidates(state, bot, board);
+    const candidate = candidates[0];
+
+    if (!candidate) {
+      return null;
+    }
+
+    return {
+      type: 'propose_trade',
+      payload: {
+        roomPlayerId: bot.roomPlayerId,
+        toRoomPlayerId: candidate.toRoomPlayerId,
+        offeredCash: candidate.offeredCash,
+        requestedCash: 0,
+        offeredPropertyKeys: [],
+        requestedPropertyKeys: [candidate.tileKey],
+      },
+    };
+  }
+
+  private findSetCompletingTradeCandidates(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+    board = getGameBoard(state.boardKey),
+  ): Array<{
+    tileKey: string;
+    toRoomPlayerId: string;
+    offeredCash: number;
+    score: number;
+  }> {
+    const setKeys = new Set<PropertySetKey>();
+
+    for (const tile of board.tiles) {
+      if (tile.kind === 'property') {
+        setKeys.add(tile.setKey);
+      }
+    }
+
+    const candidates: Array<{
+      tileKey: string;
+      toRoomPlayerId: string;
+      offeredCash: number;
+      score: number;
+    }> = [];
+
+    for (const setKey of setKeys) {
+      const setTiles = this.getPropertySetTiles(board, setKey);
+      const ownedByBot = setTiles.filter((tile) => {
+        const property = this.findPropertyState(state, tile.key);
+
+        return property.ownerRoomPlayerId === bot.roomPlayerId;
+      });
+
+      if (ownedByBot.length !== setTiles.length - 1) {
+        continue;
+      }
+
+      const missingTile = setTiles.find((tile) => {
+        const property = this.findPropertyState(state, tile.key);
+
+        return property.ownerRoomPlayerId !== bot.roomPlayerId;
+      });
+
+      if (!missingTile) {
+        continue;
+      }
+
+      const missingProperty = this.findPropertyState(state, missingTile.key);
+      const target = missingProperty.ownerRoomPlayerId
+        ? this.findPlayer(state, missingProperty.ownerRoomPlayerId)
+        : null;
+
+      if (
+        !target ||
+        target.bankrupt ||
+        missingProperty.mortgaged ||
+        missingProperty.houseCount > 0 ||
+        missingProperty.hasHotel
+      ) {
+        continue;
+      }
+
+      const offerRatio = Math.max(
+        GAME_BOTS.tradeOfferPriceRatio[this.difficulty(bot)],
+        target.playerType === 'bot'
+          ? GAME_BOTS.tradeAcceptanceMargin[this.difficulty(target)]
+          : 1,
+      );
+      const offeredCash = Math.ceil(missingTile.price * offerRatio);
+
+      if (bot.cash - offeredCash < this.cashReserve(bot)) {
+        continue;
+      }
+
+      candidates.push({
+        tileKey: missingTile.key,
+        toRoomPlayerId: target.roomPlayerId,
+        offeredCash,
+        score:
+          this.rentPotentialScore(missingTile) +
+          GAME_BOTS.setCompletionBonus[this.difficulty(bot)],
+      });
+    }
+
+    return candidates.sort((left, right) => right.score - left.score);
+  }
+
+  private shouldAcceptTrade(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+  ): boolean {
+    const trade = state.tradeOffer;
+
+    if (!trade) {
+      return false;
+    }
+
+    const botReceives = this.getTradeValue(state, {
+      cash: trade.offeredCash,
+      propertyKeys: trade.offeredPropertyKeys,
+    });
+    const botGives = this.getTradeValue(state, {
+      cash: trade.requestedCash,
+      propertyKeys: trade.requestedPropertyKeys,
+    });
+
+    return (
+      botReceives >=
+      botGives * GAME_BOTS.tradeAcceptanceMargin[this.difficulty(bot)]
+    );
+  }
+
   private shouldPayJailFine(bot: GameEnginePlayer): boolean {
     if (bot.cash < 50) {
       return false;
@@ -403,6 +715,62 @@ export class GameBotService {
     );
   }
 
+  private getTradeValue(
+    state: GameEngineState,
+    input: { cash: number; propertyKeys: string[] },
+  ): number {
+    return (
+      input.cash +
+      input.propertyKeys.reduce((sum, tileKey) => {
+        const tile = this.getOwnableTile(state, tileKey);
+
+        if (!tile) {
+          return sum;
+        }
+
+        const property = this.findPropertyState(state, tileKey);
+        const buildingValue =
+          tile.kind === 'property'
+            ? (property.houseCount + (property.hasHotel ? 5 : 0)) *
+              (tile.houseCost / 2)
+            : 0;
+
+        return sum + tile.price + buildingValue;
+      }, 0)
+    );
+  }
+
+  private getUnmortgageCost(mortgageValue: number): number {
+    return Math.ceil(mortgageValue * 1.1);
+  }
+
+  private ownsCompletePropertySet(
+    state: GameEngineState,
+    board: ReturnType<typeof getGameBoard>,
+    roomPlayerId: string,
+    setKey: PropertySetKey,
+  ): boolean {
+    return this.getPropertySetTiles(board, setKey).every((tile) => {
+      const property = this.findPropertyState(state, tile.key);
+
+      return property.ownerRoomPlayerId === roomPlayerId;
+    });
+  }
+
+  private getPropertySetTiles(
+    board: ReturnType<typeof getGameBoard>,
+    setKey: PropertySetKey,
+  ): PropertyTile[] {
+    return board.tiles.filter(
+      (tile): tile is PropertyTile =>
+        tile.kind === 'property' && tile.setKey === setKey,
+    );
+  }
+
+  private getDevelopmentLevel(property: GameEngineProperty): number {
+    return property.hasHotel ? 5 : property.houseCount;
+  }
+
   private getPendingOwnableTile(state: GameEngineState): OwnableTile | null {
     return state.pendingTileKey
       ? this.getOwnableTile(state, state.pendingTileKey)
@@ -418,6 +786,31 @@ export class GameBotService {
     );
 
     return tile && this.isOwnableTile(tile) ? tile : null;
+  }
+
+  private findPropertyState(
+    state: GameEngineState,
+    tileKey: string,
+  ): GameEngineProperty {
+    const property = state.properties.find(
+      (candidate) => candidate.tileKey === tileKey,
+    );
+
+    if (!property) {
+      throw new Error(`Missing property state for ${tileKey}`);
+    }
+
+    return property;
+  }
+
+  private findPlayer(
+    state: GameEngineState,
+    roomPlayerId: string,
+  ): GameEnginePlayer | null {
+    return (
+      state.players.find((player) => player.roomPlayerId === roomPlayerId) ??
+      null
+    );
   }
 
   private isOwnableTile(tile: GameTile): tile is OwnableTile {
@@ -453,16 +846,6 @@ export class GameBotService {
           !property.hasHotel &&
           property.houseCount === 0,
       ) ?? null
-    );
-  }
-
-  private findPlayer(
-    state: GameEngineState,
-    roomPlayerId: string,
-  ): GameEnginePlayer | null {
-    return (
-      state.players.find((player) => player.roomPlayerId === roomPlayerId) ??
-      null
     );
   }
 

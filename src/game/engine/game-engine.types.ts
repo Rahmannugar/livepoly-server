@@ -109,6 +109,7 @@ export type GameEnginePlayer = {
   getOutOfJailFreeCardKeys?: string[];
   consecutiveMissedTurns?: number;
   lastMissedTurnNumber?: number | null;
+  lastBotTradeProposalTurnNumber?: number | null;
   bankrupt: boolean;
 };
 

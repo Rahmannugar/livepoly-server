@@ -4,6 +4,7 @@ import {
 } from '../game-engine-intents';
 import { GameEngineError } from '../game-engine.types';
 import {
+  createGameEnginePlayer,
   createGameEngineState,
   TEST_BOARD_TILES,
 } from './game-engine.test-factory';
@@ -135,6 +136,67 @@ describe('game-engine-intents', () => {
       ),
     ).toMatchObject({
       mortgaged: true,
+    });
+  });
+
+  it('marks bot trade proposals for the current turn', () => {
+    const state = createGameEngineState({
+      phase: 'awaiting_turn_end',
+      currentTurnRoomPlayerId: 'bot-player-1',
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'normal',
+          botName: 'Ada',
+          seatNumber: 1,
+        }),
+        createGameEnginePlayer({
+          roomPlayerId: 'room-player-2',
+          userId: 'user-2',
+          username: 'playertwo',
+          seatNumber: 2,
+        }),
+      ],
+      properties: createGameEngineState().properties.map((property) => {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'bot-player-1',
+          };
+        }
+
+        if (property.tileKey === TEST_BOARD_TILES.cheapPropertyPair) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-2',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    const result = reduceGameEngineIntent(state, {
+      type: 'propose_trade',
+      payload: {
+        roomPlayerId: 'bot-player-1',
+        toRoomPlayerId: 'room-player-2',
+        offeredCash: 72,
+        requestedCash: 0,
+        offeredPropertyKeys: [],
+        requestedPropertyKeys: [TEST_BOARD_TILES.cheapPropertyPair],
+      },
+    });
+
+    expect(result.state.players[0]).toMatchObject({
+      lastBotTradeProposalTurnNumber: 1,
+    });
+    expect(result.state.tradeOffer).toMatchObject({
+      fromRoomPlayerId: 'bot-player-1',
+      toRoomPlayerId: 'room-player-2',
     });
   });
 

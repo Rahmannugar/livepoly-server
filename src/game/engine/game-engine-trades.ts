@@ -1,6 +1,10 @@
 import { randomUUID } from 'crypto';
 import { getGameBoard } from './game-board';
-import type { AirportTile, PropertyTile, UtilityTile } from './game-board.types';
+import type {
+  AirportTile,
+  PropertyTile,
+  UtilityTile,
+} from './game-board.types';
 import {
   creditPlayer,
   findPlayer,
@@ -18,10 +22,9 @@ import {
   type ProposeTradeInput,
   type RejectTradeInput,
 } from './game-engine.types';
+import { GAME_BOTS } from '../game.constants';
 
 type TradeableTile = PropertyTile | AirportTile | UtilityTile;
-
-const BOT_TRADE_MARGIN = 1.12;
 
 export function proposeTrade(
   state: GameEngineState,
@@ -55,6 +58,7 @@ export function proposeTrade(
   };
 
   validateTrade(state, trade);
+  const proposedState = markBotTradeProposal(state, trade.fromRoomPlayerId);
 
   const proposedEvent: GameEngineEvent = {
     type: 'trade_proposed',
@@ -67,16 +71,16 @@ export function proposeTrade(
     requestedPropertyKeys: [...trade.requestedPropertyKeys],
   };
 
-  const target = findPlayer(state, trade.toRoomPlayerId);
+  const target = findPlayer(proposedState, trade.toRoomPlayerId);
 
   if (target.playerType === 'bot') {
-    if (shouldBotAcceptTrade(state, trade)) {
-      return acceptTradeOffer(state, trade, [proposedEvent]);
+    if (shouldBotAcceptTrade(proposedState, trade)) {
+      return acceptTradeOffer(proposedState, trade, [proposedEvent]);
     }
 
     return {
       state: {
-        ...state,
+        ...proposedState,
         tradeOffer: null,
       },
       events: [
@@ -94,7 +98,7 @@ export function proposeTrade(
 
   return {
     state: {
-      ...state,
+      ...proposedState,
       tradeOffer: trade,
     },
     events: [proposedEvent],
@@ -294,10 +298,7 @@ function validateTrade(
   const toPlayer = findPlayer(state, trade.toRoomPlayerId);
 
   if (fromPlayer.bankrupt || toPlayer.bankrupt) {
-    throw new GameEngineError(
-      'INVALID_TRADE',
-      'Bankrupt players cannot trade',
-    );
+    throw new GameEngineError('INVALID_TRADE', 'Bankrupt players cannot trade');
   }
 
   if (
@@ -334,7 +335,10 @@ function validateTrade(
 
 function normalizeCash(value: number): number {
   if (!Number.isInteger(value) || value < 0) {
-    throw new GameEngineError('INVALID_TRADE', 'Trade cash must be a whole number');
+    throw new GameEngineError(
+      'INVALID_TRADE',
+      'Trade cash must be a whole number',
+    );
   }
 
   return value;
@@ -355,7 +359,9 @@ function uniquePropertyKeys(values: string[]): string[] {
   return uniqueValues;
 }
 
-function assertNoDuplicateCrossTradeProperties(trade: GameEngineTradeOffer): void {
+function assertNoDuplicateCrossTradeProperties(
+  trade: GameEngineTradeOffer,
+): void {
   const offered = new Set(trade.offeredPropertyKeys);
 
   if (trade.requestedPropertyKeys.some((tileKey) => offered.has(tileKey))) {
@@ -456,6 +462,7 @@ function shouldBotAcceptTrade(
   state: GameEngineState,
   trade: GameEngineTradeOffer,
 ): boolean {
+  const bot = findPlayer(state, trade.toRoomPlayerId);
   const botReceives = getTradeValue(state, {
     cash: trade.offeredCash,
     propertyKeys: trade.offeredPropertyKeys,
@@ -465,7 +472,35 @@ function shouldBotAcceptTrade(
     propertyKeys: trade.requestedPropertyKeys,
   });
 
-  return botReceives >= botGives * BOT_TRADE_MARGIN;
+  return (
+    botReceives >=
+    botGives * GAME_BOTS.tradeAcceptanceMargin[bot.botDifficulty ?? 'normal']
+  );
+}
+
+function markBotTradeProposal(
+  state: GameEngineState,
+  roomPlayerId: string,
+): GameEngineState {
+  const player = findPlayer(state, roomPlayerId);
+
+  if (player.playerType !== 'bot') {
+    return state;
+  }
+
+  return {
+    ...state,
+    players: state.players.map((candidate) => {
+      if (candidate.roomPlayerId !== roomPlayerId) {
+        return candidate;
+      }
+
+      return {
+        ...candidate,
+        lastBotTradeProposalTurnNumber: state.turnNumber,
+      };
+    }),
+  };
 }
 
 function getTradeValue(

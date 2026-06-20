@@ -36,6 +36,7 @@ export function createGameEnginePlayer(
     getOutOfJailFreeCardKeys: [],
     consecutiveMissedTurns: 0,
     lastMissedTurnNumber: null,
+    lastBotTradeProposalTurnNumber: null,
     bankrupt: false,
     ...overrides,
   };

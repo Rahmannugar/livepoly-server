@@ -1,5 +1,7 @@
 import {
+  createGameEngineProperty,
   createGameEnginePlayer,
+  createGameEngineState,
   TEST_BOARD_TILES,
 } from '../../engine/tests/game-engine.test-factory';
 import type { GameEngineState } from '../../engine/game-engine.types';
@@ -255,6 +257,198 @@ describe('GameBotService', () => {
         payload: {
           roomPlayerId: 'bot-player-1',
         },
+      },
+    });
+  });
+
+  it('unmortgages owned property when cash reserve is protected', () => {
+    const state = createBotState({
+      phase: 'awaiting_turn_end',
+      pendingTileKey: null,
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'normal',
+          botName: 'Ada',
+          seatNumber: 1,
+          cash: 900,
+        }),
+      ],
+      properties: [
+        createGameEngineProperty({
+          tileKey: TEST_BOARD_TILES.cheapProperty,
+          ownerRoomPlayerId: 'bot-player-1',
+          mortgaged: true,
+        }),
+        createGameEngineProperty({
+          tileKey: TEST_BOARD_TILES.cheapPropertyPair,
+          ownerRoomPlayerId: 'bot-player-1',
+        }),
+      ],
+    });
+
+    expect(service.chooseDecision(state)).toEqual({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'unmortgage_property',
+        payload: {
+          roomPlayerId: 'bot-player-1',
+          tileKey: TEST_BOARD_TILES.cheapProperty,
+        },
+      },
+    });
+  });
+
+  it('builds evenly on completed sets by difficulty limit', () => {
+    const state = createBotState({
+      phase: 'awaiting_turn_end',
+      pendingTileKey: null,
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'hard',
+          botName: 'Ada',
+          seatNumber: 1,
+          cash: 1000,
+        }),
+      ],
+      properties: createGameEngineState().properties.map((property) => {
+        if (
+          property.tileKey === TEST_BOARD_TILES.cheapProperty ||
+          property.tileKey === TEST_BOARD_TILES.cheapPropertyPair
+        ) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'bot-player-1',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    expect(service.chooseDecision(state)).toEqual({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'build_property',
+        payload: {
+          roomPlayerId: 'bot-player-1',
+          tileKey: TEST_BOARD_TILES.cheapPropertyPair,
+        },
+      },
+    });
+  });
+
+  it('offers cash to complete a property set once per turn', () => {
+    const state = createBotState({
+      phase: 'awaiting_turn_end',
+      pendingTileKey: null,
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'normal',
+          botName: 'Ada',
+          seatNumber: 1,
+          cash: 900,
+        }),
+        createGameEnginePlayer({
+          roomPlayerId: 'room-player-2',
+          userId: 'user-2',
+          username: 'playertwo',
+          seatNumber: 2,
+        }),
+      ],
+      properties: createGameEngineState().properties.map((property) => {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'bot-player-1',
+          };
+        }
+
+        if (property.tileKey === TEST_BOARD_TILES.cheapPropertyPair) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-2',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    expect(service.chooseDecision(state)).toEqual({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'propose_trade',
+        payload: {
+          roomPlayerId: 'bot-player-1',
+          toRoomPlayerId: 'room-player-2',
+          offeredCash: 72,
+          requestedCash: 0,
+          offeredPropertyKeys: [],
+          requestedPropertyKeys: [TEST_BOARD_TILES.cheapPropertyPair],
+        },
+      },
+    });
+  });
+
+  it('does not repeat a bot trade offer during the same turn', () => {
+    const state = createBotState({
+      phase: 'awaiting_turn_end',
+      pendingTileKey: null,
+      players: [
+        createGameEnginePlayer({
+          roomPlayerId: 'bot-player-1',
+          userId: null,
+          username: null,
+          playerType: 'bot',
+          botDifficulty: 'normal',
+          botName: 'Ada',
+          seatNumber: 1,
+          cash: 900,
+          lastBotTradeProposalTurnNumber: 1,
+        }),
+        createGameEnginePlayer({
+          roomPlayerId: 'room-player-2',
+          userId: 'user-2',
+          username: 'playertwo',
+          seatNumber: 2,
+        }),
+      ],
+      properties: createGameEngineState().properties.map((property) => {
+        if (property.tileKey === TEST_BOARD_TILES.cheapProperty) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'bot-player-1',
+          };
+        }
+
+        if (property.tileKey === TEST_BOARD_TILES.cheapPropertyPair) {
+          return {
+            ...property,
+            ownerRoomPlayerId: 'room-player-2',
+          };
+        }
+
+        return property;
+      }),
+    });
+
+    expect(service.chooseDecision(state)).toEqual({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'end_turn',
+        payload: { roomPlayerId: 'bot-player-1' },
       },
     });
   });

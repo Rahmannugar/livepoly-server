@@ -1,0 +1,193 @@
+name: Server pipeline
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify server
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DATABASE_URL: postgresql://livepoly:livepoly@127.0.0.1:5432/livepoly
+      REDIS_URL: redis://127.0.0.1:6379
+      JWT_ACCESS_SECRET: ci-only-access-secret-at-least-32-characters
+      MAIL_FROM: ci@livepoly.site
+      SMTP_HOST: smtp.example.com
+      SMTP_PORT: 465
+      SMTP_USER: ci@livepoly.site
+      SMTP_PASS: ci-only-password
+      GOOGLE_OAUTH_CLIENT_ID: ci-google-client
+      GOOGLE_OAUTH_CLIENT_SECRET: ci-google-secret
+      GOOGLE_OAUTH_REDIRECT_URI: https://api.livepoly.site/api/auth/oauth/google/callback
+      DISCORD_OAUTH_CLIENT_ID: ci-discord-client
+      DISCORD_OAUTH_CLIENT_SECRET: ci-discord-secret
+      DISCORD_OAUTH_REDIRECT_URI: https://api.livepoly.site/api/auth/oauth/discord/callback
+      OAUTH_SUCCESS_REDIRECT_URL: https://livepoly.site/
+      OAUTH_FAILURE_REDIRECT_URL: https://livepoly.site/auth/login?oauth=failed
+      R2_ACCOUNT_ID: ci-r2-account
+      R2_ACCESS_KEY_ID: ci-r2-access-key
+      R2_SECRET_ACCESS_KEY: ci-r2-secret-key
+      R2_BUCKET_NAME: ci-livepoly-images
+      R2_PUBLIC_BASE_URL: https://images.example.com
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check changed TypeScript
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before || github.sha }}
+        run: |
+          if [[ "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "${BASE_SHA}^{commit}"; then
+            BASE_SHA=$(git rev-list --max-parents=0 HEAD)
+          fi
+
+          mapfile -t changed_typescript < <(
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- '*.ts'
+          )
+
+          if [[ ${#changed_typescript[@]} -gt 0 ]]; then
+            npx eslint "${changed_typescript[@]}"
+          fi
+
+      - name: Run tests
+        run: npm test -- --runInBand
+
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Build application
+        run: npm run build
+
+      - name: Validate production Compose
+        run: |
+          cp deploy/.env.example .env
+          docker compose --env-file .env -f deploy/docker-compose.production.yml config --quiet
+
+      - name: Build production images
+        run: |
+          docker build --file deploy/Dockerfile --tag livepoly-server:ci .
+          docker build --file deploy/pgbouncer/Dockerfile --tag livepoly-pgbouncer:ci deploy/pgbouncer
+
+  deploy:
+    name: Deploy server
+    if: >-
+      github.event_name != 'pull_request' &&
+      github.ref == 'refs/heads/main' &&
+      vars.AWS_INSTANCE_ID != '' &&
+      vars.AWS_DEPLOY_ROLE_ARN != '' &&
+      vars.AWS_SECRET_ID != ''
+    needs:
+      - verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: eu-west-1
+      AWS_INSTANCE_ID: ${{ vars.AWS_INSTANCE_ID }}
+      AWS_DEPLOY_ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      AWS_SECRET_ID: ${{ vars.AWS_SECRET_ID }}
+
+    steps:
+      - name: Validate deployment variables
+        run: |
+          test -n "$AWS_INSTANCE_ID"
+          test -n "$AWS_DEPLOY_ROLE_ARN"
+          test -n "$AWS_SECRET_ID"
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Deploy through Systems Manager
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          REPOSITORY_URL: ${{ github.server_url }}/${{ github.repository }}.git
+        run: |
+          set -Eeuo pipefail
+
+          remote_command=$(cat <<EOF
+          set -Eeuo pipefail
+          install -d -o ubuntu -g ubuntu /opt/livepoly /opt/livepoly/releases /opt/livepoly/backups
+          if [[ ! -d /opt/livepoly/repository/.git ]]; then
+            sudo -u ubuntu git clone '${REPOSITORY_URL}' /opt/livepoly/repository
+          fi
+          sudo -u ubuntu git -C /opt/livepoly/repository fetch --prune origin main
+          sudo -u ubuntu git -C /opt/livepoly/repository checkout --force --detach '${COMMIT_SHA}'
+          sudo -u ubuntu env AWS_REGION='${AWS_REGION}' LIVEPOLY_SECRET_ID='${AWS_SECRET_ID}' \
+            bash /opt/livepoly/repository/deploy/scripts/deploy.sh '${COMMIT_SHA}'
+          EOF
+          )
+
+          parameters=$(jq -n --arg command "$remote_command" '{commands: [$command]}')
+          command_id=$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "$AWS_INSTANCE_ID" \
+            --document-name AWS-RunShellScript \
+            --comment "Deploy LivePoly ${COMMIT_SHA}" \
+            --parameters "$parameters" \
+            --query 'Command.CommandId' \
+            --output text)
+
+          for attempt in {1..180}; do
+            status=$(aws ssm get-command-invocation \
+              --region "$AWS_REGION" \
+              --command-id "$command_id" \
+              --instance-id "$AWS_INSTANCE_ID" \
+              --query 'Status' \
+              --output text 2>/dev/null || true)
+
+            case "$status" in
+              Success)
+                break
+                ;;
+              Cancelled|Cancelling|Failed|TimedOut)
+                aws ssm get-command-invocation \
+                  --region "$AWS_REGION" \
+                  --command-id "$command_id" \
+                  --instance-id "$AWS_INSTANCE_ID"
+                exit 1
+                ;;
+            esac
+
+            if [[ "$attempt" -eq 180 ]]; then
+              echo "Deployment command timed out" >&2
+              exit 1
+            fi
+
+            sleep 5
+          done
+
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$command_id" \
+            --instance-id "$AWS_INSTANCE_ID" \
+            --query '{Status:Status,Output:StandardOutputContent,Errors:StandardErrorContent}'

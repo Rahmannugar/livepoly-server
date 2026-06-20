@@ -145,6 +145,26 @@ LivePoly uses it for notification-created events. When a feature creates a notif
 
 That means if publishing fails after the database write, the notification event is still stored and can be retried instead of being lost.
 
+## Deployment Model
+
+Production runs as a Docker Compose stack on EC2. Nginx terminates public HTTP
+and HTTPS traffic and balances two API containers with client affinity. A
+single worker container owns queue processing, while the worker startup lock
+prevents duplicate startup recovery if worker processes are scaled later.
+
+PostgreSQL and Redis are not published on host ports. API and worker database
+traffic passes through PgBouncer in transaction-pooling mode; migrations connect
+directly to PostgreSQL as a one-shot deployment step. Redis uses AOF persistence,
+a bounded memory allocation, and `noeviction` because active game state, locks,
+timers, and BullMQ data must never be discarded to make room for cache entries.
+
+GitHub Actions runs lint, tests, builds, Compose validation, and image builds.
+Successful `main` runs authenticate to AWS with OIDC and deploy through Systems
+Manager. EC2 fetches application configuration from Secrets Manager using its
+instance role. Releases are immutable and the latest three remain available on
+the host. Daily PostgreSQL dumps are uploaded and verified before retention
+removes all but the latest five local and S3 backups.
+
 ## Caching
 
 Current cache targets include:

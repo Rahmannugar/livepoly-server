@@ -22,13 +22,18 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
+ENV NODE_OPTIONS=--enable-source-maps
+
+RUN apk add --no-cache dumb-init
 
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
+COPY drizzle ./drizzle
 COPY package*.json ./
 
 EXPOSE 3002
 
 USER node
 
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/main.js"]

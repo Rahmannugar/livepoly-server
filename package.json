@@ -11,6 +11,7 @@
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:worker": "node dist/worker.js",
+    "start:migrate": "node dist/migrate.js",
     "start:worker:dev": "nest start --watch --entryFile worker",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
@@ -49,8 +50,8 @@
     "helmet": "^8.1.0",
     "ioredis": "^5.10.1",
     "nestjs-pino": "^4.6.1",
-    "newrelic": "^13.19.2",
-    "nodemailer": "^8.0.7",
+    "newrelic": "^14.1.0",
+    "nodemailer": "^9.0.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
     "postgres": "^3.4.9",
@@ -59,6 +60,10 @@
     "socket.io": "^4.8.3",
     "swagger-ui-express": "^5.0.1",
     "zod": "^4.4.3"
+  },
+  "overrides": {
+    "js-yaml": "^4.1.2",
+    "multer": "^2.2.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

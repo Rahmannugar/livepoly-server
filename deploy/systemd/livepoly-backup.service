@@ -1,0 +1,13 @@
+[Unit]
+Description=Back up the LivePoly PostgreSQL database
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+Environment=AWS_REGION=eu-west-1
+Environment=LIVEPOLY_SECRET_ID=livepoly/server
+ExecStart=/opt/livepoly/current/deploy/scripts/backup-postgres.sh

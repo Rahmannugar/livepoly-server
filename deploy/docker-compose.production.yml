@@ -1,0 +1,220 @@
+name: livepoly
+
+x-application: &application
+  image: livepoly-server:${IMAGE_TAG:-latest}
+  build:
+    context: ..
+    dockerfile: deploy/Dockerfile
+  env_file:
+    - ../.env
+  environment:
+    NODE_ENV: production
+    PORT: 3002
+    INSTANCE_ROLE: server
+  restart: unless-stopped
+  stop_grace_period: 30s
+  networks:
+    - application
+
+x-api-healthcheck: &api-healthcheck
+  test:
+    - CMD-SHELL
+    - wget --quiet --output-document=- http://127.0.0.1:3002/api/health/live >/dev/null 2>&1
+  interval: 15s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    command:
+      - postgres
+      - -c
+      - max_connections=50
+      - -c
+      - shared_buffers=128MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - work_mem=4MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - wal_compression=on
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    restart: unless-stopped
+    stop_grace_period: 60s
+    shm_size: 128mb
+    networks:
+      - data
+
+  pgbouncer:
+    build:
+      context: ./pgbouncer
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -h 127.0.0.1 -p 6432 -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - application
+      - data
+
+  redis:
+    image: redis:7.4-alpine
+    env_file:
+      - ../.env
+    command:
+      - sh
+      - -c
+      - exec redis-server /usr/local/etc/redis/redis.conf --requirepass "$${REDIS_PASSWORD}"
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep PONG
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    mem_limit: 384m
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - application
+
+  migrate:
+    <<: *application
+    environment:
+      NODE_ENV: production
+      MIGRATION_DATABASE_URL: ${MIGRATION_DATABASE_URL}
+    command:
+      - node
+      - dist/migrate.js
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+    profiles:
+      - tools
+    networks:
+      - data
+
+  api-1:
+    <<: *application
+    healthcheck: *api-healthcheck
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  api-2:
+    <<: *application
+    healthcheck: *api-healthcheck
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    <<: *application
+    environment:
+      NODE_ENV: production
+      INSTANCE_ROLE: worker
+    command:
+      - node
+      - dist/worker.js
+    depends_on:
+      pgbouncer:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  nginx:
+    image: nginx:stable-alpine
+    environment:
+      API_DOMAIN: ${API_DOMAIN:-api.livepoly.site}
+      NGINX_ENVSUBST_FILTER: API_DOMAIN
+    ports:
+      - 80:80
+      - 443:443
+    volumes:
+      - ./nginx/${NGINX_TEMPLATE:-http.conf.template}:/etc/nginx/templates/default.conf.template:ro
+      - certbot-challenges:/var/www/certbot:ro
+      - letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      api-1:
+        condition: service_healthy
+      api-2:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget --quiet --spider http://127.0.0.1/nginx-health
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    stop_grace_period: 30s
+    networks:
+      - edge
+      - application
+
+  certbot:
+    image: certbot/certbot:latest
+    volumes:
+      - certbot-challenges:/var/www/certbot
+      - letsencrypt:/etc/letsencrypt
+    profiles:
+      - tools
+    networks:
+      - edge
+
+networks:
+  edge:
+  application:
+    internal: true
+  data:
+    internal: true
+
+volumes:
+  postgres-data:
+  redis-data:
+  certbot-challenges:
+  letsencrypt:

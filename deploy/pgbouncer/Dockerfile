@@ -1,0 +1,16 @@
+FROM alpine:3.22
+
+RUN apk add --no-cache gettext pgbouncer postgresql-client \
+  && addgroup -S pgbouncer \
+  && adduser -S -D -H -G pgbouncer pgbouncer \
+  && mkdir -p /etc/pgbouncer \
+  && chown -R pgbouncer:pgbouncer /etc/pgbouncer
+
+COPY --chown=pgbouncer:pgbouncer pgbouncer.ini.template /etc/pgbouncer/pgbouncer.ini.template
+COPY --chown=pgbouncer:pgbouncer entrypoint.sh /usr/local/bin/pgbouncer-entrypoint
+
+USER pgbouncer
+
+EXPOSE 6432
+
+ENTRYPOINT ["/usr/local/bin/pgbouncer-entrypoint"]

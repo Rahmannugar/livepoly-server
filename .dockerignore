@@ -20,9 +20,7 @@ ARCHITECTURE.md
 FrontendScope.md
 
 Dockerfile
-Dockerfile.prod
 docker-compose.yml
-drizzle
 drizzle.config.ts
 eslint.config.mjs
 .prettierrc

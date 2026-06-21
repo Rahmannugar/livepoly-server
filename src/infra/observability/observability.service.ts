@@ -11,6 +11,13 @@ type NewRelicAgent = {
     attributes: Record<string, string | number | boolean | null>,
   ) => void;
   incrementMetric: (metricName: string, value?: number) => void;
+  recordMetric: (metricName: string, value: number) => void;
+  ignoreTransaction: () => void;
+  endTransaction: () => void;
+  setTransactionName: (name: string) => void;
+  addCustomAttributes: (
+    attributes: Record<string, string | number | boolean | null>,
+  ) => void;
 };
 
 type RateLimitExceededInput = {
@@ -67,6 +74,34 @@ export class ObservabilityService {
   ): void {
     this.recordEvent(eventName, attributes);
     this.recordMetric(`Custom/Security/${eventName}`);
+  }
+
+  ignoreCurrentTransaction(): void {
+    this.newrelic?.ignoreTransaction();
+  }
+
+  nameCurrentTransaction(
+    name: string,
+    attributes: ObservabilityAttributes = {},
+  ): void {
+    if (!this.newrelic) {
+      return;
+    }
+
+    this.newrelic.setTransactionName(name);
+    this.newrelic.addCustomAttributes(this.clean(attributes));
+  }
+
+  endCurrentTransaction(): void {
+    this.newrelic?.endTransaction();
+  }
+
+  recordDurationMetric(metricName: string, durationMs: number): void {
+    if (!this.newrelic || !Number.isFinite(durationMs) || durationMs < 0) {
+      return;
+    }
+
+    this.newrelic.recordMetric(metricName, durationMs / 1_000);
   }
 
   recordRateLimitExceeded(input: RateLimitExceededInput): void {

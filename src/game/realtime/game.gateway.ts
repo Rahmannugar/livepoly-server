@@ -1,4 +1,5 @@
 import { ConfigService } from '@nestjs/config';
+import { UseInterceptors } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import {
   ConnectedSocket,
@@ -54,6 +55,7 @@ import {
   type TradeDecisionPayload,
 } from './game-realtime.types';
 import { GamePresenceService } from '../presence/game-presence.service';
+import { GameRealtimeObservabilityInterceptor } from './game-realtime-observability.interceptor';
 
 type AccessTokenPayload = {
   sub: string;
@@ -70,6 +72,7 @@ type AccessTokenPayload = {
     credentials: true,
   },
 })
+@UseInterceptors(GameRealtimeObservabilityInterceptor)
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private readonly gameRealtimeService: GameRealtimeService,
@@ -83,6 +86,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   async handleConnection(socket: AuthenticatedGameSocket): Promise<void> {
+    this.observabilityService.nameCurrentTransaction(
+      'Realtime/WebSocket/Game/Connect',
+      { transport: 'websocket', socketId: socket.id },
+    );
+
     try {
       await this.consumeConnectionLimit(socket);
       this.debugSocket('connection:auth-start', {
@@ -106,6 +114,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         userId: socket.data.user.id,
         username: socket.data.user.username,
       });
+      this.observabilityService.endCurrentTransaction();
     } catch (error) {
       this.debugSocket('connection:auth-failed', {
         socketId: socket.id,
@@ -117,6 +126,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       } satisfies GameErrorEvent);
 
       socket.disconnect(true);
+      this.observabilityService.endCurrentTransaction();
     }
   }
 

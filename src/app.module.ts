@@ -1,4 +1,9 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { LoggingModule } from './common/logging/logging.module';
 import { AppConfigModule } from './config/app-config.module';
 import { DatabaseModule } from './infra/database/database.module';
@@ -13,6 +18,8 @@ import { RoomsModule } from './rooms/rooms.module';
 import { LeaderboardsModule } from './leaderboards/leaderboards.module';
 import { GameModule } from './game/game.module';
 import { AdminModule } from './admin/admin.module';
+import { ObservabilityModule } from './infra/observability/observability.module';
+import { ObservabilityHttpMiddleware } from './infra/observability/observability-http.middleware';
 
 @Module({
   imports: [
@@ -30,6 +37,14 @@ import { AdminModule } from './admin/admin.module';
     GameModule,
     LeaderboardsModule,
     AdminModule,
+    ObservabilityModule,
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(ObservabilityHttpMiddleware).forRoutes({
+      path: '*path',
+      method: RequestMethod.ALL,
+    });
+  }
+}

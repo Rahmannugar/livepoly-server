@@ -7,15 +7,42 @@ import {
   writeSseEvent,
 } from '../common/sse/sse-stream';
 import { PubSubService } from '../infra/pubsub/pubsub.service';
+import { ObservabilityService } from '../infra/observability/observability.service';
 
 @Injectable()
 export class NotificationsStreamService {
   private readonly logger = new Logger(NotificationsStreamService.name);
 
-  constructor(private readonly pubSubService: PubSubService) {}
+  constructor(
+    private readonly pubSubService: PubSubService,
+    private readonly observabilityService: ObservabilityService,
+  ) {}
 
   streamForUser(userId: string, response: Response): void {
+    const setupStartedAt = Date.now();
     const channel = `user:${userId}:notifications`;
+    let setupFinished = false;
+
+    const finishSetup = (outcome: 'Connected' | 'Closed' | 'Failed') => {
+      if (setupFinished) {
+        return;
+      }
+
+      setupFinished = true;
+      this.observabilityService.recordMetric(
+        `Custom/Realtime/SSE/Notifications/Setup${outcome}`,
+      );
+      this.observabilityService.recordDurationMetric(
+        'Custom/Realtime/SSE/Notifications/SetupDuration',
+        Date.now() - setupStartedAt,
+      );
+      this.observabilityService.endCurrentTransaction();
+    };
+
+    this.observabilityService.nameCurrentTransaction(
+      'Realtime/SSE/Notifications/Connect',
+      { transport: 'sse', stream: 'notifications', userId },
+    );
 
     prepareSseResponse(response);
 
@@ -33,6 +60,11 @@ export class NotificationsStreamService {
       if (unsubscribe) {
         void unsubscribe();
       }
+
+      this.observabilityService.recordMetric(
+        'Custom/Realtime/SSE/Notifications/Disconnected',
+      );
+      finishSetup('Closed');
     };
 
     const heartbeat = setInterval(() => {
@@ -58,10 +90,12 @@ export class NotificationsStreamService {
       .then((subscription) => {
         if (closed) {
           void subscription.unsubscribe();
+          finishSetup('Closed');
           return;
         }
 
         unsubscribe = () => subscription.unsubscribe();
+        finishSetup('Connected');
       })
       .catch((error) => {
         this.logger.warn({
@@ -69,6 +103,7 @@ export class NotificationsStreamService {
           userId,
           errorName: error instanceof Error ? error.name : undefined,
         });
+        finishSetup('Failed');
         response.end();
       });
   }

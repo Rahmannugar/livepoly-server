@@ -30,6 +30,7 @@ import { GameEventsRepository } from './events/game-events.repository';
 import { GameEventsService } from './events/game-events.service';
 import { GamePresenceService } from './presence/game-presence.service';
 import { GameController } from './game.controller';
+import { GameRealtimeObservabilityInterceptor } from './realtime/game-realtime-observability.interceptor';
 
 @Module({
   imports: [
@@ -65,6 +66,7 @@ import { GameController } from './game.controller';
     GameEventsRepository,
     GameEventsService,
     GamePresenceService,
+    GameRealtimeObservabilityInterceptor,
   ],
   exports: [
     GameStateService,

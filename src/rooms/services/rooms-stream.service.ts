@@ -7,6 +7,7 @@ import {
   writeSseEvent,
 } from '../../common/sse/sse-stream';
 import { PubSubService } from '../../infra/pubsub/pubsub.service';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 
 type RoomStreamEvent =
   | 'room.created'
@@ -21,10 +22,36 @@ type RoomStreamEvent =
 export class RoomsStreamService {
   private readonly logger = new Logger(RoomsStreamService.name);
 
-  constructor(private readonly pubSubService: PubSubService) {}
+  constructor(
+    private readonly pubSubService: PubSubService,
+    private readonly observabilityService: ObservabilityService,
+  ) {}
 
   streamRoom(code: string, response: Response): void {
+    const setupStartedAt = Date.now();
     const channel = this.getRoomChannel(code);
+    let setupFinished = false;
+
+    const finishSetup = (outcome: 'Connected' | 'Closed' | 'Failed') => {
+      if (setupFinished) {
+        return;
+      }
+
+      setupFinished = true;
+      this.observabilityService.recordMetric(
+        `Custom/Realtime/SSE/Room/Setup${outcome}`,
+      );
+      this.observabilityService.recordDurationMetric(
+        'Custom/Realtime/SSE/Room/SetupDuration',
+        Date.now() - setupStartedAt,
+      );
+      this.observabilityService.endCurrentTransaction();
+    };
+
+    this.observabilityService.nameCurrentTransaction(
+      'Realtime/SSE/Room/Connect',
+      { transport: 'sse', stream: 'room', roomCode: code },
+    );
 
     prepareSseResponse(response);
 
@@ -42,6 +69,11 @@ export class RoomsStreamService {
       if (unsubscribe) {
         void unsubscribe();
       }
+
+      this.observabilityService.recordMetric(
+        'Custom/Realtime/SSE/Room/Disconnected',
+      );
+      finishSetup('Closed');
     };
 
     const heartbeat = setInterval(() => {
@@ -64,10 +96,12 @@ export class RoomsStreamService {
       .then((subscription) => {
         if (closed) {
           void subscription.unsubscribe();
+          finishSetup('Closed');
           return;
         }
 
         unsubscribe = () => subscription.unsubscribe();
+        finishSetup('Connected');
       })
       .catch((error) => {
         this.logger.warn({
@@ -75,6 +109,7 @@ export class RoomsStreamService {
           roomCode: code,
           errorName: error instanceof Error ? error.name : undefined,
         });
+        finishSetup('Failed');
         response.end();
       });
   }

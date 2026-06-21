@@ -42,6 +42,8 @@ type AuthTokenVersionCacheServiceMock = {
 
 type ObservabilityServiceMock = {
   recordEvent: jest.Mock;
+  nameCurrentTransaction: jest.Mock;
+  endCurrentTransaction: jest.Mock;
 };
 
 type RateLimitServiceMock = {
@@ -160,6 +162,8 @@ describe('GameGateway', () => {
 
     observabilityService = {
       recordEvent: jest.fn(),
+      nameCurrentTransaction: jest.fn(),
+      endCurrentTransaction: jest.fn(),
     };
 
     rateLimitService = {

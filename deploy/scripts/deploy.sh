@@ -57,6 +57,7 @@ export IMAGE_TAG="$commit_sha"
 compose=(docker compose --env-file .env -f deploy/docker-compose.production.yml)
 
 "${compose[@]}" build api-1 pgbouncer
+"${compose[@]}" stop api-1 api-2 worker nginx || true
 "${compose[@]}" up -d postgres redis pgbouncer
 "${compose[@]}" --profile tools run --rm migrate
 "${compose[@]}" up -d --remove-orphans api-1 api-2 worker nginx

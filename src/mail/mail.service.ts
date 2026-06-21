@@ -1,4 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  accountDeletedTemplate,
+  emailVerificationOtpTemplate,
+  passwordResetOtpTemplate,
+} from './mail.template';
 import { MAIL_CLIENT } from './mail.types';
 import type { MailClient } from './mail.types';
 
@@ -12,28 +17,21 @@ export class MailService {
   async sendEmailVerificationOtp(email: string, otpCode: string) {
     await this.mailClient.sendMail({
       to: email,
-      subject: 'Verify your LivePoly account',
-      text: `Your LivePoly verification code is ${otpCode}. It expires in 15 minutes.`,
+      ...emailVerificationOtpTemplate(otpCode),
     });
   }
 
   async sendPasswordResetOtp(email: string, otpCode: string) {
     await this.mailClient.sendMail({
       to: email,
-      subject: 'Reset your LivePoly password',
-      text: `Your LivePoly password reset code is ${otpCode}. It expires in 5 minutes.`,
+      ...passwordResetOtpTemplate(otpCode),
     });
   }
 
   async sendAccountDeletedEmail(email: string, username: string) {
     await this.mailClient.sendMail({
       to: email,
-      subject: 'Your LivePoly account was deleted',
-      text: `Hello ${username},
-
-Your LivePoly account has been deleted.
-
-If this was not you, please contact support immediately.`,
+      ...accountDeletedTemplate(username),
     });
   }
 }

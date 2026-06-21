@@ -137,16 +137,16 @@ export const RoomsDocs = {
     applyDecorators(
       ApiBearerAuth('accessToken'),
       ApiOperation({
-        summary: 'Spectate active room',
+        summary: 'Spectate room',
         description:
-          'Adds the authenticated user as a spectator for an active room. Players in the room cannot spectate their own room.',
+          'Adds the authenticated user as a spectator for a waiting or active room. Players in the room cannot spectate their own room.',
       }),
       ApiParam({ name: 'code', example: 'AbC23xYz' }),
       ApiOkResponse({ type: RoomSpectatorResponseDto }),
       ApiResponse({
         status: HttpStatus.CONFLICT,
         description:
-          'Room is not active, user is already a player, or spectator limit has been reached',
+          'Room cannot be spectated, user is already a player, or spectator limit has been reached',
       }),
       ApiResponse({
         status: HttpStatus.NOT_FOUND,

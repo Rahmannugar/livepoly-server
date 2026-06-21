@@ -619,12 +619,19 @@ export class RoomsLobbyService {
       throw new NotFoundException('Room not found');
     }
 
-    if (room.status !== 'active') {
-      throw new ConflictException('Only active rooms can be spectated');
+    if (!isSpectatableRoomStatus(room.status)) {
+      throw new ConflictException(
+        'Only waiting or active rooms can be spectated',
+      );
     }
 
-    if (await this.finalizeExpiredRoomGame(room.id)) {
-      throw new ConflictException('Only active rooms can be spectated');
+    if (
+      room.status === 'active' &&
+      (await this.finalizeExpiredRoomGame(room.id))
+    ) {
+      throw new ConflictException(
+        'Only waiting or active rooms can be spectated',
+      );
     }
 
     const player = await this.roomsLobbyRepository.findJoinedPlayer(
@@ -661,8 +668,10 @@ export class RoomsLobbyService {
         throw new NotFoundException('Room not found');
       }
 
-      if (lockedRoom.status !== 'active') {
-        throw new ConflictException('Only active rooms can be spectated');
+      if (!isSpectatableRoomStatus(lockedRoom.status)) {
+        throw new ConflictException(
+          'Only waiting or active rooms can be spectated',
+        );
       }
 
       const spectatorCount =
@@ -1024,4 +1033,8 @@ export class RoomsLobbyService {
 
     return code;
   }
+}
+
+function isSpectatableRoomStatus(status: string) {
+  return status === 'waiting' || status === 'active';
 }

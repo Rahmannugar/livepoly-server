@@ -61,3 +61,23 @@ export function ApiUpdateUserStatus() {
     }),
   );
 }
+
+export function ApiRestoreDeletedUser() {
+  return applyDecorators(
+    ApiBearerAuth(),
+    ApiOperation({
+      summary: 'Restore a deleted user',
+      description:
+        'Restores a soft-deleted account. Existing sessions remain revoked and the user must sign in again.',
+    }),
+    ApiParam({
+      name: 'username',
+      example: 'playerone',
+      description: 'Username of the deleted user.',
+    }),
+    ApiOkResponse({ description: 'Deleted user restored.' }),
+    ApiUnauthorizedResponse({ description: 'Authentication required.' }),
+    ApiForbiddenResponse({ description: 'Admin access required.' }),
+    ApiNotFoundResponse({ description: 'Deleted user not found.' }),
+  );
+}

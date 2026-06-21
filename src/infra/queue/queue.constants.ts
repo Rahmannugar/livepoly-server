@@ -3,6 +3,7 @@ export const QUEUES = {
   users: 'users',
   outbox: 'outbox',
   game: 'game',
+  rooms: 'rooms',
 } as const;
 
 export const MAIL_JOBS = {
@@ -29,4 +30,8 @@ export const GAME_JOBS = {
 
 export const LEADERBOARD_JOBS = {
   refreshSnapshots: 'refresh-leaderboard-snapshots',
+} as const;
+
+export const ROOM_JOBS = {
+  expireWaitingRooms: 'expire-waiting-rooms',
 } as const;

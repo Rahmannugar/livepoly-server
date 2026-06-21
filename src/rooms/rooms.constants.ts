@@ -21,6 +21,12 @@ export const LIVE_ROOMS_LIMIT = 50;
 
 export const ACTIVE_ROOM_STATUSES = ['waiting', 'active'] as const;
 
+export const WAITING_ROOM_EXPIRY_MS = 60 * 60 * 1000;
+
+export const WAITING_ROOM_EXPIRY_SWEEP_EVERY_MS = 60 * 60 * 1000;
+
+export const WAITING_ROOM_EXPIRY_REPEAT_JOB_ID = 'rooms:expire-waiting:repeat';
+
 export const ROOM_MAX_SPECTATORS = 20;
 
 export const BOT_NAMES = [
@@ -52,6 +58,7 @@ export const ROOM_EVENTS = {
   started: 'RoomStarted',
   spectatorJoined: 'RoomSpectatorJoined',
   spectatorLeft: 'RoomSpectatorLeft',
+  waitingExpired: 'RoomWaitingExpired',
 } as const;
 
 export const ROOM_METRICS = {
@@ -66,4 +73,5 @@ export const ROOM_METRICS = {
   started: (mode: string) => `Custom/Room/Started/${mode}`,
   spectatorJoined: 'Custom/Room/Spectator/Joined',
   spectatorLeft: 'Custom/Room/Spectator/Left',
+  waitingExpired: 'Custom/Room/WaitingExpired',
 } as const;

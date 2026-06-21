@@ -13,7 +13,10 @@ import { AuthGuard } from '../auth/guards/auth.guard';
 import type { AuthUser } from '../auth/types/auth-user.type';
 import { AdminService } from './admin.service';
 import { UpdateUserStatusDto } from './dto/update-user-status.dto';
-import { ApiUpdateUserStatus } from './docs/admin.swagger';
+import {
+  ApiRestoreDeletedUser,
+  ApiUpdateUserStatus,
+} from './docs/admin.swagger';
 
 @Controller('admin')
 @UseGuards(AuthGuard, AdminGuard)
@@ -29,5 +32,15 @@ export class AdminController {
     @Body() dto: UpdateUserStatusDto,
   ) {
     return this.adminService.updateUserStatus(authUser, username, dto.status);
+  }
+
+  @ApiRestoreDeletedUser()
+  @Patch('users/:username/restore')
+  @HttpCode(HttpStatus.OK)
+  restoreDeletedUser(
+    @AuthUserDecorator() authUser: AuthUser,
+    @Param('username') username: string,
+  ) {
+    return this.adminService.restoreDeletedUser(authUser, username);
   }
 }

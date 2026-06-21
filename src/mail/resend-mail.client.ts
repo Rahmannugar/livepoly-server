@@ -21,6 +21,7 @@ export class ResendMailClient implements MailClient {
       to: input.to,
       subject: input.subject,
       text: input.text,
+      html: input.html,
     });
 
     if (error) {

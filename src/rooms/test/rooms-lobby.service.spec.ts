@@ -1036,6 +1036,29 @@ describe('RoomsLobbyService', () => {
     });
   });
 
+  it('joins waiting room as spectator', async () => {
+    roomsLobbyRepository.findRoomByCode.mockResolvedValue(waitingRoom);
+    roomsLobbyRepository.findJoinedPlayer.mockResolvedValue(null);
+    roomsLobbyRepository.findCurrentSpectator.mockResolvedValue(null);
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue(waitingRoom);
+    roomsLobbyRepository.countCurrentSpectators.mockResolvedValue(2);
+    roomsLobbyRepository.createSpectator.mockResolvedValue(spectator);
+
+    const result = await service.spectateRoom(authUser, waitingRoom.code);
+
+    expect(roomsLobbyRepository.createSpectator).toHaveBeenCalledWith(
+      {
+        roomId: waitingRoom.id,
+        userId: authUser.id,
+      },
+      tx,
+    );
+    expect(result).toEqual({
+      message: 'Spectating room',
+      spectator,
+    });
+  });
+
   it('rejects room player spectating same room', async () => {
     roomsLobbyRepository.findRoomByCode.mockResolvedValue(activeRoom);
     roomsLobbyRepository.findJoinedPlayer.mockResolvedValue({

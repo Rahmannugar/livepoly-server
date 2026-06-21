@@ -1,5 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { and, count, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import {
+  and,
+  count,
+  desc,
+  eq,
+  inArray,
+  isNull,
+  lte,
+  or,
+  sql,
+} from 'drizzle-orm';
 import { DatabaseService } from '../../infra/database/database.service';
 import type { DatabaseExecutor } from '../../infra/database/database.service';
 import {
@@ -285,7 +295,9 @@ export class RoomsLobbyRepository {
       })
       .from(roomPlayers)
       .leftJoin(users, eq(users.id, roomPlayers.userId))
-      .where(eq(roomPlayers.roomId, roomId))
+      .where(
+        and(eq(roomPlayers.roomId, roomId), eq(roomPlayers.status, 'joined')),
+      )
       .orderBy(roomPlayers.seatNumber);
   }
 
@@ -308,7 +320,12 @@ export class RoomsLobbyRepository {
       })
       .from(roomPlayers)
       .leftJoin(users, eq(users.id, roomPlayers.userId))
-      .where(inArray(roomPlayers.roomId, roomIds))
+      .where(
+        and(
+          inArray(roomPlayers.roomId, roomIds),
+          eq(roomPlayers.status, 'joined'),
+        ),
+      )
       .orderBy(roomPlayers.roomId, roomPlayers.seatNumber);
   }
 
@@ -442,6 +459,31 @@ export class RoomsLobbyRepository {
       });
 
     return room ?? null;
+  }
+
+  async expireWaitingRooms(cutoff: Date, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+    const now = new Date();
+
+    return db
+      .update(rooms)
+      .set({
+        status: 'cancelled',
+        endedAt: now,
+      })
+      .where(and(eq(rooms.status, 'waiting'), lte(rooms.createdAt, cutoff)))
+      .returning({
+        id: rooms.id,
+        code: rooms.code,
+        hostUserId: rooms.hostUserId,
+        status: rooms.status,
+        maxPlayers: rooms.maxPlayers,
+        durationMinutes: rooms.durationMinutes,
+        boardKey: rooms.boardKey,
+        createdAt: rooms.createdAt,
+        startedAt: rooms.startedAt,
+        endedAt: rooms.endedAt,
+      });
   }
 
   async lockRoomByCode(code: string, executor: DatabaseExecutor) {

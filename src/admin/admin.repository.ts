@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import {
   DatabaseExecutor,
   DatabaseService,
@@ -30,6 +30,29 @@ export class AdminRepository {
       })
       .from(users)
       .where(and(eq(users.username, username), isNull(users.deletedAt)))
+      .limit(1);
+
+    return user ?? null;
+  }
+
+  async findDeletedUserByUsername(
+    username: string,
+    executor?: DatabaseExecutor,
+  ) {
+    const db = this.executor(executor);
+
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        role: users.role,
+        status: users.status,
+        tokenVersion: users.tokenVersion,
+        deletedAt: users.deletedAt,
+      })
+      .from(users)
+      .where(and(eq(users.username, username), isNotNull(users.deletedAt)))
       .limit(1);
 
     return user ?? null;
@@ -77,5 +100,30 @@ export class AdminRepository {
       });
 
     return revokedSessions;
+  }
+
+  async restoreDeletedUser(userId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    const [user] = await db
+      .update(users)
+      .set({
+        avatarObjectKey: null,
+        deletedAt: null,
+        status: 'active',
+        tokenVersion: sql`${users.tokenVersion} + 1`,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, userId), isNotNull(users.deletedAt)))
+      .returning({
+        id: users.id,
+        email: users.email,
+        username: users.username,
+        role: users.role,
+        status: users.status,
+        tokenVersion: users.tokenVersion,
+      });
+
+    return user ?? null;
   }
 }

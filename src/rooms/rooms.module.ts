@@ -11,6 +11,7 @@ import { RoomsGameRepository } from './repositories/rooms-game.repository';
 import { RoomsLobbyRepository } from './repositories/rooms-lobby.repository';
 import { RoomsController } from './rooms.controller';
 import { RoomsGameService } from './services/rooms-game.service';
+import { RoomsExpiryService } from './services/rooms-expiry.service';
 import { RoomsLobbyService } from './services/rooms-lobby.service';
 import { RoomsStreamService } from './services/rooms-stream.service';
 
@@ -29,6 +30,7 @@ import { RoomsStreamService } from './services/rooms-stream.service';
   providers: [
     RoomsLobbyService,
     RoomsGameService,
+    RoomsExpiryService,
     RoomsStreamService,
     RoomsLobbyRepository,
     RoomsGameRepository,

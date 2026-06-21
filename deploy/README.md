@@ -7,7 +7,9 @@ The deployment runs on one EC2 host with Docker Compose:
 - One worker container processes game jobs. Worker startup and recovery are
   additionally protected by the application singleton lock.
 - PgBouncer uses transaction pooling between the applications and PostgreSQL.
-- PostgreSQL and Redis are reachable only on private Docker networks.
+- Applications reach PostgreSQL and Redis only on private Docker networks.
+- PostgreSQL also binds to EC2 loopback for SSH-tunneled administrative access;
+  it is never exposed on the instance's public interface.
 - Redis uses AOF persistence and `noeviction`; reaching its memory limit fails
   writes instead of silently deleting game or queue state.
 
@@ -69,6 +71,19 @@ environment; credentials are not committed or exposed through host ports.
 Application health probes remain active for Docker and Nginx, but `/health/live`
 and `/health/ready` are excluded from New Relic transactions and automatic HTTP
 request logs so they do not dominate telemetry.
+
+## Database Administration
+
+Use a local SSH tunnel for direct PostgreSQL access without sending DBeaver
+through PgBouncer's transaction pool:
+
+```sh
+ssh -N -L 16432:127.0.0.1:5432 livepoly
+```
+
+While that command is running, connect DBeaver to `127.0.0.1:16432` using the
+deployed database credentials. PostgreSQL remains bound to EC2 loopback, so no
+database security-group rule or public port is required.
 
 ## Backups
 

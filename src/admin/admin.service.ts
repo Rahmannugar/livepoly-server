@@ -7,6 +7,8 @@ import type { AuthUser, UserStatus } from '../auth/types/auth-user.type';
 import { DatabaseService } from '../infra/database/database.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
 import { SessionCacheService } from '../session/session-cache.service';
+import { CacheService } from '../infra/cache/cache.service';
+import { USER_SEARCH } from '../users/users.constants';
 import { AdminRepository } from './admin.repository';
 
 @Injectable()
@@ -15,6 +17,7 @@ export class AdminService {
     private readonly adminRepository: AdminRepository,
     private readonly databaseService: DatabaseService,
     private readonly sessionCacheService: SessionCacheService,
+    private readonly cacheService: CacheService,
     private readonly observabilityService: ObservabilityService,
   ) {}
 
@@ -76,6 +79,49 @@ export class AdminService {
       targetUsername: targetUser.username,
       status: targetUser.status,
       revokedSessionCount: revokedSessions.length,
+    });
+
+    return {
+      user: {
+        id: targetUser.id,
+        email: targetUser.email,
+        username: targetUser.username,
+        role: targetUser.role,
+        status: targetUser.status,
+      },
+    };
+  }
+
+  async restoreDeletedUser(adminUser: AuthUser, username: string) {
+    const normalizedUsername = username.trim().toLowerCase();
+
+    const targetUser = await this.databaseService.transaction(async (tx) => {
+      const deletedUser = await this.adminRepository.findDeletedUserByUsername(
+        normalizedUsername,
+        tx,
+      );
+
+      if (!deletedUser) {
+        return null;
+      }
+
+      if (deletedUser.id === adminUser.id) {
+        throw new BadRequestException('Admin cannot restore their own account');
+      }
+
+      return this.adminRepository.restoreDeletedUser(deletedUser.id, tx);
+    });
+
+    if (!targetUser) {
+      throw new NotFoundException('Deleted user not found');
+    }
+
+    await this.cacheService.getClient().incr(USER_SEARCH.cacheVersionKey);
+
+    this.observabilityService.recordSecurityEvent('AdminDeletedUserRestored', {
+      adminUserId: adminUser.id,
+      targetUserId: targetUser.id,
+      targetUsername: targetUser.username,
     });
 
     return {

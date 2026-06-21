@@ -26,3 +26,7 @@ export const AUTH_EVENTS = {
   oauthFailed: 'OAuthFailed',
   oauthSucceeded: 'OAuthSucceeded',
 } as const;
+
+export const AUTH_ERROR_CODES = {
+  emailVerificationRequired: 'EMAIL_VERIFICATION_REQUIRED',
+} as const;

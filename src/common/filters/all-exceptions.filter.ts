@@ -24,7 +24,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
         : HttpStatus.INTERNAL_SERVER_ERROR;
 
     const allowedMethods =
-      originalStatus === HttpStatus.NOT_FOUND
+      originalStatus === Number(HttpStatus.NOT_FOUND)
         ? this.httpRouteContract?.isUnsupportedMethod(
             request.path,
             request.method,
@@ -45,7 +45,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     response.status(status).json({
       success: false,
       error: {
-        code: this.resolveCode(status),
+        code: this.resolveCode(status, exceptionResponse),
         statusCode: status,
         message: allowedMethods
           ? 'Method not allowed'
@@ -57,7 +57,19 @@ export class AllExceptionsFilter implements ExceptionFilter {
     });
   }
 
-  private resolveCode(status: number): string {
+  private resolveCode(status: number, exceptionResponse: unknown): string {
+    if (
+      typeof exceptionResponse === 'object' &&
+      exceptionResponse !== null &&
+      'code' in exceptionResponse
+    ) {
+      const code = exceptionResponse.code;
+
+      if (typeof code === 'string' && code.trim()) {
+        return code;
+      }
+    }
+
     return HttpStatus[status] ?? 'HTTP_ERROR';
   }
 
@@ -70,7 +82,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exceptionResponse !== null &&
       'message' in exceptionResponse
     ) {
-      const message = (exceptionResponse as { message: unknown }).message;
+      const message = exceptionResponse.message;
       return Array.isArray(message) ? message.join(', ') : String(message);
     }
 

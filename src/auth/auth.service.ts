@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   InternalServerErrorException,
   NotFoundException,
@@ -14,7 +15,7 @@ import { MailQueueService } from '../mail/jobs/mail-queue.service';
 import { OtpService } from '../otp/otp.service';
 import { SessionCacheService } from '../session/session-cache.service';
 import type { AuthRequestContext, OAuthProfile } from './auth.types';
-import { AUTH, AUTH_EVENTS } from './auth.constants';
+import { AUTH, AUTH_ERROR_CODES, AUTH_EVENTS } from './auth.constants';
 import { AuthRepository } from './auth.repository';
 import { LoginDto } from './dto/login.dto';
 import { SignupDto } from './dto/signup.dto';
@@ -276,39 +277,11 @@ export class AuthService {
     await this.cacheService.getClient().incr(USER_SEARCH.cacheVersionKey);
   }
 
-  //public methods
-  async signup(dto: SignupDto, context: AuthRequestContext) {
-    const email = dto.email.trim().toLowerCase();
-    const username = dto.username.trim().toLowerCase();
-
-    this.recordSecurityEvent(AUTH_EVENTS.signupRequested, {
-      hasIp: Boolean(context.ip),
-    });
-
-    const existingUser = await this.authRepository.findUserByEmailOrUsername(
-      email,
-      username,
-    );
-
-    if (existingUser) {
-      this.recordSecurityEvent(AUTH_EVENTS.signupFailed, {
-        reason: 'email_or_username_exists',
-        hasIp: Boolean(context.ip),
-      });
-
-      throw new ConflictException('Email or username already exists');
-    }
-
-    const passwordHash = await hashPassword(dto.password);
+  private async sendEmailVerificationOtp(user: {
+    id: string;
+    email: string;
+  }): Promise<void> {
     const otpCode = generateOtpCode();
-
-    const user = await this.authRepository.createUser({
-      email,
-      username,
-      passwordHash,
-    });
-
-    await this.bumpUserSearchCacheVersion();
 
     await this.otpService.storeEmailVerificationOtp({
       userId: user.id,
@@ -320,6 +293,63 @@ export class AuthService {
       email: user.email,
       otpCode,
     });
+  }
+
+  //public methods
+  async signup(dto: SignupDto, context: AuthRequestContext) {
+    const email = dto.email.trim().toLowerCase();
+    const username = dto.username.trim().toLowerCase();
+
+    this.recordSecurityEvent(AUTH_EVENTS.signupRequested, {
+      hasIp: Boolean(context.ip),
+    });
+
+    const existingEmailUser = await this.authRepository.findUserByEmail(email);
+
+    if (existingEmailUser) {
+      if (!existingEmailUser.emailVerified && existingEmailUser.passwordHash) {
+        await this.sendEmailVerificationOtp(existingEmailUser);
+
+        this.recordSecurityEvent(AUTH_EVENTS.emailVerificationResent, {
+          userId: existingEmailUser.id,
+          reason: 'signup_existing_unverified_email',
+          hasIp: Boolean(context.ip),
+        });
+
+        return {
+          message: 'Verification code sent',
+        };
+      }
+
+      this.recordSecurityEvent(AUTH_EVENTS.signupFailed, {
+        reason: 'email_exists',
+        hasIp: Boolean(context.ip),
+      });
+
+      throw new ConflictException('Email or username already exists');
+    }
+
+    const existingUsernameUser =
+      await this.authRepository.findUserByUsername(username);
+
+    if (existingUsernameUser) {
+      this.recordSecurityEvent(AUTH_EVENTS.signupFailed, {
+        reason: 'username_exists',
+        hasIp: Boolean(context.ip),
+      });
+
+      throw new ConflictException('Email or username already exists');
+    }
+
+    const passwordHash = await hashPassword(dto.password);
+    const user = await this.authRepository.createUser({
+      email,
+      username,
+      passwordHash,
+    });
+
+    await this.bumpUserSearchCacheVersion();
+    await this.sendEmailVerificationOtp(user);
 
     this.recordSecurityEvent(AUTH_EVENTS.signupSucceeded, {
       userId: user.id,
@@ -419,18 +449,7 @@ export class AuthService {
       return genericResponse;
     }
 
-    const otpCode = generateOtpCode();
-
-    await this.otpService.storeEmailVerificationOtp({
-      userId: user.id,
-      otpCode,
-      ttlSeconds: AUTH.emailOtpTtlMinutes * 60,
-    });
-
-    await this.mailQueueService.enqueueEmailVerificationOtp({
-      email: user.email,
-      otpCode,
-    });
+    await this.sendEmailVerificationOtp(user);
 
     this.recordSecurityEvent(AUTH_EVENTS.emailVerificationResent, {
       userId: user.id,
@@ -467,13 +486,18 @@ export class AuthService {
     }
 
     if (!user.emailVerified) {
+      await this.sendEmailVerificationOtp(user);
+
       this.recordSecurityEvent(AUTH_EVENTS.loginFailed, {
         reason: 'email_unverified',
         userId: user.id,
         hasIp: Boolean(context.ip),
       });
 
-      throw new UnauthorizedException('Invalid email or password');
+      throw new ForbiddenException({
+        code: AUTH_ERROR_CODES.emailVerificationRequired,
+        message: 'Email verification required',
+      });
     }
 
     if (user.status !== 'active') {

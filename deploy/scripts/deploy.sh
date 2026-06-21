@@ -55,12 +55,20 @@ cd "$release_dir"
 export IMAGE_TAG="$commit_sha"
 
 compose=(docker compose --env-file .env -f deploy/docker-compose.production.yml)
+new_relic_infra_enabled="$(
+  awk -F= '$1=="NEW_RELIC_INFRA_ENABLED"{gsub(/^"|"$/,"",$2); print $2}' .env \
+    | tail -n 1
+)"
 
 "${compose[@]}" build api-1 pgbouncer
 "${compose[@]}" down --remove-orphans --timeout 30
 "${compose[@]}" up -d postgres redis pgbouncer
 "${compose[@]}" --profile tools run --rm migrate
 "${compose[@]}" up -d --remove-orphans api-1 api-2 worker nginx
+
+if [[ "$new_relic_infra_enabled" == "true" ]]; then
+  "${compose[@]}" --profile monitoring up -d newrelic-infra
+fi
 
 for attempt in {1..20}; do
   if curl --fail --silent --show-error \

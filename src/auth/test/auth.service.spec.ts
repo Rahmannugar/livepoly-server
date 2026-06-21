@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { CacheService } from '../../infra/cache/cache.service';
@@ -8,6 +8,7 @@ import { MailQueueService } from '../../mail/jobs/mail-queue.service';
 import { OtpService } from '../../otp/otp.service';
 import { SessionCacheService } from '../../session/session-cache.service';
 import { USER_SEARCH } from '../../users/users.constants';
+import { AUTH_ERROR_CODES } from '../auth.constants';
 import { AuthRepository } from '../auth.repository';
 import { AuthService } from '../auth.service';
 import { AuthTokenVersionCacheService } from '../auth-token-version-cache.service';
@@ -638,6 +639,37 @@ describe('AuthService', () => {
     expect(cacheIncr).toHaveBeenCalledWith(USER_SEARCH.cacheVersionKey);
   });
 
+  it('resends verification when signup is retried for an unverified email', async () => {
+    users.push({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player',
+      passwordHash: 'password-hash',
+      emailVerified: false,
+      role: 'player',
+      status: 'active',
+      tokenVersion: 0,
+    });
+
+    const result = await service.signup(
+      {
+        email: 'player@example.com',
+        username: 'player2',
+        password: 'StrongPass123',
+      },
+      { ip: '127.0.0.1', userAgent: 'jest' },
+    );
+
+    expect(result).toEqual({ message: 'Verification code sent' });
+    expect(users).toHaveLength(1);
+    expect(authRepository.createUser).not.toHaveBeenCalled();
+    expect(otpService.storeEmailVerificationOtp).toHaveBeenCalledWith({
+      userId: 'user-1',
+      otpCode: '123456',
+      ttlSeconds: 900,
+    });
+  });
+
   it('bumps user search cache when email verification makes a user discoverable', async () => {
     users.push({
       id: 'user-1',
@@ -798,6 +830,42 @@ describe('AuthService', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
 
     expect(sessions).toHaveLength(0);
+  });
+
+  it('resends verification and returns a specific code for unverified password login', async () => {
+    users.push({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player',
+      passwordHash: 'password-hash',
+      emailVerified: false,
+      role: 'player',
+      status: 'active',
+      tokenVersion: 0,
+    });
+
+    const loginAttempt = service.login(
+      {
+        email: 'player@example.com',
+        password: 'StrongPass123',
+      },
+      { ip: '127.0.0.1', userAgent: 'jest' },
+    );
+
+    await expect(loginAttempt).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(loginAttempt).rejects.toMatchObject({
+      response: {
+        code: AUTH_ERROR_CODES.emailVerificationRequired,
+        message: 'Email verification required',
+      },
+    });
+
+    expect(sessions).toHaveLength(0);
+    expect(otpService.storeEmailVerificationOtp).toHaveBeenCalledWith({
+      userId: 'user-1',
+      otpCode: '123456',
+      ttlSeconds: 900,
+    });
   });
 
   it('rejects suspended oauth login', async () => {

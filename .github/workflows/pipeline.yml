@@ -18,7 +18,7 @@ jobs:
   verify:
     name: Verify server
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
     env:
       NODE_ENV: test
       DATABASE_URL: postgresql://livepoly:livepoly@127.0.0.1:5432/livepoly
@@ -43,12 +43,12 @@ jobs:
 
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: 22
           cache: npm
@@ -120,7 +120,7 @@ jobs:
           test -n "$AWS_SECRET_ID"
 
       - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
@@ -135,7 +135,7 @@ jobs:
           remote_command=$(cat <<EOF
           set -eu
           install -d -o ubuntu -g ubuntu /opt/livepoly /opt/livepoly/releases /opt/livepoly/backups
-          if [[ ! -d /opt/livepoly/repository/.git ]]; then
+          if [ ! -d /opt/livepoly/repository/.git ]; then
             sudo -u ubuntu git clone '${REPOSITORY_URL}' /opt/livepoly/repository
           fi
           sudo -u ubuntu git -C /opt/livepoly/repository fetch --prune origin main

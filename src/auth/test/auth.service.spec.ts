@@ -19,9 +19,11 @@ import { OAuthStateService } from '../oauth-state.service';
 jest.mock('../utils/utils', () => ({
   generateOpaqueToken: jest.fn(() => 'plain-refresh-token'),
   generateOtpCode: jest.fn(() => '123456'),
-  hashPassword: jest.fn(async (password: string) => `hashed:${password}`),
+  hashPassword: jest.fn((password: string) =>
+    Promise.resolve(`hashed:${password}`),
+  ),
   hashToken: jest.fn((token: string) => `hashed-token:${token}`),
-  verifyPassword: jest.fn(async () => true),
+  verifyPassword: jest.fn(() => Promise.resolve(true)),
 }));
 
 type FakeUser = {
@@ -257,21 +259,21 @@ describe('AuthService', () => {
     sessions = [];
 
     authRepository = {
-      findUserByEmailOrUsername: jest.fn(async (email, username) => {
+      findUserByEmailOrUsername: jest.fn((email, username) => {
         const user = users.find(
           (item) => item.email === email || item.username === username,
         );
 
-        if (!user) return null;
+        if (!user) return Promise.resolve(null);
 
-        return {
+        return Promise.resolve({
           id: user.id,
           email: user.email,
           username: user.username,
-        };
+        });
       }),
 
-      createUser: jest.fn(async (input) => {
+      createUser: jest.fn((input) => {
         const user: FakeUser = {
           id: `user-${users.length + 1}`,
           email: input.email,
@@ -285,26 +287,26 @@ describe('AuthService', () => {
 
         users.push(user);
 
-        return {
+        return Promise.resolve({
           id: user.id,
           email: user.email,
           username: user.username,
-        };
+        });
       }),
 
-      findUserByOAuthAccount: jest.fn(async (provider, providerAccountId) => {
+      findUserByOAuthAccount: jest.fn((provider, providerAccountId) => {
         const account = oauthAccounts.find(
           (item) =>
             item.provider === provider &&
             item.providerAccountId === providerAccountId,
         );
 
-        if (!account) return null;
+        if (!account) return Promise.resolve(null);
 
         const user = users.find((item) => item.id === account.userId);
-        if (!user) return null;
+        if (!user) return Promise.resolve(null);
 
-        return {
+        return Promise.resolve({
           id: user.id,
           email: user.email,
           username: user.username,
@@ -312,10 +314,10 @@ describe('AuthService', () => {
           status: user.status,
           tokenVersion: user.tokenVersion,
           emailVerified: user.emailVerified,
-        };
+        });
       }),
 
-      updateOAuthAccountEmail: jest.fn(async (input) => {
+      updateOAuthAccountEmail: jest.fn((input) => {
         const account = oauthAccounts.find(
           (item) =>
             item.provider === input.provider &&
@@ -325,14 +327,16 @@ describe('AuthService', () => {
         if (account) {
           account.providerEmail = input.providerEmail;
         }
+
+        return Promise.resolve();
       }),
 
-      findUserByEmail: jest.fn(async (email) => {
+      findUserByEmail: jest.fn((email) => {
         const user = users.find((item) => item.email === email);
 
-        if (!user) return null;
+        if (!user) return Promise.resolve(null);
 
-        return {
+        return Promise.resolve({
           id: user.id,
           email: user.email,
           username: user.username,
@@ -341,27 +345,30 @@ describe('AuthService', () => {
           role: user.role,
           status: user.status,
           tokenVersion: user.tokenVersion,
-        };
+        });
       }),
 
-      linkOAuthAccount: jest.fn(async (input) => {
+      linkOAuthAccount: jest.fn((input) => {
         oauthAccounts.push({ ...input });
+        return Promise.resolve();
       }),
 
-      markEmailVerified: jest.fn(async (userId) => {
+      markEmailVerified: jest.fn((userId) => {
         const user = users.find((item) => item.id === userId);
 
         if (user) {
           user.emailVerified = true;
         }
+
+        return Promise.resolve();
       }),
 
-      findUserByUsername: jest.fn(async (username) => {
+      findUserByUsername: jest.fn((username) => {
         const user = users.find((item) => item.username === username);
-        return user ? { id: user.id } : null;
+        return Promise.resolve(user ? { id: user.id } : null);
       }),
 
-      createOAuthUser: jest.fn(async (input) => {
+      createOAuthUser: jest.fn((input) => {
         const user: FakeUser = {
           id: `user-${users.length + 1}`,
           email: input.email,
@@ -381,7 +388,7 @@ describe('AuthService', () => {
           providerEmail: input.providerEmail,
         });
 
-        return {
+        return Promise.resolve({
           id: user.id,
           email: user.email,
           username: user.username,
@@ -389,31 +396,33 @@ describe('AuthService', () => {
           status: user.status,
           tokenVersion: user.tokenVersion,
           emailVerified: user.emailVerified,
-        };
+        });
       }),
 
-      countActiveSessions: jest.fn(async (userId) => {
-        return sessions.filter(
-          (session) => session.userId === userId && !session.revokedAt,
-        ).length;
-      }),
+      countActiveSessions: jest.fn((userId) =>
+        Promise.resolve(
+          sessions.filter(
+            (session) => session.userId === userId && !session.revokedAt,
+          ).length,
+        ),
+      ),
 
-      revokeOldestActiveSession: jest.fn(async (userId) => {
+      revokeOldestActiveSession: jest.fn((userId) => {
         const session = sessions.find(
           (item) => item.userId === userId && !item.revokedAt,
         );
 
-        if (!session) return undefined;
+        if (!session) return Promise.resolve(undefined);
 
         session.revokedAt = new Date();
 
-        return {
+        return Promise.resolve({
           id: session.id,
           refreshTokenHash: session.refreshTokenHash,
-        };
+        });
       }),
 
-      createSession: jest.fn(async (input) => {
+      createSession: jest.fn((input) => {
         const session: FakeSession = {
           id: `session-${sessions.length + 1}`,
           userId: input.userId,
@@ -424,49 +433,49 @@ describe('AuthService', () => {
 
         sessions.push(session);
 
-        return {
+        return Promise.resolve({
           id: session.id,
           userId: session.userId,
           refreshTokenHash: session.refreshTokenHash,
           expiresAt: session.expiresAt,
-        };
+        });
       }),
 
-      updatePassword: jest.fn(async (userId, passwordHash) => {
+      updatePassword: jest.fn((userId, passwordHash) => {
         const user = users.find((item) => item.id === userId);
 
-        if (!user) return undefined;
+        if (!user) return Promise.resolve(undefined);
 
         user.passwordHash = passwordHash;
         user.tokenVersion += 1;
 
-        return {
+        return Promise.resolve({
           tokenVersion: user.tokenVersion,
-        };
+        });
       }),
 
-      findActiveSessionByRefreshTokenHash: jest.fn(async (refreshTokenHash) => {
+      findActiveSessionByRefreshTokenHash: jest.fn((refreshTokenHash) => {
         const session = sessions.find(
           (item) =>
             item.refreshTokenHash === refreshTokenHash && !item.revokedAt,
         );
 
-        if (!session) return null;
+        if (!session) return Promise.resolve(null);
 
-        return {
+        return Promise.resolve({
           id: session.id,
           userId: session.userId,
           refreshTokenHash: session.refreshTokenHash,
           expiresAt: session.expiresAt,
-        };
+        });
       }),
 
-      findUserByIdForAuthToken: jest.fn(async (userId) => {
+      findUserByIdForAuthToken: jest.fn((userId) => {
         const user = users.find((item) => item.id === userId);
 
-        if (!user) return null;
+        if (!user) return Promise.resolve(null);
 
-        return {
+        return Promise.resolve({
           id: user.id,
           email: user.email,
           username: user.username,
@@ -475,10 +484,10 @@ describe('AuthService', () => {
           tokenVersion: user.tokenVersion,
           emailVerified: user.emailVerified,
           deletedAt: null,
-        };
+        });
       }),
 
-      rotateSessionRefreshToken: jest.fn(async (input) => {
+      rotateSessionRefreshToken: jest.fn((input) => {
         const session = sessions.find(
           (item) =>
             item.id === input.sessionId &&
@@ -486,90 +495,96 @@ describe('AuthService', () => {
             !item.revokedAt,
         );
 
-        if (!session) return null;
+        if (!session) return Promise.resolve(null);
 
         session.refreshTokenHash = input.nextRefreshTokenHash;
         session.expiresAt = input.expiresAt;
 
-        return {
+        return Promise.resolve({
           id: session.id,
           userId: session.userId,
           refreshTokenHash: session.refreshTokenHash,
           expiresAt: session.expiresAt,
-        };
+        });
       }),
 
-      revokeUserSessions: jest.fn(async (userId) => {
-        return sessions
-          .filter((session) => session.userId === userId && !session.revokedAt)
-          .map((session) => {
-            session.revokedAt = new Date();
+      revokeUserSessions: jest.fn((userId) =>
+        Promise.resolve(
+          sessions
+            .filter(
+              (session) => session.userId === userId && !session.revokedAt,
+            )
+            .map((session) => {
+              session.revokedAt = new Date();
 
-            return {
-              id: session.id,
-              refreshTokenHash: session.refreshTokenHash,
-            };
-          });
-      }),
+              return {
+                id: session.id,
+                refreshTokenHash: session.refreshTokenHash,
+              };
+            }),
+        ),
+      ),
     };
 
     otpService = {
-      isValidPasswordResetOtp: jest.fn<Promise<boolean>, [string, string]>(
-        async () => true,
+      isValidPasswordResetOtp: jest.fn<Promise<boolean>, [string, string]>(() =>
+        Promise.resolve(true),
       ),
-      deletePasswordResetOtp: jest.fn<Promise<void>, [string]>(
-        async () => undefined,
+      deletePasswordResetOtp: jest.fn<Promise<void>, [string]>(() =>
+        Promise.resolve(),
       ),
-      storeEmailVerificationOtp: jest.fn<Promise<void>, [unknown]>(
-        async () => undefined,
+      storeEmailVerificationOtp: jest.fn<Promise<void>, [unknown]>(() =>
+        Promise.resolve(),
       ),
-      deleteEmailVerificationOtp: jest.fn<Promise<void>, [string]>(
-        async () => undefined,
+      deleteEmailVerificationOtp: jest.fn<Promise<void>, [string]>(() =>
+        Promise.resolve(),
       ),
       isValidEmailVerificationOtp: jest.fn<Promise<boolean>, [string, string]>(
-        async () => true,
+        () => Promise.resolve(true),
       ),
     };
 
     sessionCacheService = {
-      withUserSessionLock: async <T>(
-        _userId: string,
-        callback: () => Promise<T>,
-      ) => callback(),
-      storeSession: jest.fn<Promise<void>, [unknown]>(async () => undefined),
-      deleteSession: jest.fn<Promise<void>, [string]>(async () => undefined),
-      getSession: jest.fn<Promise<unknown>, [string]>(async () => null),
+      withUserSessionLock: <T>(_userId: string, callback: () => Promise<T>) =>
+        callback(),
+      storeSession: jest.fn<Promise<void>, [unknown]>(() => Promise.resolve()),
+      deleteSession: jest.fn<Promise<void>, [string]>(() => Promise.resolve()),
+      getSession: jest.fn<Promise<unknown>, [string]>(() =>
+        Promise.resolve(null),
+      ),
     };
 
     authTokenVersionCacheService = {
-      set: jest.fn<Promise<void>, [string, number]>(async () => undefined),
-      get: jest.fn<Promise<number | null>, [string]>(async () => null),
-      delete: jest.fn<Promise<void>, [string]>(async () => undefined),
+      set: jest.fn<Promise<void>, [string, number]>(() => Promise.resolve()),
+      get: jest.fn<Promise<number | null>, [string]>(() =>
+        Promise.resolve(null),
+      ),
+      delete: jest.fn<Promise<void>, [string]>(() => Promise.resolve()),
     };
 
     oauthClientService = {
-      exchangeGoogleCodeForProfile: jest.fn(),
-      exchangeDiscordCodeForProfile: jest.fn(),
-      buildGoogleAuthorizationUrl: jest.fn(),
-      buildDiscordAuthorizationUrl: jest.fn(),
+      exchangeGoogleCodeForProfile: jest.fn<Promise<OAuthProfile>, [string]>(),
+      exchangeDiscordCodeForProfile: jest.fn<Promise<OAuthProfile>, [string]>(),
+      buildGoogleAuthorizationUrl: jest.fn<string, [string]>(),
+      buildDiscordAuthorizationUrl: jest.fn<string, [string]>(),
     };
 
     oauthStateService = {
-      consumeState: jest.fn<Promise<void>, [OAuthProvider, string]>(
-        async () => undefined,
+      consumeState: jest.fn<Promise<void>, [OAuthProvider, string]>(() =>
+        Promise.resolve(),
       ),
-      createState: jest.fn<Promise<string>, [OAuthProvider]>(
-        async () => 'oauth-state',
+      createState: jest.fn<Promise<string>, [OAuthProvider]>(() =>
+        Promise.resolve('oauth-state'),
       ),
     };
 
     const mailQueueService = {
-      enqueueEmailVerificationOtp: jest.fn(async () => undefined),
-      enqueuePasswordResetOtp: jest.fn(async () => undefined),
+      enqueueEmailVerificationOtp: jest.fn(() => Promise.resolve()),
+      enqueuePasswordResetOtp: jest.fn(() => Promise.resolve()),
     };
 
     const jwtService = {
-      signAsync: jest.fn(async () => 'access-token'),
+      signAsync: jest.fn(() => Promise.resolve('access-token')),
     };
 
     const configService = {
@@ -586,7 +601,7 @@ describe('AuthService', () => {
     };
 
     const databaseService: DatabaseServiceMock = {
-      transaction: async <T>(callback: (executor: Executor) => Promise<T>) =>
+      transaction: <T>(callback: (executor: Executor) => Promise<T>) =>
         callback(tx),
     };
 
@@ -597,7 +612,7 @@ describe('AuthService', () => {
       >(),
     };
 
-    cacheIncr = jest.fn<Promise<number>, [string]>(async () => 2);
+    cacheIncr = jest.fn<Promise<number>, [string]>(() => Promise.resolve(2));
     cacheService = {
       getClient: jest.fn(() => ({
         incr: cacheIncr,

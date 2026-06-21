@@ -1,0 +1,51 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 5
+    groups:
+      npm-production:
+        dependency-type: production
+      npm-development:
+        dependency-type: development
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:15"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /deploy
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:20"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: docker
+    directory: /deploy/pgbouncer
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:25"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 5
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:30"
+      timezone: Africa/Lagos
+    open-pull-requests-limit: 5

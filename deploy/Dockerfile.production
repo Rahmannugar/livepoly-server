@@ -29,6 +29,7 @@ RUN apk add --no-cache dumb-init
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY drizzle ./drizzle
+COPY newrelic.js ./
 COPY package*.json ./
 
 EXPOSE 3002

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { BullModule } from '@nestjs/bullmq';
 import { AuthModule } from '../auth/auth.module';
 import { GameModule } from '../game/game.module';
 import { DatabaseModule } from '../infra/database/database.module';
@@ -14,6 +15,8 @@ import { RoomsGameService } from './services/rooms-game.service';
 import { RoomsExpiryService } from './services/rooms-expiry.service';
 import { RoomsLobbyService } from './services/rooms-lobby.service';
 import { RoomsStreamService } from './services/rooms-stream.service';
+import { QUEUES } from '../infra/queue/queue.constants';
+import { RoomsQueueService } from './jobs/rooms-queue.service';
 
 @Module({
   imports: [
@@ -25,6 +28,7 @@ import { RoomsStreamService } from './services/rooms-stream.service';
     GameModule,
     ObservabilityModule,
     PubSubModule,
+    BullModule.registerQueue({ name: QUEUES.rooms }),
   ],
   controllers: [RoomsController],
   providers: [
@@ -34,6 +38,7 @@ import { RoomsStreamService } from './services/rooms-stream.service';
     RoomsStreamService,
     RoomsLobbyRepository,
     RoomsGameRepository,
+    RoomsQueueService,
   ],
 })
 export class RoomsModule {}

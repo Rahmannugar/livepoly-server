@@ -23,6 +23,7 @@ import { CreateRoomDto } from '../dto/create-room.dto';
 import { InviteRoomDto } from '../dto/invite-room.dto';
 import { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
 import { RoomsStreamService } from './rooms-stream.service';
+import { RoomsQueueService } from '../jobs/rooms-queue.service';
 import {
   DEFAULT_ROOM_DURATION_MINUTES,
   LIVE_ROOMS_LIMIT,
@@ -51,6 +52,7 @@ export class RoomsLobbyService {
     private readonly gameCommandsService: GameCommandsService,
     private readonly gameRealtimePublisher: GameRealtimePublisher,
     private readonly roomsStreamService: RoomsStreamService,
+    private readonly roomsQueueService: RoomsQueueService,
   ) {}
 
   async createRoom(authUser: AuthUser, dto: CreateRoomDto) {
@@ -98,6 +100,7 @@ export class RoomsLobbyService {
           boardKey: room.boardKey,
         });
         this.observabilityService.recordMetric(ROOM_METRICS.created);
+        await this.scheduleWaitingRoomExpiry(room);
         await this.roomsStreamService.publishRoomChanged({
           roomId: room.id,
           roomCode: room.code,
@@ -115,6 +118,32 @@ export class RoomsLobbyService {
     }
 
     throw new ConflictException('Could not create room');
+  }
+
+  private async scheduleWaitingRoomExpiry(room: {
+    id: string;
+    code: string;
+    createdAt: Date;
+  }): Promise<void> {
+    const expiresAt = room.createdAt.getTime() + WAITING_ROOM_EXPIRY_MS;
+
+    try {
+      await this.roomsQueueService.enqueueWaitingRoomExpiry(room.id, expiresAt);
+    } catch (error) {
+      this.logger.error({
+        message: 'rooms.expiry.queue_failed',
+        roomId: room.id,
+        roomCode: room.code,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      this.observabilityService.recordEvent(
+        ROOM_EVENTS.waitingExpiryQueueFailed,
+        { roomId: room.id, roomCode: room.code, expiresAt },
+      );
+      this.observabilityService.recordMetric(
+        ROOM_METRICS.waitingExpiryQueueFailed,
+      );
+    }
   }
 
   async listLiveRooms(authUser: AuthUser) {

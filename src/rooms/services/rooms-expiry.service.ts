@@ -24,17 +24,7 @@ export class RoomsExpiryService {
       await this.roomsLobbyRepository.expireWaitingRooms(cutoff);
 
     for (const room of expiredRooms) {
-      this.observabilityService.recordEvent(ROOM_EVENTS.waitingExpired, {
-        roomId: room.id,
-        roomCode: room.code,
-        hostUserId: room.hostUserId,
-      });
-      this.observabilityService.recordMetric(ROOM_METRICS.waitingExpired);
-      await this.roomsStreamService.publishRoomChanged({
-        roomId: room.id,
-        roomCode: room.code,
-        event: 'room.cancelled',
-      });
+      await this.recordExpiry(room);
     }
 
     if (expiredRooms.length > 0) {
@@ -49,5 +39,35 @@ export class RoomsExpiryService {
       expiredCount: expiredRooms.length,
       expiredRoomCodes: expiredRooms.map((room) => room.code),
     };
+  }
+
+  async expireWaitingRoom(roomId: string) {
+    const room = await this.roomsLobbyRepository.expireWaitingRoom(roomId);
+
+    if (!room) {
+      return { expired: false };
+    }
+
+    await this.recordExpiry(room);
+
+    return { expired: true, roomCode: room.code };
+  }
+
+  private async recordExpiry(room: {
+    id: string;
+    code: string;
+    hostUserId: string;
+  }): Promise<void> {
+    this.observabilityService.recordEvent(ROOM_EVENTS.waitingExpired, {
+      roomId: room.id,
+      roomCode: room.code,
+      hostUserId: room.hostUserId,
+    });
+    this.observabilityService.recordMetric(ROOM_METRICS.waitingExpired);
+    await this.roomsStreamService.publishRoomChanged({
+      roomId: room.id,
+      roomCode: room.code,
+      event: 'room.cancelled',
+    });
   }
 }

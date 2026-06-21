@@ -6,6 +6,7 @@ import { WAITING_ROOM_EXPIRY_MS } from '../rooms.constants';
 describe('RoomsExpiryService', () => {
   const roomsLobbyRepository = {
     expireWaitingRooms: jest.fn(),
+    expireWaitingRoom: jest.fn(),
   };
   const roomsStreamService = {
     publishRoomChanged: jest.fn(),
@@ -50,5 +51,33 @@ describe('RoomsExpiryService', () => {
       expiredCount: 1,
       expiredRoomCodes: [room.code],
     });
+  });
+
+  it('expires one waiting room for its delayed job', async () => {
+    const room = {
+      id: 'room-1',
+      code: 'abc12345',
+      hostUserId: 'user-1',
+    };
+    roomsLobbyRepository.expireWaitingRoom.mockResolvedValue(room);
+
+    await expect(service.expireWaitingRoom(room.id)).resolves.toEqual({
+      expired: true,
+      roomCode: room.code,
+    });
+    expect(roomsStreamService.publishRoomChanged).toHaveBeenCalledWith({
+      roomId: room.id,
+      roomCode: room.code,
+      event: 'room.cancelled',
+    });
+  });
+
+  it('does nothing when the room already started or was cancelled', async () => {
+    roomsLobbyRepository.expireWaitingRoom.mockResolvedValue(null);
+
+    await expect(service.expireWaitingRoom('room-1')).resolves.toEqual({
+      expired: false,
+    });
+    expect(roomsStreamService.publishRoomChanged).not.toHaveBeenCalled();
   });
 });

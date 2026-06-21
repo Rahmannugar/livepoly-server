@@ -59,6 +59,8 @@ export const ROOM_EVENTS = {
   spectatorJoined: 'RoomSpectatorJoined',
   spectatorLeft: 'RoomSpectatorLeft',
   waitingExpired: 'RoomWaitingExpired',
+  waitingExpiryQueued: 'RoomWaitingExpiryQueued',
+  waitingExpiryQueueFailed: 'RoomWaitingExpiryQueueFailed',
 } as const;
 
 export const ROOM_METRICS = {
@@ -74,4 +76,6 @@ export const ROOM_METRICS = {
   spectatorJoined: 'Custom/Room/Spectator/Joined',
   spectatorLeft: 'Custom/Room/Spectator/Left',
   waitingExpired: 'Custom/Room/WaitingExpired',
+  waitingExpiryQueued: 'Custom/Room/WaitingExpiry/Queued',
+  waitingExpiryQueueFailed: 'Custom/Room/WaitingExpiry/QueueFailed',
 } as const;

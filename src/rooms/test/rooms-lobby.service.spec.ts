@@ -17,6 +17,7 @@ import type { RoomsLobbyRepository } from '../repositories/rooms-lobby.repositor
 import { ROOM_EVENTS, ROOM_METRICS } from '../rooms.constants';
 import { RoomsLobbyService } from '../services/rooms-lobby.service';
 import type { RoomsStreamService } from '../services/rooms-stream.service';
+import type { RoomsQueueService } from '../jobs/rooms-queue.service';
 
 type RoomsLobbyRepositoryMock = {
   findActiveRoomForUser: jest.Mock;
@@ -86,6 +87,10 @@ type GameRealtimePublisherMock = {
 
 type RoomsStreamServiceMock = {
   publishRoomChanged: jest.Mock;
+};
+
+type RoomsQueueServiceMock = {
+  enqueueWaitingRoomExpiry: jest.Mock;
 };
 
 function matchingObject<T extends object>(value: Partial<T>): T {
@@ -208,6 +213,7 @@ describe('RoomsLobbyService', () => {
   let gameCommandsService: GameCommandsServiceMock;
   let gameRealtimePublisher: GameRealtimePublisherMock;
   let roomsStreamService: RoomsStreamServiceMock;
+  let roomsQueueService: RoomsQueueServiceMock;
   let dateNowSpy: jest.SpiedFunction<typeof Date.now>;
 
   const tx = { tx: true };
@@ -301,6 +307,10 @@ describe('RoomsLobbyService', () => {
       publishRoomChanged: jest.fn().mockResolvedValue(undefined),
     };
 
+    roomsQueueService = {
+      enqueueWaitingRoomExpiry: jest.fn().mockResolvedValue(undefined),
+    };
+
     service = new RoomsLobbyService(
       roomsLobbyRepository as unknown as RoomsLobbyRepository,
       databaseService as unknown as DatabaseService,
@@ -312,6 +322,7 @@ describe('RoomsLobbyService', () => {
       gameCommandsService as unknown as GameCommandsService,
       gameRealtimePublisher as unknown as GameRealtimePublisher,
       roomsStreamService as unknown as RoomsStreamService,
+      roomsQueueService as unknown as RoomsQueueService,
     );
   });
 
@@ -403,6 +414,10 @@ describe('RoomsLobbyService', () => {
     );
     expect(observabilityService.recordMetric).toHaveBeenCalledWith(
       ROOM_METRICS.created,
+    );
+    expect(roomsQueueService.enqueueWaitingRoomExpiry).toHaveBeenCalledWith(
+      waitingRoom.id,
+      waitingRoom.createdAt.getTime() + 60 * 60 * 1000,
     );
 
     expect(result).toEqual({

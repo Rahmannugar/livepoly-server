@@ -33,5 +33,6 @@ export const LEADERBOARD_JOBS = {
 } as const;
 
 export const ROOM_JOBS = {
+  expireWaitingRoom: 'expire-waiting-room',
   expireWaitingRooms: 'expire-waiting-rooms',
 } as const;

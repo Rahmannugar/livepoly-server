@@ -486,6 +486,32 @@ export class RoomsLobbyRepository {
       });
   }
 
+  async expireWaitingRoom(roomId: string, executor?: DatabaseExecutor) {
+    const db = this.executor(executor);
+
+    const [room] = await db
+      .update(rooms)
+      .set({
+        status: 'cancelled',
+        endedAt: new Date(),
+      })
+      .where(and(eq(rooms.id, roomId), eq(rooms.status, 'waiting')))
+      .returning({
+        id: rooms.id,
+        code: rooms.code,
+        hostUserId: rooms.hostUserId,
+        status: rooms.status,
+        maxPlayers: rooms.maxPlayers,
+        durationMinutes: rooms.durationMinutes,
+        boardKey: rooms.boardKey,
+        createdAt: rooms.createdAt,
+        startedAt: rooms.startedAt,
+        endedAt: rooms.endedAt,
+      });
+
+    return room ?? null;
+  }
+
   async lockRoomByCode(code: string, executor: DatabaseExecutor) {
     const [room] = await executor
       .select({

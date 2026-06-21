@@ -62,8 +62,6 @@ services:
       - wal_compression=on
     volumes:
       - postgres-data:/var/lib/postgresql/data
-    ports:
-      - 127.0.0.1:5432:5432
     healthcheck:
       test:
         - CMD-SHELL
@@ -93,6 +91,8 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - 127.0.0.1:6432:6432
     healthcheck:
       test:
         - CMD-SHELL

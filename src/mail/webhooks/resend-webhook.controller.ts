@@ -8,9 +8,11 @@ import {
   Req,
 } from '@nestjs/common';
 import type { RawBodyRequest } from '@nestjs/common';
+import { ApiExcludeController } from '@nestjs/swagger';
 import type { Request } from 'express';
 import { ResendWebhookService } from './resend-webhook.service';
 
+@ApiExcludeController()
 @Controller('webhooks/resend')
 export class ResendWebhookController {
   constructor(private readonly webhookService: ResendWebhookService) {}

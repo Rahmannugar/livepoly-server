@@ -27,6 +27,15 @@ x-api-healthcheck: &api-healthcheck
   retries: 5
   start_period: 30s
 
+x-worker-healthcheck: &worker-healthcheck
+  test:
+    - CMD-SHELL
+    - node -e "const net=require('node:net');const targets=[['pgbouncer',6432],['redis',6379]];let left=targets.length;const fail=()=>process.exit(1);const done=()=>{if(--left===0)process.exit(0)};setTimeout(fail,4000);for(const [host,port] of targets){const socket=net.connect(port,host,()=>{socket.destroy();done()});socket.on('error',fail);}"
+  interval: 20s
+  timeout: 5s
+  retries: 5
+  start_period: 30s
+
 services:
   postgres:
     image: postgres:17-alpine
@@ -170,6 +179,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck: *worker-healthcheck
 
   nginx:
     image: nginx:stable-alpine
@@ -214,7 +224,6 @@ services:
 networks:
   edge:
   application:
-    internal: true
   data:
     internal: true
 

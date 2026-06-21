@@ -24,9 +24,7 @@ describe('game-engine-cards', () => {
     });
 
     expect(result.state.players[0].cash).toBe(1550);
-    expect(result.state.decks.chance.drawPile[0]).toBe(
-      'chance_chairman_bonus',
-    );
+    expect(result.state.decks.chance.drawPile[0]).toBe('chance_chairman_bonus');
     expect(result.state.decks.chance.discardPile).toEqual([
       'chance_bank_dividend',
     ]);

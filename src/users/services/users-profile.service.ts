@@ -381,11 +381,7 @@ export class UsersProfileService {
         userId?: string;
       };
 
-      if (
-        decoded.v !== 1 ||
-        !decoded.username ||
-        !decoded.userId
-      ) {
+      if (decoded.v !== 1 || !decoded.username || !decoded.userId) {
         throw new Error('Invalid cursor payload');
       }
 

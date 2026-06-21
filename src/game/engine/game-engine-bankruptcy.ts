@@ -162,13 +162,12 @@ function liquidatePlayerAssets(
   input: DeclareBankruptcyInput,
 ): GameEngineState {
   const bankruptPlayer = findPlayer(state, input.roomPlayerId);
-  const heldCardKeys =
-    bankruptPlayer.getOutOfJailFreeCardKeys?.length
-      ? bankruptPlayer.getOutOfJailFreeCardKeys
-      : Array.from(
-          { length: bankruptPlayer.getOutOfJailFreeCards },
-          () => 'chance_get_out_of_jail_free',
-        );
+  const heldCardKeys = bankruptPlayer.getOutOfJailFreeCardKeys?.length
+    ? bankruptPlayer.getOutOfJailFreeCardKeys
+    : Array.from(
+        { length: bankruptPlayer.getOutOfJailFreeCards },
+        () => 'chance_get_out_of_jail_free',
+      );
   const stateWithReturnedCards = heldCardKeys.reduce(
     (currentState, cardKey) =>
       returnGetOutOfJailCardToDeck(currentState, cardKey),

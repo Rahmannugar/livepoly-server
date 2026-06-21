@@ -221,45 +221,10 @@ export class GameBotService {
       return null;
     }
 
-    if (bot.cash >= state.debt.amount) {
-      return {
-        type: 'pay_debt',
-        payload: { roomPlayerId: bot.roomPlayerId },
-      };
-    }
-
-    const buildingToSell = this.findBuildingToSell(state, bot.roomPlayerId);
-
-    if (buildingToSell) {
-      return {
-        type: 'sell_building',
-        payload: {
-          roomPlayerId: bot.roomPlayerId,
-          tileKey: buildingToSell.tileKey,
-        },
-      };
-    }
-
-    const propertyToMortgage = this.findPropertyToMortgage(
-      state,
-      bot.roomPlayerId,
-    );
-
-    if (propertyToMortgage) {
-      return {
-        type: 'mortgage_property',
-        payload: {
-          roomPlayerId: bot.roomPlayerId,
-          tileKey: propertyToMortgage.tileKey,
-        },
-      };
-    }
-
     return {
-      type: 'declare_bankruptcy',
+      type: 'auto_resolve_debt',
       payload: {
         roomPlayerId: bot.roomPlayerId,
-        creditorRoomPlayerId: state.debt.creditorRoomPlayerId,
       },
     };
   }
@@ -818,34 +783,6 @@ export class GameBotService {
       tile.kind === 'property' ||
       tile.kind === 'airport' ||
       tile.kind === 'utility'
-    );
-  }
-
-  private findBuildingToSell(
-    state: GameEngineState,
-    roomPlayerId: string,
-  ): GameEngineProperty | null {
-    return (
-      state.properties.find(
-        (property) =>
-          property.ownerRoomPlayerId === roomPlayerId &&
-          (property.hasHotel || property.houseCount > 0),
-      ) ?? null
-    );
-  }
-
-  private findPropertyToMortgage(
-    state: GameEngineState,
-    roomPlayerId: string,
-  ): GameEngineProperty | null {
-    return (
-      state.properties.find(
-        (property) =>
-          property.ownerRoomPlayerId === roomPlayerId &&
-          !property.mortgaged &&
-          !property.hasHotel &&
-          property.houseCount === 0,
-      ) ?? null
     );
   }
 

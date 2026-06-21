@@ -11,6 +11,7 @@ import {
   assertValidDice,
 } from './game-engine-assertions';
 import { declareBankruptcy as declarePlayerBankruptcy } from './game-engine-bankruptcy';
+import { autoResolveDebt as automaticallyResolvePlayerDebt } from './game-engine-auto-debt';
 import {
   buildProperty as buildPropertyBuilding,
   sellBuilding as sellPropertyBuilding,
@@ -40,6 +41,7 @@ import {
 import { endTurn as completeTurn } from './game-engine-turns';
 import {
   type AcceptTradeInput,
+  type AutoResolveDebtInput,
   type BuildPropertyInput,
   type BuyPropertyInput,
   type CancelTradeInput,
@@ -182,6 +184,13 @@ export class GameEngineService {
 
   payDebt(state: GameEngineState, input: PayDebtInput): GameEngineResult {
     return payPlayerDebt(cloneGameState(state), input);
+  }
+
+  autoResolveDebt(
+    state: GameEngineState,
+    input: AutoResolveDebtInput,
+  ): GameEngineResult {
+    return automaticallyResolvePlayerDebt(cloneGameState(state), input);
   }
 
   finishGameByTime(

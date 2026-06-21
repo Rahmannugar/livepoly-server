@@ -1016,10 +1016,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
 
       if (user && user.tokenVersion !== payload.tv) {
-        await this.authTokenVersionCacheService.set(
-          user.id,
-          user.tokenVersion,
-        );
+        await this.authTokenVersionCacheService.set(user.id, user.tokenVersion);
       }
 
       throw new WsException('Authentication required');
@@ -1102,7 +1099,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private debugSocket(
     event: string,
-    attributes: Record<string, string | number | boolean | null | undefined> = {},
+    attributes: Record<
+      string,
+      string | number | boolean | null | undefined
+    > = {},
   ): void {
     if (process.env.NODE_ENV === 'production') {
       return;

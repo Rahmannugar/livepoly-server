@@ -159,7 +159,7 @@ describe('GameTurnTimerPolicyService', () => {
     expect(intent).toBeNull();
   });
 
-  it('declares bankruptcy when a player times out in debt', () => {
+  it('automatically liquidates assets when a player times out in debt', () => {
     const intent = service.chooseTimeoutIntent(
       createGameEngineState({
         phase: 'awaiting_debt_resolution',
@@ -173,11 +173,36 @@ describe('GameTurnTimerPolicyService', () => {
     );
 
     expect(intent).toEqual({
-      type: 'declare_bankruptcy',
+      type: 'auto_resolve_debt',
       payload: {
         roomPlayerId: 'room-player-1',
-        creditorRoomPlayerId: 'room-player-2',
       },
+    });
+  });
+
+  it('resolves debt before applying the missed-turn forfeiture', () => {
+    const intent = service.chooseTimeoutIntent(
+      createGameEngineState({
+        phase: 'awaiting_debt_resolution',
+        debt: {
+          roomPlayerId: 'room-player-1',
+          creditorRoomPlayerId: 'room-player-2',
+          amount: 100,
+          reason: 'rent',
+        },
+        players: [
+          {
+            ...createGameEngineState().players[0],
+            consecutiveMissedTurns: 3,
+          },
+          ...createGameEngineState().players.slice(1),
+        ],
+      }),
+    );
+
+    expect(intent).toEqual({
+      type: 'auto_resolve_debt',
+      payload: { roomPlayerId: 'room-player-1' },
     });
   });
 

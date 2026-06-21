@@ -135,7 +135,10 @@ export class GameResultsRepository {
       )
       .leftJoin(users, eq(users.id, roomPlayerResults.userId))
       .where(eq(roomPlayerResults.roomId, result.roomId))
-      .orderBy(asc(roomPlayerResults.placement), asc(roomPlayerResults.seatNumber));
+      .orderBy(
+        asc(roomPlayerResults.placement),
+        asc(roomPlayerResults.seatNumber),
+      );
 
     return {
       ...result,

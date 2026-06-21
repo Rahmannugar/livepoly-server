@@ -294,9 +294,11 @@ export function getCurrentAuctionBidderRoomPlayerId(
     return auction.currentBidderRoomPlayerId;
   }
 
-  return auction.activeRoomPlayerIds.find(
-    (roomPlayerId) => !auction.passedRoomPlayerIds.includes(roomPlayerId),
-  ) ?? null;
+  return (
+    auction.activeRoomPlayerIds.find(
+      (roomPlayerId) => !auction.passedRoomPlayerIds.includes(roomPlayerId),
+    ) ?? null
+  );
 }
 
 export function getMinimumAuctionBid(auction: GameEngineAuction): number {

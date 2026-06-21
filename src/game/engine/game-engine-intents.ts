@@ -1,6 +1,7 @@
 import { GameEngineService } from './game-engine.service';
 import type {
   AcceptTradeInput,
+  AutoResolveDebtInput,
   BuildPropertyInput,
   BuyPropertyInput,
   CancelTradeInput,
@@ -86,6 +87,10 @@ export type GameEngineIntent =
       payload: PayDebtInput;
     }
   | {
+      type: 'auto_resolve_debt';
+      payload: AutoResolveDebtInput;
+    }
+  | {
       type: 'pay_jail_fine';
       payload: PayJailFineInput;
     }
@@ -157,6 +162,9 @@ export function reduceGameEngineIntent(
 
     case 'pay_debt':
       return engine.payDebt(state, intent.payload);
+
+    case 'auto_resolve_debt':
+      return engine.autoResolveDebt(state, intent.payload);
 
     case 'pay_jail_fine':
       return engine.payJailFine(state, intent.payload);

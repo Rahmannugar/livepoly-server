@@ -103,12 +103,12 @@ describe('NotificationsService', () => {
     });
 
     expect(result.outboxEventId).toBe('outbox-event-1');
-    expect(notificationsRepository.findLeaderboardNotification).toHaveBeenCalledWith(
-      {
-        userId: 'user-1',
-        leaderboardKey: 'weekly:2026-W22',
-      },
-    );
+    expect(
+      notificationsRepository.findLeaderboardNotification,
+    ).toHaveBeenCalledWith({
+      userId: 'user-1',
+      leaderboardKey: 'weekly:2026-W22',
+    });
     expect(notificationsRepository.createNotification).toHaveBeenCalledWith(
       {
         userId: 'user-1',

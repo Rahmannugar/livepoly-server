@@ -176,12 +176,14 @@ export class LeaderboardsService {
     )}`;
   }
 
-  private leaderboardPeriodBucket(period: LeaderboardPeriod, date: Date): string {
+  private leaderboardPeriodBucket(
+    period: LeaderboardPeriod,
+    date: Date,
+  ): string {
     if (period === LEADERBOARD_PERIODS.monthly) {
-      return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(
-        2,
-        '0',
-      )}`;
+      return `${date.getUTCFullYear()}-${String(
+        date.getUTCMonth() + 1,
+      ).padStart(2, '0')}`;
     }
 
     return `${date.getUTCFullYear()}-W${String(

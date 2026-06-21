@@ -227,6 +227,10 @@ export type PayDebtInput = {
   roomPlayerId: string;
 };
 
+export type AutoResolveDebtInput = {
+  roomPlayerId: string;
+};
+
 export type FinishGameByTimeInput = {
   finishedAt: number;
 };

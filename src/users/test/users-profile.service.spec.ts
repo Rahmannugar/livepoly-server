@@ -226,9 +226,9 @@ describe('UsersProfileService', () => {
 
     const result = await service.getByUsername('PlayerTwo');
 
-    expect(usersProfileRepository.findActiveUserByUsername).toHaveBeenCalledWith(
-      'playertwo',
-    );
+    expect(
+      usersProfileRepository.findActiveUserByUsername,
+    ).toHaveBeenCalledWith('playertwo');
     expect(result).toEqual({
       id: 'user-2',
       username: 'playertwo',

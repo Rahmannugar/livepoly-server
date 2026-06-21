@@ -11,7 +11,11 @@ import { GameBotService } from '../bots/game-bot.service';
 import { GameCommandsService } from '../commands/game-commands.service';
 import type { GameCommandResult } from '../commands/game-commands.types';
 import type { GameEngineState } from '../engine/game-engine.types';
-import { GAME_EVENTS, GAME_METRICS, GAME_TIMER_WATCHDOG } from '../game.constants';
+import {
+  GAME_EVENTS,
+  GAME_METRICS,
+  GAME_TIMER_WATCHDOG,
+} from '../game.constants';
 import { GameRealtimePublisher } from '../realtime/game-realtime.publisher';
 import { GameRecoveryService } from '../recovery/game-recovery.service';
 import { GameResultsService } from '../results/game-results.service';
@@ -86,10 +90,9 @@ export class GameTimerWatchdogService
 
   private async scanActiveGames(): Promise<void> {
     try {
-      const candidates =
-        await this.gameTimerWatchdogRepository.listActiveGames(
-          GAME_TIMER_WATCHDOG.batchSize,
-        );
+      const candidates = await this.gameTimerWatchdogRepository.listActiveGames(
+        GAME_TIMER_WATCHDOG.batchSize,
+      );
       let botJobsEnsured = 0;
       let turnTimersEnsured = 0;
       let expiryJobsEnsured = 0;
@@ -136,10 +139,7 @@ export class GameTimerWatchdogService
             continue;
           }
 
-          if (
-            joinedHumanCount === 0 ||
-            this.hasNoActiveHumanPlayers(state)
-          ) {
+          if (joinedHumanCount === 0 || this.hasNoActiveHumanPlayers(state)) {
             this.logger.warn({
               message: 'game_flow.watchdog.finishing_no_active_human_game',
               gameId: candidate.id,
@@ -206,7 +206,10 @@ export class GameTimerWatchdogService
             continue;
           }
 
-          await this.gameBotQueueService.enqueueIfBotCanAct(candidate.id, state);
+          await this.gameBotQueueService.enqueueIfBotCanAct(
+            candidate.id,
+            state,
+          );
           botJobsEnsured += 1;
 
           if (this.isTurnDeadlineOverdue(state)) {
@@ -218,24 +221,30 @@ export class GameTimerWatchdogService
           }
         } catch (error) {
           recoveryFailures += 1;
-          this.observabilityService.recordEvent(GAME_EVENTS.timerWatchdogFailed, {
-            gameId: candidate.id,
-            errorName: error instanceof Error ? error.name : undefined,
-            errorMessage: error instanceof Error ? error.message : undefined,
-          });
+          this.observabilityService.recordEvent(
+            GAME_EVENTS.timerWatchdogFailed,
+            {
+              gameId: candidate.id,
+              errorName: error instanceof Error ? error.name : undefined,
+              errorMessage: error instanceof Error ? error.message : undefined,
+            },
+          );
           this.observabilityService.recordMetric(
             GAME_METRICS.timerWatchdogFailed,
           );
         }
       }
 
-      this.observabilityService.recordEvent(GAME_EVENTS.timerWatchdogCompleted, {
-        scannedCount: candidates.length,
-        botJobsEnsured,
-        turnTimersEnsured,
-        expiryJobsEnsured,
-        recoveryFailures,
-      });
+      this.observabilityService.recordEvent(
+        GAME_EVENTS.timerWatchdogCompleted,
+        {
+          scannedCount: candidates.length,
+          botJobsEnsured,
+          turnTimersEnsured,
+          expiryJobsEnsured,
+          recoveryFailures,
+        },
+      );
       this.observabilityService.recordMetric(
         GAME_METRICS.timerWatchdogCompleted,
       );
@@ -257,8 +266,11 @@ export class GameTimerWatchdogService
       (player) => player.playerType === 'human',
     );
 
-    return hasHumanPlayers && !state.players.some(
-      (player) => player.playerType === 'human' && !player.bankrupt,
+    return (
+      hasHumanPlayers &&
+      !state.players.some(
+        (player) => player.playerType === 'human' && !player.bankrupt,
+      )
     );
   }
 

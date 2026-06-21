@@ -3,8 +3,15 @@ import type { CacheService } from '../../../infra/cache/cache.service';
 import type { GameBotQueueService } from '../../bots/game-bot-queue.service';
 import type { GameBotService } from '../../bots/game-bot.service';
 import type { GameCommandsService } from '../../commands/game-commands.service';
-import { createGameEnginePlayer, createGameEngineState } from '../../engine/tests/game-engine.test-factory';
-import { GAME_EVENTS, GAME_METRICS, GAME_TIMER_WATCHDOG } from '../../game.constants';
+import {
+  createGameEnginePlayer,
+  createGameEngineState,
+} from '../../engine/tests/game-engine.test-factory';
+import {
+  GAME_EVENTS,
+  GAME_METRICS,
+  GAME_TIMER_WATCHDOG,
+} from '../../game.constants';
 import type { GameRealtimePublisher } from '../../realtime/game-realtime.publisher';
 import type { GameRecoveryService } from '../../recovery/game-recovery.service';
 import type { GameResultsService } from '../../results/game-results.service';

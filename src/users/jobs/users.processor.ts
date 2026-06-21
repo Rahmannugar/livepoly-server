@@ -454,10 +454,7 @@ export class UsersProcessor extends WorkerHost {
   private recordJobCompleted(
     attributes: Record<string, string | number | boolean | null | undefined>,
   ): void {
-    this.observabilityService.recordEvent(
-      USER_EVENTS.jobCompleted,
-      attributes,
-    );
+    this.observabilityService.recordEvent(USER_EVENTS.jobCompleted, attributes);
     this.observabilityService.recordMetric(USER_METRICS.jobCompleted);
   }
 

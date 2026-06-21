@@ -350,9 +350,7 @@ export class GameCommandsService {
             input.intent,
           );
           const engineResult = reduceGameEngineIntent(state, intent);
-          const actorRoomPlayerId = this.getIntentActorRoomPlayerId(
-            intent,
-          );
+          const actorRoomPlayerId = this.getIntentActorRoomPlayerId(intent);
           const sourceAppliedState = this.applyCommandSourceToState(
             engineResult.state,
             source,
@@ -361,10 +359,7 @@ export class GameCommandsService {
             commandTurnRoomPlayerId,
             commandTurnNumber,
           );
-          const nextState = this.applyTurnDeadline(
-            state,
-            sourceAppliedState,
-          );
+          const nextState = this.applyTurnDeadline(state, sourceAppliedState);
 
           commandResult = {
             state: nextState,
@@ -610,6 +605,7 @@ export class GameCommandsService {
       case 'cancel_trade':
       case 'declare_bankruptcy':
       case 'pay_debt':
+      case 'auto_resolve_debt':
       case 'pay_jail_fine':
       case 'use_get_out_of_jail_card':
       case 'end_turn':

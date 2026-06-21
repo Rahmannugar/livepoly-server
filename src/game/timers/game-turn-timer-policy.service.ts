@@ -33,6 +33,19 @@ export class GameTurnTimerPolicyService {
       return null;
     }
 
+    if (state.phase === 'awaiting_debt_resolution') {
+      if (!state.debt) {
+        return null;
+      }
+
+      return {
+        type: 'auto_resolve_debt',
+        payload: {
+          roomPlayerId: state.debt.roomPlayerId,
+        },
+      };
+    }
+
     if (this.shouldForfeitCurrentPlayer(state, currentPlayer)) {
       return {
         type: 'declare_bankruptcy',
@@ -80,20 +93,6 @@ export class GameTurnTimerPolicyService {
         type: 'pass_auction_bid',
         payload: {
           roomPlayerId: auctionRoomPlayerId,
-        },
-      };
-    }
-
-    if (state.phase === 'awaiting_debt_resolution') {
-      if (!state.debt) {
-        return null;
-      }
-
-      return {
-        type: 'declare_bankruptcy',
-        payload: {
-          roomPlayerId: state.debt.roomPlayerId,
-          creditorRoomPlayerId: state.debt.creditorRoomPlayerId,
         },
       };
     }

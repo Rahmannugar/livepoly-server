@@ -276,8 +276,7 @@ export function useGetOutOfJailCard(
     );
   }
 
-  const [cardKey, ...remainingCardKeys] =
-    player.getOutOfJailFreeCardKeys ?? [];
+  const [cardKey, ...remainingCardKeys] = player.getOutOfJailFreeCardKeys ?? [];
   const returnedState = returnGetOutOfJailCardToDeck(state, cardKey ?? null);
 
   return {

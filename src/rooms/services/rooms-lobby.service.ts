@@ -828,14 +828,13 @@ export class RoomsLobbyService {
     };
   }
 
-  private async finalizeExpiredActiveRoomForUser(userId: string): Promise<void> {
+  private async finalizeExpiredActiveRoomForUser(
+    userId: string,
+  ): Promise<void> {
     const activeRoom =
       await this.roomsLobbyRepository.findActiveRoomForUser(userId);
 
-    if (
-      activeRoom &&
-      (await this.finalizeExpiredRoomGame(activeRoom.id))
-    ) {
+    if (activeRoom && (await this.finalizeExpiredRoomGame(activeRoom.id))) {
       return;
     }
   }

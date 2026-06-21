@@ -2,8 +2,7 @@ import { Injectable, OnApplicationBootstrap } from '@nestjs/common';
 import { CacheService } from '../../infra/cache/cache.service';
 import { LeaderboardQueueService } from './leaderboard-queue.service';
 
-const LEADERBOARD_SCHEDULER_LOCK_KEY =
-  'worker:singleton:leaderboard-scheduler';
+const LEADERBOARD_SCHEDULER_LOCK_KEY = 'worker:singleton:leaderboard-scheduler';
 const LEADERBOARD_SCHEDULER_LOCK_TTL_SECONDS = 60;
 
 @Injectable()

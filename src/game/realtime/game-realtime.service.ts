@@ -235,9 +235,7 @@ export class GameRealtimeService {
     return result;
   }
 
-  async useGetOutOfJailCard(
-    input: GameActorInput,
-  ): Promise<GameCommandResult> {
+  async useGetOutOfJailCard(input: GameActorInput): Promise<GameCommandResult> {
     const player = await this.requireActivePlayer(input);
 
     const result = await this.gameCommandsService.useGetOutOfJailCard({
@@ -263,9 +261,7 @@ export class GameRealtimeService {
     return result;
   }
 
-  async buildProperty(
-    input: PropertyCommandInput,
-  ): Promise<GameCommandResult> {
+  async buildProperty(input: PropertyCommandInput): Promise<GameCommandResult> {
     const player = await this.requireActivePlayer(input);
 
     const result = await this.gameCommandsService.buildProperty({
@@ -279,9 +275,7 @@ export class GameRealtimeService {
     return result;
   }
 
-  async sellBuilding(
-    input: PropertyCommandInput,
-  ): Promise<GameCommandResult> {
+  async sellBuilding(input: PropertyCommandInput): Promise<GameCommandResult> {
     const player = await this.requireActivePlayer(input);
 
     const result = await this.gameCommandsService.sellBuilding({

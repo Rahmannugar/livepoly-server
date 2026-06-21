@@ -58,10 +58,7 @@ export class AuthGuard implements CanActivate {
       user.tokenVersion !== payload.tv
     ) {
       if (user && user.tokenVersion !== payload.tv) {
-        await this.authTokenVersionCacheService.set(
-          user.id,
-          user.tokenVersion,
-        );
+        await this.authTokenVersionCacheService.set(user.id, user.tokenVersion);
       }
 
       throw new UnauthorizedException('Authentication required');

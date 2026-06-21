@@ -70,6 +70,26 @@ describe('GameBotService', () => {
     expect(service.chooseDecision(state)).toBeNull();
   });
 
+  it('automatically resolves bot debt before bankruptcy', () => {
+    const state = createBotState({
+      phase: 'awaiting_debt_resolution',
+      debt: {
+        roomPlayerId: 'bot-player-1',
+        creditorRoomPlayerId: 'room-player-2',
+        amount: 100,
+        reason: 'rent',
+      },
+    });
+
+    expect(service.chooseDecision(state)).toEqual({
+      roomPlayerId: 'bot-player-1',
+      intent: {
+        type: 'auto_resolve_debt',
+        payload: { roomPlayerId: 'bot-player-1' },
+      },
+    });
+  });
+
   it('easy bot declines expensive property', () => {
     const state = createBotState({
       players: [

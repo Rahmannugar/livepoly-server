@@ -178,7 +178,7 @@ function rollAndMoveIgnoringJail(
   if (landedTileKind === 'chance' || landedTileKind === 'world_fund') {
     const cardResult = drawAndApplyCard(movedState, {
       roomPlayerId: input.roomPlayerId,
-      deckKey: landedTileKind as GameCardDeckKey,
+      deckKey: landedTileKind,
     });
 
     return {

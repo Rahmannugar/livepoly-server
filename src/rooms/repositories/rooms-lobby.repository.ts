@@ -29,10 +29,7 @@ export class RoomsLobbyRepository {
     `);
   }
 
-  async findActiveRoomForUser(
-    userId: string,
-    executor?: DatabaseExecutor,
-  ) {
+  async findActiveRoomForUser(userId: string, executor?: DatabaseExecutor) {
     const db = this.executor(executor);
 
     const [room] = await db
@@ -371,10 +368,7 @@ export class RoomsLobbyRepository {
     return player ?? null;
   }
 
-  async countJoinedHumanPlayers(
-    roomId: string,
-    executor?: DatabaseExecutor,
-  ) {
+  async countJoinedHumanPlayers(roomId: string, executor?: DatabaseExecutor) {
     const db = this.executor(executor);
 
     const [result] = await db
@@ -514,10 +508,7 @@ export class RoomsLobbyRepository {
       .groupBy(roomSpectators.roomId);
   }
 
-  async listCurrentSpectatorsForUserRoomIds(
-    userId: string,
-    roomIds: string[],
-  ) {
+  async listCurrentSpectatorsForUserRoomIds(userId: string, roomIds: string[]) {
     if (roomIds.length === 0) {
       return [];
     }

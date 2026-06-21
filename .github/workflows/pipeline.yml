@@ -88,8 +88,8 @@ jobs:
 
       - name: Build production images
         run: |
-          docker build --file deploy/Dockerfile --tag livepoly-server:ci .
-          docker build --file deploy/pgbouncer/Dockerfile --tag livepoly-pgbouncer:ci deploy/pgbouncer
+          docker build --file deploy/Dockerfile.production --tag livepoly-server:ci .
+          docker build --file deploy/pgbouncer/Dockerfile.pgbouncer --tag livepoly-pgbouncer:ci deploy/pgbouncer
 
   deploy:
     name: Deploy server

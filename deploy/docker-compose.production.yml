@@ -11,6 +11,7 @@ x-application: &application
     NODE_ENV: production
     PORT: 3002
     DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+    REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
     INSTANCE_ROLE: server
   restart: unless-stopped
   stop_grace_period: 30s
@@ -159,6 +160,8 @@ services:
     environment:
       NODE_ENV: production
       INSTANCE_ROLE: worker
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB}
+      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/0
     command:
       - node
       - dist/worker.js

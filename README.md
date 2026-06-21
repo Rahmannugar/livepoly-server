@@ -52,6 +52,11 @@ Set a local PostgreSQL password in `.env` and use that same value in
 easy to distinguish from the deployed database in tools like DBeaver. Then start
 PostgreSQL, Redis, the API server, and worker:
 
+Local `.env` keeps `DATABASE_URL` and `REDIS_URL` for host-run tooling such as
+Drizzle, `db:seed`, and running Nest directly. Docker Compose overrides those
+URLs inside containers because containers reach PostgreSQL and Redis by service
+name, not `localhost`.
+
 ```bash
 docker compose up -d --build
 ```

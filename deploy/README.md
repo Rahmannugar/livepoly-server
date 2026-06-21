@@ -18,6 +18,9 @@ in `deploy/.env.example`. Keep the deployed database name as `livepoly`; the
 local example uses `livepoly-local` so DBeaver and other clients make the
 environment obvious. Generate URL-safe alphanumeric PostgreSQL and Redis
 passwords because Compose uses them to construct internal connection URLs.
+Do not store `DATABASE_URL` or `REDIS_URL` in the deployed secret; production
+Compose derives them from `POSTGRES_*` and `REDIS_PASSWORD` so there is only one
+source of truth for each credential.
 
 The EC2 role needs narrowly scoped permission to read this secret and access the
 backup bucket. The GitHub deployment role does not read application secrets; it

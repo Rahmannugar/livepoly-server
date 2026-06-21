@@ -1,4 +1,4 @@
-import type { Socket } from 'socket.io';
+import type { DefaultEventsMap, Socket } from 'socket.io';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type {
   DiceRoll,
@@ -8,11 +8,20 @@ import type {
 } from '../engine/game-engine.types';
 import type { GameEventRecoveryResponse } from '../events/game-events.types';
 
-export type AuthenticatedGameSocket = Socket & {
-  data: Socket['data'] & {
-    user: AuthUser;
-    gameId?: string;
-  };
+type AuthenticatedGameSocketData = {
+  user?: AuthUser;
+  gameId?: string;
+};
+
+export type AuthenticatedGameSocket = Socket<
+  DefaultEventsMap,
+  DefaultEventsMap,
+  DefaultEventsMap,
+  AuthenticatedGameSocketData
+>;
+
+export type AuthenticatedGameSocketWithUser = AuthenticatedGameSocket & {
+  data: AuthenticatedGameSocketData & { user: AuthUser };
 };
 
 export type JoinGamePayload = {

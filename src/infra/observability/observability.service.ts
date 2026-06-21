@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import { Injectable } from '@nestjs/common';
 
 type ObservabilityAttributeValue = string | number | boolean | null | undefined;
@@ -27,12 +28,18 @@ const OBSERVABILITY_METRICS = {
   rateLimitExceeded: (scope: string) => `Custom/RateLimit/Exceeded/${scope}`,
 } as const;
 
+const requireModule = createRequire(__filename);
+
+function loadNewRelicAgent(): NewRelicAgent {
+  return requireModule('newrelic') as NewRelicAgent;
+}
+
 @Injectable()
 export class ObservabilityService {
   private readonly enabled = process.env.NEW_RELIC_ENABLED === 'true';
 
   private readonly newrelic: NewRelicAgent | null = this.enabled
-    ? (require('newrelic') as NewRelicAgent)
+    ? loadNewRelicAgent()
     : null;
 
   recordEvent(

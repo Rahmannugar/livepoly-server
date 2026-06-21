@@ -9,6 +9,9 @@ exports.config = {
   distributed_tracing: {
     enabled: true,
   },
+  rules: {
+    ignore: ['^/health/live$', '^/health/ready$'],
+  },
   application_logging: {
     forwarding: {
       enabled:

@@ -83,7 +83,9 @@ describe('UsersProcessor', () => {
     };
 
     cacheService = {
-      withLock: jest.fn(async ({ callback }) => callback()),
+      withLock: jest.fn(({ callback }: { callback: () => Promise<unknown> }) =>
+        callback(),
+      ),
     };
 
     storageService = {

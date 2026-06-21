@@ -1,0 +1,20 @@
+integrations:
+  - name: nri-postgresql
+    env:
+      METRICS: true
+      HOSTNAME: postgres
+      PORT: 5432
+      USERNAME: '{{ POSTGRES_USER }}'
+      PASSWORD: '{{ POSTGRES_PASSWORD }}'
+      DATABASE: '{{ POSTGRES_DB }}'
+      COLLECTION_LIST: '["{{ POSTGRES_DB }}"]'
+      COLLECT_DB_LOCK_METRICS: false
+      COLLECT_BLOAT_METRICS: false
+      ENABLE_QUERY_MONITORING: false
+      ENABLE_SSL: false
+      REMOTE_MONITORING: true
+      TIMEOUT: 10
+    interval: 30s
+    labels:
+      environment: production
+      role: postgresql

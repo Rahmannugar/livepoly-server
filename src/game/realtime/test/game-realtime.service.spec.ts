@@ -23,8 +23,8 @@ type AuthRepositoryMock = {
 };
 
 type GameCommandsServiceMock = {
-  rollAndMove: jest.Mock;
-  endTurn: jest.Mock;
+  rollAndMove: jest.MockedFunction<GameCommandsService['rollAndMove']>;
+  endTurn: jest.MockedFunction<GameCommandsService['endTurn']>;
 };
 
 type GameRealtimePublisherMock = {

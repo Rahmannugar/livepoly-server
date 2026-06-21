@@ -2,6 +2,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { AuthRepository } from '../../../auth/auth.repository';
 import type { AuthTokenVersionCacheService } from '../../../auth/auth-token-version-cache.service';
+import type { AuthUser } from '../../../auth/types/auth-user.type';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import type { RateLimitService } from '../../../rate-limit/rate-limit.service';
 import type { GamePresenceService } from '../../presence/game-presence.service';
@@ -64,7 +65,7 @@ describe('GameGateway', () => {
   let observabilityService: ObservabilityServiceMock;
   let rateLimitService: RateLimitServiceMock;
 
-  const authUser = {
+  const authUser: AuthUser = {
     id: 'user-1',
     email: 'player@example.com',
     username: 'playerone',
@@ -250,16 +251,14 @@ describe('GameGateway', () => {
       userId: authUser.id,
     });
     expect(socket.join).toHaveBeenCalledWith('game:game-1');
-    expect(result).toEqual({
-      event: GAME_SOCKET_EVENTS.joined,
-      data: {
-        gameId: 'game-1',
-        access: 'player',
-        roomPlayerId: 'room-player-1',
-        state: expect.objectContaining({
-          roomId: 'room-1',
-          phase: 'awaiting_roll',
-        }),
+    expect(result.event).toBe(GAME_SOCKET_EVENTS.joined);
+    expect(result.data).toMatchObject({
+      gameId: 'game-1',
+      access: 'player',
+      roomPlayerId: 'room-player-1',
+      state: {
+        roomId: 'room-1',
+        phase: 'awaiting_roll',
       },
     });
   });

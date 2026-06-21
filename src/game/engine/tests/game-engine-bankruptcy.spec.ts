@@ -252,21 +252,26 @@ describe('game-engine-bankruptcy', () => {
       debt: null,
       tradeOffer: null,
     });
-    expect(result.events).toContainEqual({
-      type: 'game_finished_by_bankruptcy',
-      winnerRoomPlayerId: 'bot-player-2',
-      tiedRoomPlayerIds: ['bot-player-2'],
-      standings: expect.arrayContaining([
-        expect.objectContaining({
-          roomPlayerId: 'bot-player-2',
-          netWorth: 1265,
-        }),
-        expect.objectContaining({
-          roomPlayerId: 'bot-player-1',
-          netWorth: 831,
-        }),
-      ]),
-    });
+    const finishEvent = result.events.find(
+      (event) => event.type === 'game_finished_by_bankruptcy',
+    );
+
+    expect(finishEvent).toBeDefined();
+    if (finishEvent?.type !== 'game_finished_by_bankruptcy') {
+      throw new Error('Expected bankruptcy finish event');
+    }
+
+    expect(finishEvent.winnerRoomPlayerId).toBe('bot-player-2');
+    expect(finishEvent.tiedRoomPlayerIds).toEqual(['bot-player-2']);
+    expect(
+      finishEvent.standings.map(({ roomPlayerId, netWorth }) => ({
+        roomPlayerId,
+        netWorth,
+      })),
+    ).toEqual([
+      { roomPlayerId: 'bot-player-2', netWorth: 1265 },
+      { roomPlayerId: 'bot-player-1', netWorth: 831 },
+    ]);
   });
 
   it('uses active debt creditor by default', () => {

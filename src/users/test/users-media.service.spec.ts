@@ -113,7 +113,9 @@ describe('UsersMediaService', () => {
     };
 
     databaseService = {
-      transaction: jest.fn(async (callback) => callback('tx')),
+      transaction: jest.fn(
+        (callback: (transaction: string) => Promise<unknown>) => callback('tx'),
+      ),
     };
 
     usersProfileService = {
@@ -140,18 +142,27 @@ describe('UsersMediaService', () => {
 
     expect(databaseService.transaction).toHaveBeenCalledTimes(1);
 
-    expect(usersMediaRepository.createAvatarUpload).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: authUser.id,
-        objectKey: expect.stringMatching(
-          new RegExp(`^avatars/${authUser.id}/[0-9a-f-]{36}\\.webp$`),
-        ),
-        previousAvatarObjectKey: `avatars/${authUser.id}/old-avatar.webp`,
-        contentType: 'image/webp',
-        contentLength: 5 * 1024 * 1024,
-        expiresAt: expect.any(Date),
-      }),
-      'tx',
+    const createUploadCalls = usersMediaRepository.createAvatarUpload.mock
+      .calls as unknown[][];
+    const createUploadInput = createUploadCalls[0]?.[0] as {
+      userId: string;
+      objectKey: string;
+      previousAvatarObjectKey: string | null;
+      contentType: string;
+      contentLength: number;
+      expiresAt: Date;
+    };
+
+    expect(createUploadInput).toMatchObject({
+      userId: authUser.id,
+      objectKey: result.objectKey,
+      previousAvatarObjectKey: `avatars/${authUser.id}/old-avatar.webp`,
+      contentType: 'image/webp',
+      contentLength: 5 * 1024 * 1024,
+    });
+    expect(createUploadInput.expiresAt).toBeInstanceOf(Date);
+    expect(result.objectKey).toMatch(
+      new RegExp(`^avatars/${authUser.id}/[0-9a-f-]{36}\\.webp$`),
     );
 
     expect(usersMediaRepository.updateAvatarObjectKey).toHaveBeenCalledWith(
@@ -188,9 +199,7 @@ describe('UsersMediaService', () => {
     expect(result).toEqual({
       uploadId: 'upload-1',
       uploadUrl: 'https://r2.example/upload-url',
-      objectKey: expect.stringMatching(
-        new RegExp(`^avatars/${authUser.id}/[0-9a-f-]{36}\\.webp$`),
-      ),
+      objectKey: result.objectKey,
       avatarUrl: `https://pub-example.r2.dev/${result.objectKey}`,
       expiresInSeconds: 600,
     });

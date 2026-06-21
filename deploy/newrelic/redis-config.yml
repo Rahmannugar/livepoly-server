@@ -1,0 +1,12 @@
+integrations:
+  - name: nri-redis
+    env:
+      METRICS: true
+      HOSTNAME: redis
+      PORT: 6379
+      PASSWORD: '{{ REDIS_PASSWORD }}'
+      REMOTE_MONITORING: true
+    interval: 30s
+    labels:
+      environment: production
+      role: redis

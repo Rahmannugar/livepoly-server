@@ -14,7 +14,6 @@ import {
 } from './game-engine.types';
 
 const MINIMUM_AUCTION_BID = 10;
-const AUCTION_BID_INCREMENT = 10;
 
 export function declinePropertyPurchase(
   state: GameEngineState,

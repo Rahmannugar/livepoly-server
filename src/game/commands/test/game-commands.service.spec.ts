@@ -2,6 +2,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { GameCommandsService } from '../game-commands.service';
 import { GAME_COMMANDS } from '../../game.constants';
 import type { GameEngineState } from '../../engine/game-engine.types';
+import type { GameStateUpdater } from '../../state/game-state.types';
 
 describe('GameCommandsService', () => {
   const gameId = 'game-1';
@@ -82,8 +83,8 @@ describe('GameCommandsService', () => {
     let storedState = state;
 
     const gameStateService = {
-      update: jest.fn(async (_gameId, reducer) => {
-        storedState = reducer(storedState);
+      update: jest.fn(async (_gameId: string, reducer: GameStateUpdater) => {
+        storedState = await reducer(storedState);
         return storedState;
       }),
     };
@@ -249,7 +250,9 @@ describe('GameCommandsService', () => {
       update: jest
         .fn()
         .mockRejectedValueOnce(new NotFoundException('Game state not found'))
-        .mockImplementationOnce(async (_gameId, reducer) => reducer(state)),
+        .mockImplementationOnce((_gameId: string, reducer: GameStateUpdater) =>
+          Promise.resolve(reducer(state)),
+        ),
     };
 
     const observabilityService = {

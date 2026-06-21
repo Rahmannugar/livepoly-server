@@ -1,5 +1,5 @@
 import { getGameBoard } from './game-board';
-import type { GameBoard, GameTile, PropertyTile } from './game-board.types';
+import type { GameBoard, PropertyTile } from './game-board.types';
 import { creditPlayer, debitPlayer } from './game-engine-money';
 import {
   GameEngineError,

@@ -116,10 +116,12 @@ describe('GameTimerWatchdogService', () => {
       recordMetric: jest.fn(),
     };
     cacheService = {
-      withLockOrSkip: jest.fn(async ({ callback }) => ({
-        acquired: true,
-        value: await callback(),
-      })),
+      withLockOrSkip: jest.fn(
+        async ({ callback }: { callback: () => Promise<unknown> }) => ({
+          acquired: true,
+          value: await callback(),
+        }),
+      ),
     };
 
     service = new GameTimerWatchdogService(

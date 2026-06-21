@@ -224,19 +224,29 @@ services:
       - edge
 
   newrelic-infra:
-    image: newrelic/infrastructure:latest
+    image: newrelic/infrastructure-bundle:latest
+    env_file:
+      - ../.env
     environment:
       NRIA_LICENSE_KEY: ${NEW_RELIC_LICENSE_KEY}
       NRIA_DISPLAY_NAME: ${NEW_RELIC_INFRA_DISPLAY_NAME:-livepoly-aws-ec2}
       NRIA_VERBOSE: ${NEW_RELIC_INFRA_VERBOSE:-0}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
     pid: host
     privileged: true
     restart: unless-stopped
     volumes:
       - /:/host:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./newrelic:/etc/newrelic-infra/integrations.d:ro
     profiles:
       - monitoring
+    networks:
+      - application
+      - data
 
 networks:
   edge:

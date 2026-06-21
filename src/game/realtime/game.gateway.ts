@@ -28,6 +28,7 @@ import {
   type GameJoinedEvent,
   type RecoverGameEventsPayload,
   type AuthenticatedGameSocket,
+  type AuthenticatedGameSocketWithUser,
   type BuildPropertyPayload,
   type BuyPropertyPayload,
   type DeclareBankruptcyPayload,
@@ -1042,7 +1043,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private getSocketToken(socket: AuthenticatedGameSocket): string | null {
-    const authToken = socket.handshake.auth?.token;
+    const handshakeAuth: unknown = socket.handshake.auth;
+    const authToken =
+      typeof handshakeAuth === 'object' &&
+      handshakeAuth !== null &&
+      'token' in handshakeAuth
+        ? handshakeAuth.token
+        : null;
 
     if (typeof authToken === 'string' && authToken.trim()) {
       return authToken;
@@ -1112,7 +1119,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.info('[LivePoly game socket]', event, attributes);
   }
 
-  private assertAuthenticated(socket: AuthenticatedGameSocket): void {
+  private assertAuthenticated(
+    socket: AuthenticatedGameSocket,
+  ): asserts socket is AuthenticatedGameSocketWithUser {
     if (!socket.data.user) {
       throw new WsException('Authentication required');
     }

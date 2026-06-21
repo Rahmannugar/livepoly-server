@@ -14,6 +14,10 @@ function isValidRequestId(value: string): boolean {
     LoggerModule.forRoot({
       pinoHttp: {
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        autoLogging: {
+          ignore: (request) =>
+            request.url === '/health/live' || request.url === '/health/ready',
+        },
         transport:
           process.env.NODE_ENV === 'production'
             ? undefined

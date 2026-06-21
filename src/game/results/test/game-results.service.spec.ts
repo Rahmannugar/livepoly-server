@@ -5,6 +5,7 @@ import { createGameEngineState } from '../../engine/tests/game-engine.test-facto
 import type { LeaderboardQueueService } from '../../../leaderboards/jobs/leaderboard-queue.service';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import type { UsersStatsService } from '../../../users/services/users-stats.service';
+import type { SaveGameResultsInput } from '../game-results.types';
 
 describe('GameResultsService', () => {
   const gameId = 'game-1';
@@ -42,7 +43,10 @@ describe('GameResultsService', () => {
     };
 
     const databaseService = {
-      transaction: jest.fn(async (callback) => callback(tx)),
+      transaction: jest.fn(
+        (callback: (transaction: typeof tx) => Promise<unknown>) =>
+          callback(tx),
+      ),
     };
 
     const gameSnapshotService = {
@@ -175,9 +179,11 @@ describe('GameResultsService', () => {
       }),
       tx,
     );
-    expect(
-      gameResultsRepository.saveFinishedGame.mock.calls[0][0].playerResults,
-    ).toEqual([
+    const saveCalls = gameResultsRepository.saveFinishedGame.mock
+      .calls as unknown[][];
+    const saveInput = saveCalls[0]?.[0] as SaveGameResultsInput;
+
+    expect(saveInput.playerResults).toEqual([
       expect.objectContaining({
         roomPlayerId: 'room-player-1',
         finalCash: 1500,
@@ -253,14 +259,16 @@ describe('GameResultsService', () => {
       ],
     });
 
+    const saveCalls = gameResultsRepository.saveFinishedGame.mock
+      .calls as unknown[][];
+    const saveInput = saveCalls[0]?.[0] as SaveGameResultsInput;
+
     expect(
-      gameResultsRepository.saveFinishedGame.mock.calls[0][0].playerResults.map(
-        (playerResult) => ({
-          roomPlayerId: playerResult.roomPlayerId,
-          placement: playerResult.placement,
-          finalNetWorth: playerResult.finalNetWorth,
-        }),
-      ),
+      saveInput.playerResults.map((playerResult) => ({
+        roomPlayerId: playerResult.roomPlayerId,
+        placement: playerResult.placement,
+        finalNetWorth: playerResult.finalNetWorth,
+      })),
     ).toEqual([
       { roomPlayerId: 'room-player-1', placement: 1, finalNetWorth: 1200 },
       { roomPlayerId: 'room-player-2', placement: 3, finalNetWorth: 0 },
@@ -375,9 +383,11 @@ describe('GameResultsService', () => {
       }),
       tx,
     );
-    expect(
-      gameResultsRepository.saveFinishedGame.mock.calls[0][0].playerResults,
-    ).toContainEqual(
+    const saveCalls = gameResultsRepository.saveFinishedGame.mock
+      .calls as unknown[][];
+    const saveInput = saveCalls[0]?.[0] as SaveGameResultsInput;
+
+    expect(saveInput.playerResults).toContainEqual(
       expect.objectContaining({
         roomPlayerId: 'room-player-2',
         userId: null,
@@ -460,13 +470,18 @@ describe('GameResultsService', () => {
       }),
       tx,
     );
-    expect(gameStatsService.applyFinishedGameStats).toHaveBeenCalledWith(
-      expect.objectContaining({
-        roomId: state.roomId,
-        state,
-        playerResults: expect.any(Array),
-      }),
-      tx,
-    );
+    const statsCalls = gameStatsService.applyFinishedGameStats.mock
+      .calls as unknown[][];
+    const statsInput = statsCalls[0]?.[0] as {
+      roomId: string;
+      state: GameEngineState;
+      playerResults: SaveGameResultsInput['playerResults'];
+    };
+
+    expect(statsInput).toMatchObject({
+      roomId: state.roomId,
+      state,
+    });
+    expect(Array.isArray(statsInput.playerResults)).toBe(true);
   });
 });

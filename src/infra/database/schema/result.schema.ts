@@ -1,7 +1,6 @@
 import { sql } from 'drizzle-orm';
 import {
   check,
-  date,
   foreignKey,
   index,
   integer,

@@ -6,7 +6,6 @@ import { debitPlayer, debitPlayerOrCreateDebt } from './game-engine-money';
 import {
   GameEngineError,
   type DiceRoll,
-  type GameEngineEvent,
   type GameEngineResult,
   type GameEngineState,
   type PayJailFineInput,

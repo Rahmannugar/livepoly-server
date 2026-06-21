@@ -1,7 +1,10 @@
 import { ConflictException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
 import type { GameCommandsService } from '../../game/commands/game-commands.service';
-import type { GameEngineState } from '../../game/engine/game-engine.types';
+import type {
+  GameEnginePlayer,
+  GameEngineState,
+} from '../../game/engine/game-engine.types';
 import { GAME_METRICS } from '../../game/game.constants';
 import type { GameRealtimePublisher } from '../../game/realtime/game-realtime.publisher';
 import type { GameRecoveryService } from '../../game/recovery/game-recovery.service';
@@ -84,6 +87,14 @@ type GameRealtimePublisherMock = {
 type RoomsStreamServiceMock = {
   publishRoomChanged: jest.Mock;
 };
+
+function matchingObject<T extends object>(value: Partial<T>): T {
+  return expect.objectContaining(value) as T;
+}
+
+function matchingArray<T>(values: T[]): T[] {
+  return expect.arrayContaining(values) as T[];
+}
 
 const authUser: AuthUser = {
   id: 'user-1',
@@ -751,9 +762,9 @@ describe('RoomsLobbyService', () => {
       'game-1',
       expect.objectContaining({
         intentType: 'declare_bankruptcy',
-        state: expect.objectContaining({
-          players: expect.arrayContaining([
-            expect.objectContaining({
+        state: matchingObject<GameEngineState>({
+          players: matchingArray([
+            matchingObject<GameEnginePlayer>({
               roomPlayerId: 'player-1',
               bankrupt: true,
             }),
@@ -814,7 +825,7 @@ describe('RoomsLobbyService', () => {
       intent: {
         type: 'finish_game_after_last_human_left',
         payload: {
-          finishedAt: expect.any(Number),
+          finishedAt: expect.any(Number) as number,
         },
       },
     });
@@ -822,7 +833,7 @@ describe('RoomsLobbyService', () => {
       'game-1',
       expect.objectContaining({
         intentType: 'finish_game_after_last_human_left',
-        state: expect.objectContaining({ phase: 'finished' }),
+        state: matchingObject<GameEngineState>({ phase: 'finished' }),
       }),
     );
     expect(roomsLobbyRepository.leaveRoom).toHaveBeenCalledWith(
@@ -933,7 +944,7 @@ describe('RoomsLobbyService', () => {
     ).toHaveBeenCalledWith({
       gameId: 'game-1',
       state: finishedState,
-      finishedAt: expect.any(Number),
+      finishedAt: expect.any(Number) as number,
     });
     expect(observabilityService.recordEvent).toHaveBeenCalledWith(
       ROOM_EVENTS.finishedAfterLastHumanLeft,
@@ -984,7 +995,7 @@ describe('RoomsLobbyService', () => {
       intent: {
         type: 'finish_game_after_last_human_left',
         payload: {
-          finishedAt: expect.any(Number),
+          finishedAt: expect.any(Number) as number,
         },
       },
     });

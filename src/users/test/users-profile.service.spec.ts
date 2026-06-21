@@ -105,7 +105,10 @@ describe('UsersProfileService', () => {
     };
 
     databaseService = {
-      transaction: jest.fn(async (callback) => callback({ tx: true })),
+      transaction: jest.fn(
+        (callback: (transaction: { tx: boolean }) => Promise<unknown>) =>
+          callback({ tx: true }),
+      ),
     };
 
     configService = {

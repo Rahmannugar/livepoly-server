@@ -1,5 +1,9 @@
 import { ConflictException, ForbiddenException } from '@nestjs/common';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import type {
+  GameEnginePlayer,
+  GameEngineState,
+} from '../../game/engine/game-engine.types';
 import type { GameSnapshotService } from '../../game/snapshots/game-snapshots.service';
 import type { GameStateService } from '../../game/state/game-state.service';
 import type { GameTurnTimerQueueService } from '../../game/timers/game-turn-timer-queue.service';
@@ -46,6 +50,16 @@ type GameTurnTimerQueueServiceMock = {
 type RoomsStreamServiceMock = {
   publishRoomChanged: jest.Mock;
 };
+
+type AddBotPlayerInput = Parameters<RoomsGameRepository['addBotPlayer']>[0];
+
+function matchingObject<T extends object>(value: Partial<T>): T {
+  return expect.objectContaining(value) as T;
+}
+
+function matchingArray<T>(values: T[]): T[] {
+  return expect.arrayContaining(values) as T[];
+}
 
 const authUser: AuthUser = {
   id: 'user-1',
@@ -223,7 +237,7 @@ describe('RoomsGameService', () => {
         mode: 'ranked',
         currentTurnRoomPlayerId: humanPlayerOne.id,
         expiresAt: new Date(activeRoom.startedAt.getTime() + 60 * 60 * 1000),
-        state: expect.objectContaining({
+        state: matchingObject<GameEngineState>({
           version: 1,
           roomId: waitingRoom.id,
           roomCode: waitingRoom.code,
@@ -233,8 +247,8 @@ describe('RoomsGameService', () => {
           turnNumber: 1,
           currentTurnRoomPlayerId: humanPlayerOne.id,
           lastDiceRoll: null,
-          players: expect.arrayContaining([
-            expect.objectContaining({
+          players: matchingArray([
+            matchingObject<GameEnginePlayer>({
               roomPlayerId: humanPlayerOne.id,
               playerType: 'human',
               cash: 1500,
@@ -342,7 +356,7 @@ describe('RoomsGameService', () => {
       expect.objectContaining({
         mode: 'ranked',
         expiresAt: rankedExpiresAt,
-        state: expect.objectContaining({
+        state: matchingObject<GameEngineState>({
           mode: 'ranked',
           durationMinutes: 60,
           expiresAt: rankedExpiresAt.getTime(),
@@ -394,7 +408,7 @@ describe('RoomsGameService', () => {
       {
         roomId: waitingRoom.id,
         gameId: game.id,
-        finishedAt: expect.any(Date),
+        finishedAt: expect.any(Date) as Date,
       },
       tx,
     );
@@ -473,9 +487,10 @@ describe('RoomsGameService', () => {
 
     expect(roomsGameRepository.addBotPlayer).toHaveBeenCalledTimes(3);
 
-    const addedBots = roomsGameRepository.addBotPlayer.mock.calls.map(
-      ([bot]) => bot,
-    );
+    const addBotCalls = roomsGameRepository.addBotPlayer.mock.calls as Array<
+      [AddBotPlayerInput, unknown]
+    >;
+    const addedBots = addBotCalls.map(([bot]) => bot);
     const addedBotNames = addedBots.map((bot) => bot.botName);
 
     expect(addedBots).toEqual(
@@ -488,7 +503,9 @@ describe('RoomsGameService', () => {
       ]),
     );
     expect(new Set(addedBotNames).size).toBe(3);
-    expect(addedBotNames.every((name) => BOT_NAMES.includes(name))).toBe(true);
+    expect(
+      addedBotNames.every((name) => new Set<string>(BOT_NAMES).has(name)),
+    ).toBe(true);
     expect(addedBotNames).not.toEqual(['Nova', 'Midas', 'Echo']);
 
     expect(roomsGameRepository.createGame).toHaveBeenCalledWith(
@@ -496,7 +513,7 @@ describe('RoomsGameService', () => {
         mode: 'casual',
         currentTurnRoomPlayerId: humanPlayerOne.id,
         expiresAt: new Date(activeRoom.startedAt.getTime() + 90 * 60 * 1000),
-        state: expect.objectContaining({
+        state: matchingObject<GameEngineState>({
           version: 1,
           roomId: waitingRoom.id,
           roomCode: waitingRoom.code,
@@ -506,8 +523,8 @@ describe('RoomsGameService', () => {
           turnNumber: 1,
           currentTurnRoomPlayerId: humanPlayerOne.id,
           lastDiceRoll: null,
-          players: expect.arrayContaining([
-            expect.objectContaining({
+          players: matchingArray([
+            matchingObject<GameEnginePlayer>({
               roomPlayerId: humanPlayerOne.id,
               playerType: 'human',
               seatNumber: 1,
@@ -515,7 +532,7 @@ describe('RoomsGameService', () => {
               position: 0,
               consecutiveMissedTurns: 0,
             }),
-            expect.objectContaining({
+            matchingObject<GameEnginePlayer>({
               roomPlayerId: botTwo.id,
               playerType: 'bot',
               botName: 'Nova',
@@ -524,7 +541,7 @@ describe('RoomsGameService', () => {
               cash: 1500,
               consecutiveMissedTurns: 0,
             }),
-            expect.objectContaining({
+            matchingObject<GameEnginePlayer>({
               roomPlayerId: botThree.id,
               playerType: 'bot',
               botName: 'Midas',
@@ -533,7 +550,7 @@ describe('RoomsGameService', () => {
               cash: 1500,
               consecutiveMissedTurns: 0,
             }),
-            expect.objectContaining({
+            matchingObject<GameEnginePlayer>({
               roomPlayerId: botFour.id,
               playerType: 'bot',
               botName: 'Echo',
@@ -648,7 +665,7 @@ describe('RoomsGameService', () => {
     expect(roomsGameRepository.addBotPlayer).toHaveBeenCalledWith(
       expect.objectContaining({
         seatNumber: 2,
-        botName: expect.any(String),
+        botName: expect.any(String) as string,
         botDifficulty: 'hard',
       }),
       tx,
@@ -706,10 +723,10 @@ describe('RoomsGameService', () => {
     expect(roomsGameRepository.createGame).toHaveBeenCalledWith(
       expect.objectContaining({
         mode: 'casual',
-        state: expect.objectContaining({
+        state: matchingObject<GameEngineState>({
           mode: 'casual',
-          players: expect.arrayContaining([
-            expect.objectContaining({
+          players: matchingArray([
+            matchingObject<GameEnginePlayer>({
               roomPlayerId: botPlayer.id,
               playerType: 'bot',
             }),

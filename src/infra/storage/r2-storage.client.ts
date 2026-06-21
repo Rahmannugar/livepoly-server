@@ -49,12 +49,7 @@ export class R2StorageClient implements StorageClient {
         contentLength: response.ContentLength ?? null,
       };
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        '$metadata' in error &&
-        (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 404
-      ) {
+      if (getHttpStatusCode(error) === 404) {
         return null;
       }
 
@@ -91,12 +86,7 @@ export class R2StorageClient implements StorageClient {
 
       return response.Body.transformToByteArray();
     } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        '$metadata' in error &&
-        (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 404
-      ) {
+      if (getHttpStatusCode(error) === 404) {
         return null;
       }
 
@@ -112,4 +102,20 @@ export class R2StorageClient implements StorageClient {
       }),
     );
   }
+}
+
+function getHttpStatusCode(error: unknown): number | null {
+  if (typeof error !== 'object' || error === null) {
+    return null;
+  }
+
+  const metadata = (error as Record<string, unknown>)['$metadata'];
+
+  if (typeof metadata !== 'object' || metadata === null) {
+    return null;
+  }
+
+  const statusCode = (metadata as Record<string, unknown>)['httpStatusCode'];
+
+  return typeof statusCode === 'number' ? statusCode : null;
 }

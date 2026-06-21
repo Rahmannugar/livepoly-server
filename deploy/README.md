@@ -58,6 +58,18 @@ certificate with the `certbot` tools profile, change `NGINX_TEMPLATE` in Secrets
 Manager to `https.conf.template`, and redeploy. Certificate data lives in the
 named `letsencrypt` volume.
 
+## Observability
+
+When `NEW_RELIC_INFRA_ENABLED` is `true`, deployment starts New Relic's
+infrastructure bundle. It reports host and container metrics and collects
+Redis and PostgreSQL service metrics over their private Docker networks. The
+integration configuration reads datastore credentials from the container
+environment; credentials are not committed or exposed through host ports.
+
+Application health probes remain active for Docker and Nginx, but `/health/live`
+and `/health/ready` are excluded from New Relic transactions and automatic HTTP
+request logs so they do not dominate telemetry.
+
 ## Backups
 
 `backup-postgres.sh` creates a custom-format PostgreSQL dump, uploads it to

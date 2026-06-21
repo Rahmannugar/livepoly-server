@@ -316,16 +316,21 @@ describe('GameProcessor', () => {
     );
 
     expect(gameRecoveryService.getOrRecover).toHaveBeenCalledWith('game-1');
-    expect(gameCommandsService.executeIntent).toHaveBeenCalledWith({
-      gameId: 'game-1',
-      source: 'timer',
-      intent: {
-        type: 'finish_game_by_time',
-        payload: {
-          finishedAt: expect.any(Number),
-        },
-      },
-    });
+    const executeCalls = gameCommandsService.executeIntent.mock
+      .calls as unknown[][];
+    const executeInput = executeCalls[0]?.[0] as {
+      gameId: string;
+      source: string;
+      intent: GameEngineIntent;
+    };
+
+    expect(executeInput.gameId).toBe('game-1');
+    expect(executeInput.source).toBe('timer');
+    expect(executeInput.intent.type).toBe('finish_game_by_time');
+    if (executeInput.intent.type !== 'finish_game_by_time') {
+      throw new Error('Expected finish by time intent');
+    }
+    expect(typeof executeInput.intent.payload.finishedAt).toBe('number');
     expect(gameRealtimePublisher.publishCommandResult).toHaveBeenCalledWith(
       'game-1',
       commandResult,
@@ -349,13 +354,19 @@ describe('GameProcessor', () => {
 
     expect(gameCommandsService.executeIntent).not.toHaveBeenCalled();
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
-    expect(gameResultsService.finalizeExpiredFinishedGame).toHaveBeenCalledWith(
-      {
-        gameId: 'game-1',
-        state: finishedState,
-        finishedAt: expect.any(Number),
-      },
-    );
+    const finalizeCalls = gameResultsService.finalizeExpiredFinishedGame.mock
+      .calls as unknown[][];
+    const finalizeInput = finalizeCalls[0]?.[0] as {
+      gameId: string;
+      state: typeof finishedState;
+      finishedAt: number;
+    };
+
+    expect(finalizeInput).toMatchObject({
+      gameId: 'game-1',
+      state: finishedState,
+    });
+    expect(typeof finalizeInput.finishedAt).toBe('number');
   });
 
   it('repairs finalization when an expiry command finds the game already closed', async () => {
@@ -383,13 +394,19 @@ describe('GameProcessor', () => {
       }),
     );
 
-    expect(gameResultsService.finalizeExpiredFinishedGame).toHaveBeenCalledWith(
-      {
-        gameId: 'game-1',
-        state: finishedState,
-        finishedAt: expect.any(Number),
-      },
-    );
+    const finalizeCalls = gameResultsService.finalizeExpiredFinishedGame.mock
+      .calls as unknown[][];
+    const finalizeInput = finalizeCalls[0]?.[0] as {
+      gameId: string;
+      state: typeof finishedState;
+      finishedAt: number;
+    };
+
+    expect(finalizeInput).toMatchObject({
+      gameId: 'game-1',
+      state: finishedState,
+    });
+    expect(typeof finalizeInput.finishedAt).toBe('number');
     expect(gameRealtimePublisher.publishCommandResult).not.toHaveBeenCalled();
   });
 

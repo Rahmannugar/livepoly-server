@@ -18,7 +18,7 @@ export class GameRealtimePublisher {
     private readonly observabilityService: ObservabilityService,
   ) {}
 
-  async publishCommandResult(
+  publishCommandResult(
     gameId: string,
     result: GameCommandResult,
   ): Promise<void> {
@@ -54,6 +54,8 @@ export class GameRealtimePublisher {
     });
 
     this.observabilityService.recordMetric(GAME_METRICS.realtimePublished);
+
+    return Promise.resolve();
   }
 
   private gameRoom(gameId: string): string {

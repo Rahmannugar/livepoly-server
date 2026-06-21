@@ -44,7 +44,9 @@ describe('LeaderboardsService', () => {
 
     const cacheService = {
       getClient: jest.fn().mockReturnValue(redisClient),
-      getOrSet: jest.fn(async ({ factory }) => factory()),
+      getOrSet: jest.fn(({ factory }: { factory: () => Promise<unknown> }) =>
+        factory(),
+      ),
     };
 
     const configService = {

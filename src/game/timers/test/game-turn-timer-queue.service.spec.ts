@@ -2,7 +2,6 @@ import type { Queue } from 'bullmq';
 import type { ObservabilityService } from '../../../infra/observability/observability.service';
 import { GAME_JOBS } from '../../../infra/queue/queue.constants';
 import type { GameEngineState } from '../../engine/game-engine.types';
-import { GAME_TURN_TIMER } from '../../game.constants';
 import { GameTurnTimerQueueService } from '../game-turn-timer-queue.service';
 
 type QueueMock = {
@@ -82,25 +81,29 @@ describe('GameTurnTimerQueueService', () => {
     expect(gameQueue.getJob).toHaveBeenCalledWith(
       'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn_100000',
     );
-    expect(gameQueue.add).toHaveBeenCalledWith(
-      GAME_JOBS.executeTurnTimeout,
-      {
-        gameId: 'game-1',
-        turnNumber: 4,
-        phase: 'awaiting_roll',
-        currentTurnRoomPlayerId: 'room-player-1',
-        actionStateKey: 'turn_100000',
-      },
-      {
-        jobId:
-          'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn_100000',
-        delay: expect.any(Number),
-        attempts: 3,
-        backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },
-        removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
-        removeOnFail: 100,
-      },
-    );
+    const addCall = gameQueue.add.mock.calls[0] as [
+      string,
+      Record<string, unknown>,
+      Record<string, unknown>,
+    ];
+
+    expect(addCall[0]).toBe(GAME_JOBS.executeTurnTimeout);
+    expect(addCall[1]).toEqual({
+      gameId: 'game-1',
+      turnNumber: 4,
+      phase: 'awaiting_roll',
+      currentTurnRoomPlayerId: 'room-player-1',
+      actionStateKey: 'turn_100000',
+    });
+    expect(addCall[2]).toMatchObject({
+      jobId:
+        'turn-timeout__game-1__4__awaiting_roll__room-player-1__turn_100000',
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 1000, jitter: 0.2 },
+      removeOnComplete: { age: 24 * 60 * 60, count: 1000 },
+      removeOnFail: 100,
+    });
+    expect(typeof addCall[2]['delay']).toBe('number');
   });
 
   it('replaces a failed duplicate turn timeout before enqueueing recovery', async () => {

@@ -69,10 +69,10 @@ export class UsersProcessor extends WorkerHost {
           source: USER_JOBS.cleanupDeletedUser,
         });
 
-        await this.cleanupFriendships(job);
-        await this.cleanupNotifications(job);
-        await this.cleanupDevices(job);
-        await this.archiveAnalytics(job);
+        this.cleanupFriendships(job);
+        this.cleanupNotifications(job);
+        this.cleanupDevices(job);
+        this.archiveAnalytics(job);
         await this.sendAccountDeletedEmail(job);
       },
     });
@@ -396,7 +396,7 @@ export class UsersProcessor extends WorkerHost {
     return false;
   }
 
-  private async cleanupFriendships(job: Job<DeletedUserCleanupJob>) {
+  private cleanupFriendships(job: Job<DeletedUserCleanupJob>): void {
     this.recordJobSkipped({
       jobName: job.name,
       stage: 'cleanup_friendships',
@@ -406,7 +406,7 @@ export class UsersProcessor extends WorkerHost {
     });
   }
 
-  private async cleanupNotifications(job: Job<DeletedUserCleanupJob>) {
+  private cleanupNotifications(job: Job<DeletedUserCleanupJob>): void {
     this.recordJobSkipped({
       jobName: job.name,
       stage: 'cleanup_notifications',
@@ -416,7 +416,7 @@ export class UsersProcessor extends WorkerHost {
     });
   }
 
-  private async cleanupDevices(job: Job<DeletedUserCleanupJob>) {
+  private cleanupDevices(job: Job<DeletedUserCleanupJob>): void {
     this.recordJobSkipped({
       jobName: job.name,
       stage: 'cleanup_devices',
@@ -426,7 +426,7 @@ export class UsersProcessor extends WorkerHost {
     });
   }
 
-  private async archiveAnalytics(job: Job<DeletedUserCleanupJob>) {
+  private archiveAnalytics(job: Job<DeletedUserCleanupJob>): void {
     this.recordJobSkipped({
       jobName: job.name,
       stage: 'archive_analytics',

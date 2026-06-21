@@ -17,7 +17,7 @@ updates:
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
       time: "09:15"
       timezone: Africa/Lagos
@@ -26,7 +26,7 @@ updates:
   - package-ecosystem: docker
     directory: /deploy
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
       time: "09:20"
       timezone: Africa/Lagos
@@ -35,7 +35,7 @@ updates:
   - package-ecosystem: docker
     directory: /deploy/pgbouncer
     schedule:
-      interval: weekly
+      interval: monthly
       day: monday
       time: "09:25"
       timezone: Africa/Lagos

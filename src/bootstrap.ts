@@ -11,12 +11,14 @@ import {
   CORS_ORIGINS,
   SWAGGER_PATH,
 } from './config/app.constants';
+import { ignoreNewRelicHealthTransactions } from './infra/observability/newrelic-health-ignore.middleware';
 
 export function configureApp(app: INestApplication): void {
   const expressApp = app.getHttpAdapter().getInstance() as Express;
 
   expressApp.set('trust proxy', 1);
 
+  app.use(ignoreNewRelicHealthTransactions);
   app.use(helmet());
   app.enableCors({
     origin: CORS_ORIGINS,

@@ -1,0 +1,43 @@
+name: Close stale Dependabot PRs
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  close-stale-dependabot:
+    name: Close Dependabot PRs older than 7 days
+    runs-on: ubuntu-latest
+    steps:
+      - name: Close old Dependabot PRs
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -Eeuo pipefail
+
+          cutoff="$(date -u -d '7 days ago' +%s)"
+
+          gh pr list \
+            --repo "$REPOSITORY" \
+            --state open \
+            --author "app/dependabot" \
+            --json number,createdAt \
+            --limit 100 |
+            jq -r --argjson cutoff "$cutoff" \
+              '.[] | select((.createdAt | fromdateiso8601) <= $cutoff) | .number' |
+            while read -r number; do
+              if [ -z "$number" ]; then
+                continue
+              fi
+
+              gh pr close "$number" \
+                --repo "$REPOSITORY" \
+                --delete-branch \
+                --comment "Closing this Dependabot PR because it has been open for more than 7 days. Reopen it or trigger Dependabot again if we want this update."
+            done

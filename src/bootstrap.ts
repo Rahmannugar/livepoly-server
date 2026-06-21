@@ -7,13 +7,11 @@ import { HttpRouteContract } from './common/http/http-route-contract';
 import { ApiResponseInterceptor } from './common/interceptors/api-response.interceptor';
 import {
   API_DOCUMENTATION,
-  API_PREFIX,
   CORS_ORIGINS,
   SWAGGER_PATH,
 } from './config/app.constants';
 
 export function configureApp(app: INestApplication): void {
-  app.setGlobalPrefix(API_PREFIX);
   app.getHttpAdapter().getInstance().set('trust proxy', 1);
 
   app.use(helmet());
@@ -43,7 +41,7 @@ export function configureApp(app: INestApplication): void {
   const documentBuilder = new DocumentBuilder()
     .setTitle(API_DOCUMENTATION.title)
     .setDescription(
-      `${API_DOCUMENTATION.description}\n\n[Download OpenAPI JSON](/${API_PREFIX}/openapi.json)`,
+      `${API_DOCUMENTATION.description}\n\n[Download OpenAPI JSON](/openapi.json)`,
     )
     .setVersion(API_DOCUMENTATION.version)
     .addBearerAuth(
@@ -76,7 +74,7 @@ export function configureApp(app: INestApplication): void {
 
   const httpRouteContract = new HttpRouteContract(swaggerDocument, [
     {
-      path: `/${API_PREFIX}/openapi.json`,
+      path: '/openapi.json',
       methods: ['GET', 'HEAD'],
     },
   ]);
@@ -86,7 +84,7 @@ export function configureApp(app: INestApplication): void {
   app
     .getHttpAdapter()
     .getInstance()
-    .get(`/${API_PREFIX}/openapi.json`, (_request, response) => {
+    .get('/openapi.json', (_request, response) => {
       response.json(swaggerDocument);
     });
 

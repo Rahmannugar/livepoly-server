@@ -145,7 +145,7 @@ LivePoly uses it for notification-created events. When a feature creates a notif
 
 That means if publishing fails after the database write, the notification event is still stored and can be retried instead of being lost.
 
-Resend posts signed delivery events to `POST /api/webhooks/resend`. The API
+Resend posts signed delivery events to `POST /webhooks/resend`. The API
 verifies the raw request with `RESEND_WEBHOOK_SECRET` before processing it,
 deduplicates the provider event ID in Redis for seven days, and emits structured
 Pino/New Relic diagnostics without recording recipient addresses or secrets.

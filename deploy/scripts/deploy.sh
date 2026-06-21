@@ -64,7 +64,7 @@ compose=(docker compose --env-file .env -f deploy/docker-compose.production.yml)
 for attempt in {1..20}; do
   if curl --fail --silent --show-error \
     --header 'Host: api.livepoly.site' \
-    http://127.0.0.1/api/health/ready >/dev/null; then
+    http://127.0.0.1/health/ready >/dev/null; then
     ln -sfn "$release_dir" "${deployment_root}/current"
     break
   fi

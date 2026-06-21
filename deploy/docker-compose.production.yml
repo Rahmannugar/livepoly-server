@@ -21,7 +21,7 @@ x-application: &application
 x-api-healthcheck: &api-healthcheck
   test:
     - CMD-SHELL
-    - wget --quiet --output-document=- http://127.0.0.1:3002/api/health/live >/dev/null 2>&1
+    - wget --quiet --output-document=- http://127.0.0.1:3002/health/live >/dev/null 2>&1
   interval: 15s
   timeout: 5s
   retries: 5

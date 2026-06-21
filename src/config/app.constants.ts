@@ -1,6 +1,4 @@
-export const API_PREFIX = 'api';
-
-export const SWAGGER_PATH = `${API_PREFIX}/docs`;
+export const SWAGGER_PATH = 'docs';
 
 export const CORS_ORIGINS = [
   'http://localhost:3000',

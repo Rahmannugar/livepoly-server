@@ -38,7 +38,7 @@ export class AuthController {
       secure: isProduction,
       sameSite: isProduction ? 'none' : 'lax',
       maxAge: AUTH.refreshTokenTtlDays * 24 * 60 * 60 * 1000,
-      path: '/api/auth/refresh',
+      path: '/auth/refresh',
     });
   }
 
@@ -49,7 +49,7 @@ export class AuthController {
       httpOnly: true,
       secure: isProduction,
       sameSite: isProduction ? 'none' : 'lax',
-      path: '/api/auth/refresh',
+      path: '/auth/refresh',
     });
   }
 

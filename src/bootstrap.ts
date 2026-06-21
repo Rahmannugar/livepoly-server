@@ -1,6 +1,7 @@
 import { HttpStatus, INestApplication, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import type { Express, Response } from 'express';
 import helmet from 'helmet';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { HttpRouteContract } from './common/http/http-route-contract';
@@ -12,7 +13,9 @@ import {
 } from './config/app.constants';
 
 export function configureApp(app: INestApplication): void {
-  app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  const expressApp = app.getHttpAdapter().getInstance() as Express;
+
+  expressApp.set('trust proxy', 1);
 
   app.use(helmet());
   app.enableCors({
@@ -81,12 +84,9 @@ export function configureApp(app: INestApplication): void {
 
   app.useGlobalFilters(new AllExceptionsFilter(httpRouteContract));
 
-  app
-    .getHttpAdapter()
-    .getInstance()
-    .get('/openapi.json', (_request, response) => {
-      response.json(swaggerDocument);
-    });
+  expressApp.get('/openapi.json', (_request, response: Response) => {
+    response.json(swaggerDocument);
+  });
 
   SwaggerModule.setup(SWAGGER_PATH, app, swaggerDocument, {
     swaggerOptions: {

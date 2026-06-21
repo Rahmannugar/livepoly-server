@@ -25,10 +25,22 @@ import {
 } from './dto/verify-email.dto';
 import { AUTH_RATE_LIMIT_RULES } from './auth-rate-limit.rules';
 
+type CookieRequest = Request & {
+  cookies?: {
+    refreshToken?: unknown;
+  };
+};
+
 @AuthDocs.Controller()
 @Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
+
+  private getRefreshToken(request: Request) {
+    const { refreshToken } = (request as CookieRequest).cookies ?? {};
+
+    return typeof refreshToken === 'string' ? refreshToken : undefined;
+  }
 
   private setRefreshCookie(response: Response, refreshToken: string) {
     const isProduction = process.env.NODE_ENV === 'production';
@@ -123,7 +135,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const result = await this.authService.refresh(
-      request.cookies?.refreshToken,
+      this.getRefreshToken(request),
     );
 
     this.setRefreshCookie(response, result.refreshToken);
@@ -141,7 +153,7 @@ export class AuthController {
     @Req() request: Request,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const result = await this.authService.logout(request.cookies?.refreshToken);
+    const result = await this.authService.logout(this.getRefreshToken(request));
 
     this.clearRefreshCookie(response);
 

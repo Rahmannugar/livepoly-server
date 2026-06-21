@@ -152,6 +152,17 @@ export class AuthService {
     );
 
     if (oauthUser) {
+      if (oauthUser.deletedAt) {
+        this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
+          provider: profile.provider,
+          reason: 'account_unavailable',
+          userId: oauthUser.id,
+          hasIp: Boolean(context.ip),
+        });
+
+        throw new UnauthorizedException('Authentication required');
+      }
+
       if (oauthUser.status !== 'active') {
         this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
           provider: profile.provider,
@@ -179,6 +190,17 @@ export class AuthService {
       );
 
       if (emailUser) {
+        if (emailUser.deletedAt) {
+          this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
+            provider: profile.provider,
+            reason: 'account_unavailable',
+            userId: emailUser.id,
+            hasIp: Boolean(context.ip),
+          });
+
+          throw new UnauthorizedException('Authentication required');
+        }
+
         if (emailUser.status !== 'active') {
           this.recordSecurityEvent(AUTH_EVENTS.oauthFailed, {
             provider: profile.provider,
@@ -483,6 +505,16 @@ export class AuthService {
       });
 
       throw new UnauthorizedException('Invalid email or password');
+    }
+
+    if (user.deletedAt) {
+      this.recordSecurityEvent(AUTH_EVENTS.loginFailed, {
+        reason: 'account_unavailable',
+        userId: user.id,
+        hasIp: Boolean(context.ip),
+      });
+
+      throw new ForbiddenException('Unable to sign in');
     }
 
     if (!user.emailVerified) {

@@ -35,6 +35,7 @@ type FakeUser = {
   role: 'player' | 'admin';
   status: 'active' | 'suspended';
   tokenVersion: number;
+  deletedAt?: Date | null;
 };
 
 type FakeOAuthAccount = {
@@ -314,6 +315,7 @@ describe('AuthService', () => {
           status: user.status,
           tokenVersion: user.tokenVersion,
           emailVerified: user.emailVerified,
+          deletedAt: user.deletedAt ?? null,
         });
       }),
 
@@ -345,6 +347,7 @@ describe('AuthService', () => {
           role: user.role,
           status: user.status,
           tokenVersion: user.tokenVersion,
+          deletedAt: user.deletedAt ?? null,
         });
       }),
 
@@ -843,6 +846,37 @@ describe('AuthService', () => {
         { ip: '127.0.0.1', userAgent: 'jest' },
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(sessions).toHaveLength(0);
+  });
+
+  it('rejects deleted password login without creating a session', async () => {
+    users.push({
+      id: 'user-1',
+      email: 'player@example.com',
+      username: 'player',
+      passwordHash: 'password-hash',
+      emailVerified: true,
+      role: 'player',
+      status: 'active',
+      tokenVersion: 0,
+      deletedAt: new Date('2026-06-21T12:00:00.000Z'),
+    });
+
+    const loginAttempt = service.login(
+      {
+        email: 'player@example.com',
+        password: 'StrongPass123',
+      },
+      { ip: '127.0.0.1', userAgent: 'jest' },
+    );
+
+    await expect(loginAttempt).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(loginAttempt).rejects.toMatchObject({
+      response: {
+        message: 'Unable to sign in',
+      },
+    });
 
     expect(sessions).toHaveLength(0);
   });

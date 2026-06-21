@@ -1,4 +1,8 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '@nestjs/common';
 import type { ConfigService } from '@nestjs/config';
 import type { AuthRepository } from '../../auth/auth.repository';
 import type { AuthUser } from '../../auth/types/auth-user.type';
@@ -163,6 +167,7 @@ describe('UsersProfileService', () => {
       id: authUser.id,
       email: authUser.email,
       username: 'renamed',
+      role: authUser.role,
       bio: 'New table energy.',
       avatarObjectKey: 'avatars/user-1/avatar.webp',
       createdAt: new Date('2026-05-14T12:00:00.000Z'),
@@ -214,6 +219,19 @@ describe('UsersProfileService', () => {
       }),
     );
     expect(cacheIncr).toHaveBeenCalledWith(USER_SEARCH.cacheVersionKey);
+  });
+
+  it('rejects admin self deletion', async () => {
+    await expect(
+      service.deleteMe({
+        ...authUser,
+        role: 'admin',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    expect(usersProfileRepository.deleteUser).not.toHaveBeenCalled();
+    expect(authRepository.revokeUserSessions).not.toHaveBeenCalled();
+    expect(usersQueueService.enqueueDeletedUserCleanup).not.toHaveBeenCalled();
   });
 
   it('returns public profile without email by username', async () => {

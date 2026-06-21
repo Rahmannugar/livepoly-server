@@ -54,6 +54,7 @@ export class AuthRepository {
         passwordHash: users.passwordHash,
         emailVerified: users.emailVerified,
         tokenVersion: users.tokenVersion,
+        deletedAt: users.deletedAt,
       })
       .from(users)
       .where(eq(users.email, email))
@@ -85,6 +86,7 @@ export class AuthRepository {
         status: users.status,
         tokenVersion: users.tokenVersion,
         emailVerified: users.emailVerified,
+        deletedAt: users.deletedAt,
       })
       .from(oauthAccounts)
       .innerJoin(users, eq(oauthAccounts.userId, users.id))

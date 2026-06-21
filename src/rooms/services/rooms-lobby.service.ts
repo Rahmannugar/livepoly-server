@@ -33,6 +33,7 @@ import {
   ROOM_METRICS,
   ROOM_MAX_PLAYERS,
   ROOM_MAX_SPECTATORS,
+  WAITING_ROOM_EXPIRY_MS,
 } from '../rooms.constants';
 
 @Injectable()
@@ -127,7 +128,9 @@ export class RoomsLobbyService {
       this.getExpiredActiveGameRoomIds(activeGames);
 
     const nonExpiredRooms = rooms.filter(
-      (room) => !expiredActiveGameRoomIds.has(room.id),
+      (room) =>
+        !expiredActiveGameRoomIds.has(room.id) &&
+        !this.isExpiredWaitingRoom(room),
     );
     const nonExpiredRoomIds = nonExpiredRooms.map((room) => room.id);
 
@@ -195,6 +198,10 @@ export class RoomsLobbyService {
       return null;
     }
 
+    if (this.isExpiredWaitingRoom(room)) {
+      return null;
+    }
+
     return this.getRoomPayload(room.id, room, authUser.id);
   }
 
@@ -203,6 +210,18 @@ export class RoomsLobbyService {
 
     if (!room) {
       throw new NotFoundException('Room not found');
+    }
+
+    if (this.isExpiredWaitingRoom(room)) {
+      return this.getRoomPayload(
+        room.id,
+        {
+          ...room,
+          status: 'cancelled',
+          endedAt: new Date(room.createdAt.getTime() + WAITING_ROOM_EXPIRY_MS),
+        },
+        authUser.id,
+      );
     }
 
     return this.getRoomPayload(room.id, room, authUser.id);
@@ -225,6 +244,10 @@ export class RoomsLobbyService {
       }
 
       if (room.status !== 'waiting') {
+        throw new ConflictException('Room is not open');
+      }
+
+      if (this.isExpiredWaitingRoom(room)) {
         throw new ConflictException('Room is not open');
       }
 
@@ -625,6 +648,12 @@ export class RoomsLobbyService {
       );
     }
 
+    if (this.isExpiredWaitingRoom(room)) {
+      throw new ConflictException(
+        'Only waiting or active rooms can be spectated',
+      );
+    }
+
     if (
       room.status === 'active' &&
       (await this.finalizeExpiredRoomGame(room.id))
@@ -669,6 +698,12 @@ export class RoomsLobbyService {
       }
 
       if (!isSpectatableRoomStatus(lockedRoom.status)) {
+        throw new ConflictException(
+          'Only waiting or active rooms can be spectated',
+        );
+      }
+
+      if (this.isExpiredWaitingRoom(lockedRoom)) {
         throw new ConflictException(
           'Only waiting or active rooms can be spectated',
         );
@@ -758,6 +793,10 @@ export class RoomsLobbyService {
     }
 
     if (room.status !== 'waiting') {
+      throw new ConflictException('Room is not open');
+    }
+
+    if (this.isExpiredWaitingRoom(room)) {
       throw new ConflictException('Room is not open');
     }
 
@@ -945,6 +984,16 @@ export class RoomsLobbyService {
       await this.roomsLobbyRepository.findActiveGameByRoomId(roomId);
 
     return Boolean(activeGame && activeGame.expiresAt.getTime() <= Date.now());
+  }
+
+  private isExpiredWaitingRoom(room: {
+    status: string;
+    createdAt: Date;
+  }): boolean {
+    return (
+      room.status === 'waiting' &&
+      room.createdAt.getTime() + WAITING_ROOM_EXPIRY_MS <= Date.now()
+    );
   }
 
   private async getRoomPayload(

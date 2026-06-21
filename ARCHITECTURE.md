@@ -116,10 +116,12 @@ SSE stream ownership:
 
 Live game state is stored in Redis for fast gameplay. Durability is handled separately:
 
-- Snapshots store full game state checkpoints.
-- Events store ordered command/result event payloads for reconnect recovery.
+- Snapshots store full game state checkpoints for server-side recovery.
+- Events store ordered command/result payloads for realtime replay, missed-event recovery, audit, and history.
 
-On reconnect, the client joins the game, requests missed events with a cursor, and refreshes presence. If no cursor exists, the server can return the latest recovery window.
+When a player reconnects, the client rejoins the game socket and receives the current game state from Redis. If Redis no longer has the state, the server restores the latest snapshot from Postgres back into Redis and serves that recovered state.
+
+The client may also request missed realtime events with a cursor so it can fill UI gaps since its last seen event. Events are not the primary source used to rebuild the full game state.
 
 ## Jobs and Outbox
 

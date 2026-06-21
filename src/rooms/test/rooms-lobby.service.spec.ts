@@ -208,10 +208,15 @@ describe('RoomsLobbyService', () => {
   let gameCommandsService: GameCommandsServiceMock;
   let gameRealtimePublisher: GameRealtimePublisherMock;
   let roomsStreamService: RoomsStreamServiceMock;
+  let dateNowSpy: jest.SpiedFunction<typeof Date.now>;
 
   const tx = { tx: true };
 
   beforeEach(() => {
+    dateNowSpy = jest
+      .spyOn(Date, 'now')
+      .mockReturnValue(createdAt.getTime() + 5 * 60 * 1000);
+
     roomsLobbyRepository = {
       findActiveRoomForUser: jest.fn().mockResolvedValue(null),
       lockActiveRoomMembershipForUser: jest.fn().mockResolvedValue(undefined),
@@ -308,6 +313,10 @@ describe('RoomsLobbyService', () => {
       gameRealtimePublisher as unknown as GameRealtimePublisher,
       roomsStreamService as unknown as RoomsStreamService,
     );
+  });
+
+  afterEach(() => {
+    dateNowSpy.mockRestore();
   });
 
   it('rejects creating a room when the user is already in a waiting or active room', async () => {
@@ -600,6 +609,28 @@ describe('RoomsLobbyService', () => {
       service.joinRoom(joiningUser, waitingRoom.code),
     ).rejects.toBeInstanceOf(ConflictException);
 
+    expect(roomsLobbyRepository.addHumanPlayer).not.toHaveBeenCalled();
+  });
+
+  it('blocks joining an expired waiting room', async () => {
+    const joiningUser: AuthUser = {
+      ...authUser,
+      id: 'user-5',
+      email: 'joiner@example.com',
+      username: 'joiner',
+    };
+    dateNowSpy.mockReturnValue(createdAt.getTime() + 60 * 60 * 1000);
+
+    roomsLobbyRepository.lockRoomByCode.mockResolvedValue({
+      ...waitingRoom,
+      durationMinutes: 60,
+    });
+
+    await expect(
+      service.joinRoom(joiningUser, waitingRoom.code),
+    ).rejects.toBeInstanceOf(ConflictException);
+
+    expect(roomsLobbyRepository.listJoinedPlayers).not.toHaveBeenCalled();
     expect(roomsLobbyRepository.addHumanPlayer).not.toHaveBeenCalled();
   });
 

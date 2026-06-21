@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -197,6 +198,16 @@ export class UsersProfileService {
       username: authUser.username,
     });
 
+    if (authUser.role === 'admin') {
+      this.recordSecurityEvent(USER_EVENTS.deleteFailed, {
+        userId: authUser.id,
+        username: authUser.username,
+        reason: 'admin_self_delete_blocked',
+      });
+
+      throw new ForbiddenException('Account deletion is not available');
+    }
+
     const { user, revokedSessions } = await this.databaseService.transaction(
       async (tx) => {
         const user = await this.usersProfileRepository.deleteUser(
@@ -258,6 +269,7 @@ export class UsersProfileService {
       id: string;
       email: string;
       username: string;
+      role: 'player' | 'admin';
       bio: string | null;
       avatarObjectKey: string | null;
       createdAt: Date;
@@ -269,6 +281,7 @@ export class UsersProfileService {
       id: user.id,
       email: user.email,
       username: user.username,
+      role: user.role,
       bio: user.bio,
       avatarUrl: this.resolveAvatarUrl(user.avatarObjectKey),
       stats,

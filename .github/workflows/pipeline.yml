@@ -133,7 +133,7 @@ jobs:
           set -Eeuo pipefail
 
           remote_command=$(cat <<EOF
-          set -Eeuo pipefail
+          set -eu
           install -d -o ubuntu -g ubuntu /opt/livepoly /opt/livepoly/releases /opt/livepoly/backups
           if [[ ! -d /opt/livepoly/repository/.git ]]; then
             sudo -u ubuntu git clone '${REPOSITORY_URL}' /opt/livepoly/repository

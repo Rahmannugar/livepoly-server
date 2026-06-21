@@ -51,7 +51,7 @@ aws s3api head-object \
 mapfile -t stale_local_backups < <(
   find "$backup_dir" -maxdepth 1 -type f -name 'livepoly-*.dump' -printf '%T@ %p\n' \
     | sort -rn \
-    | tail -n +6 \
+    | tail -n +4 \
     | cut -d' ' -f2-
 )
 for stale_backup in "${stale_local_backups[@]}"; do
@@ -68,7 +68,7 @@ mapfile -t remote_keys < <(
     | tr '\t' '\n'
 )
 
-for stale_key in "${remote_keys[@]:5}"; do
+for stale_key in "${remote_keys[@]:3}"; do
   [[ -n "$stale_key" && "$stale_key" != "None" ]] || continue
   aws s3api delete-object \
     --region "$aws_region" \

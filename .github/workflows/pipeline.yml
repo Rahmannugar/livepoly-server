@@ -29,12 +29,12 @@ jobs:
       RESEND_WEBHOOK_SECRET: whsec_ci_not_a_secret
       GOOGLE_OAUTH_CLIENT_ID: ci-google-client
       GOOGLE_OAUTH_CLIENT_SECRET: ci-google-secret
-      GOOGLE_OAUTH_REDIRECT_URI: https://api.livepoly.site/api/auth/oauth/google/callback
+      GOOGLE_OAUTH_REDIRECT_URI: https://api.livepoly.site/auth/oauth/google/callback
       DISCORD_OAUTH_CLIENT_ID: ci-discord-client
       DISCORD_OAUTH_CLIENT_SECRET: ci-discord-secret
-      DISCORD_OAUTH_REDIRECT_URI: https://api.livepoly.site/api/auth/oauth/discord/callback
-      OAUTH_SUCCESS_REDIRECT_URL: https://livepoly.site/
-      OAUTH_FAILURE_REDIRECT_URL: https://livepoly.site/auth/login?oauth=failed
+      DISCORD_OAUTH_REDIRECT_URI: https://api.livepoly.site/auth/oauth/discord/callback
+      OAUTH_SUCCESS_REDIRECT_URL: https://www.livepoly.site/
+      OAUTH_FAILURE_REDIRECT_URL: https://www.livepoly.site/auth/login?oauth=failed
       R2_ACCOUNT_ID: ci-r2-account
       R2_ACCESS_KEY_ID: ci-r2-access-key
       R2_SECRET_ACCESS_KEY: not-a-secret

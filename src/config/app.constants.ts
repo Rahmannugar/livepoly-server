@@ -3,8 +3,7 @@ export const SWAGGER_PATH = 'docs';
 export const CORS_ORIGINS = [
   'http://localhost:3000',
   'http://localhost:3001',
-  'http://localhost:5173',
-  'https://livepoly.site',
+  'https://www.livepoly.site',
 ] as const;
 
 export const API_DOCUMENTATION = {

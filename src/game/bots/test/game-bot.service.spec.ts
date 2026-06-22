@@ -231,7 +231,7 @@ describe('GameBotService', () => {
         type: 'place_auction_bid',
         payload: {
           roomPlayerId: 'bot-player-1',
-          amount: 93,
+          amount: 97,
         },
       },
     });
@@ -243,7 +243,7 @@ describe('GameBotService', () => {
       pendingTileKey: null,
       auction: {
         tileKey: TEST_BOARD_TILES.airport,
-        currentBid: 160,
+        currentBid: 170,
         highestBidderRoomPlayerId: 'room-player-2',
         currentBidderRoomPlayerId: 'bot-player-1',
         bidExpiresAt: Date.now() + 25_000,

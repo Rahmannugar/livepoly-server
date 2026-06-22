@@ -33,8 +33,8 @@ export const GAME_BOTS = {
   },
   cashReserve: {
     easy: 200,
-    normal: 450,
-    hard: 600,
+    normal: 350,
+    hard: 300,
   },
   buyScoreThreshold: {
     easy: 65,
@@ -43,13 +43,23 @@ export const GAME_BOTS = {
   },
   auctionMaxPriceRatio: {
     easy: 0.55,
-    normal: 0.62,
-    hard: 0.78,
+    normal: 0.85,
+    hard: 1.05,
   },
   auctionBidStepRatio: {
     easy: 0.03,
-    normal: 0.06,
-    hard: 0.1,
+    normal: 0.08,
+    hard: 0.14,
+  },
+  auctionSetCompletionPremium: {
+    easy: 0,
+    normal: 0.35,
+    hard: 0.8,
+  },
+  auctionBlockPremium: {
+    easy: 0,
+    normal: 0.15,
+    hard: 0.45,
   },
   setCompletionBonus: {
     easy: 10,
@@ -82,9 +92,14 @@ export const GAME_BOTS = {
     hard: 1.15,
   },
   tradeAcceptanceMargin: {
-    easy: 1,
-    normal: 1.12,
-    hard: 1.25,
+    easy: 0.95,
+    normal: 1.1,
+    hard: 1.3,
+  },
+  tradeSetCompletionWeight: {
+    easy: 0,
+    normal: 0.75,
+    hard: 1.75,
   },
 } as const;
 

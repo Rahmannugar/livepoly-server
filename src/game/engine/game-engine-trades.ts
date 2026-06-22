@@ -317,12 +317,13 @@ function validateTrade(
   }
 
   if (
-    trade.offeredCash === 0 &&
-    trade.requestedCash === 0 &&
-    trade.offeredPropertyKeys.length === 0 &&
-    trade.requestedPropertyKeys.length === 0
+    (trade.offeredCash === 0 && trade.offeredPropertyKeys.length === 0) ||
+    (trade.requestedCash === 0 && trade.requestedPropertyKeys.length === 0)
   ) {
-    throw new GameEngineError('INVALID_TRADE', 'Trade cannot be empty');
+    throw new GameEngineError(
+      'INVALID_TRADE',
+      'Both players must offer cash or property',
+    );
   }
 
   assertNoDuplicateCrossTradeProperties(trade);
@@ -463,24 +464,90 @@ function transferProperties(
   };
 }
 
-function shouldBotAcceptTrade(
+export function shouldBotAcceptTrade(
   state: GameEngineState,
   trade: GameEngineTradeOffer,
 ): boolean {
   const bot = findPlayer(state, trade.toRoomPlayerId);
-  const botReceives = getTradeValue(state, {
-    cash: trade.offeredCash,
-    propertyKeys: trade.offeredPropertyKeys,
-  });
-  const botGives = getTradeValue(state, {
-    cash: trade.requestedCash,
-    propertyKeys: trade.requestedPropertyKeys,
-  });
+  const difficulty = bot.botDifficulty ?? 'normal';
+  const setCompletionWeight = GAME_BOTS.tradeSetCompletionWeight[difficulty];
+  const botReceives =
+    getTradeValue(state, {
+      cash: trade.offeredCash,
+      propertyKeys: trade.offeredPropertyKeys,
+    }) +
+    getSetCompletionValue(state, {
+      roomPlayerId: trade.toRoomPlayerId,
+      incomingPropertyKeys: trade.offeredPropertyKeys,
+      outgoingPropertyKeys: trade.requestedPropertyKeys,
+    }) *
+      setCompletionWeight;
+  const botGives =
+    getTradeValue(state, {
+      cash: trade.requestedCash,
+      propertyKeys: trade.requestedPropertyKeys,
+    }) +
+    getSetCompletionValue(state, {
+      roomPlayerId: trade.fromRoomPlayerId,
+      incomingPropertyKeys: trade.requestedPropertyKeys,
+      outgoingPropertyKeys: trade.offeredPropertyKeys,
+    }) *
+      setCompletionWeight;
 
-  return (
-    botReceives >=
-    botGives * GAME_BOTS.tradeAcceptanceMargin[bot.botDifficulty ?? 'normal']
-  );
+  return botReceives >= botGives * GAME_BOTS.tradeAcceptanceMargin[difficulty];
+}
+
+function getSetCompletionValue(
+  state: GameEngineState,
+  input: {
+    roomPlayerId: string;
+    incomingPropertyKeys: string[];
+    outgoingPropertyKeys: string[];
+  },
+): number {
+  const board = getGameBoard(state.boardKey);
+  const incoming = new Set(input.incomingPropertyKeys);
+  const outgoing = new Set(input.outgoingPropertyKeys);
+  const completedSetKeys = new Set<string>();
+
+  for (const tileKey of input.incomingPropertyKeys) {
+    const tile = getTradeableTile(state, tileKey);
+
+    if (tile.kind !== 'property' || completedSetKeys.has(tile.setKey)) {
+      continue;
+    }
+
+    const setTiles = board.tiles.filter(
+      (candidate): candidate is PropertyTile =>
+        candidate.kind === 'property' && candidate.setKey === tile.setKey,
+    );
+    const completesSet = setTiles.every((setTile) => {
+      if (outgoing.has(setTile.key)) {
+        return false;
+      }
+
+      if (incoming.has(setTile.key)) {
+        return true;
+      }
+
+      return (
+        findPropertyState(state, setTile.key).ownerRoomPlayerId ===
+        input.roomPlayerId
+      );
+    });
+
+    if (completesSet) {
+      completedSetKeys.add(tile.setKey);
+    }
+  }
+
+  return board.tiles.reduce((total, tile) => {
+    if (tile.kind !== 'property' || !completedSetKeys.has(tile.setKey)) {
+      return total;
+    }
+
+    return total + tile.price;
+  }, 0);
 }
 
 function markBotTradeProposal(

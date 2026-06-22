@@ -20,6 +20,7 @@ import type {
   GameEngineState,
 } from '../engine/game-engine.types';
 import { GAME_BOTS } from '../game.constants';
+import { shouldBotAcceptTrade } from '../engine/game-engine-trades';
 import type { BotDecision } from './game-bot.types';
 
 type OwnableTile = PropertyTile | AirportTile | UtilityTile;
@@ -192,7 +193,7 @@ export class GameBotService {
       };
     }
 
-    const maxBid = this.getMaxAuctionBid(bot, tile);
+    const maxBid = this.getMaxAuctionBid(state, bot, tile);
     const nextBid = getMinimumAuctionBid(auction);
 
     if (nextBid > maxBid || nextBid > bot.cash - this.cashReserve(bot)) {
@@ -290,7 +291,7 @@ export class GameBotService {
     }
 
     return {
-      type: this.shouldAcceptTrade(state, bot)
+      type: shouldBotAcceptTrade(state, state.tradeOffer)
         ? 'accept_trade'
         : 'reject_trade',
       payload: {
@@ -530,31 +531,6 @@ export class GameBotService {
     return candidates.sort((left, right) => right.score - left.score);
   }
 
-  private shouldAcceptTrade(
-    state: GameEngineState,
-    bot: GameEnginePlayer,
-  ): boolean {
-    const trade = state.tradeOffer;
-
-    if (!trade) {
-      return false;
-    }
-
-    const botReceives = this.getTradeValue(state, {
-      cash: trade.offeredCash,
-      propertyKeys: trade.offeredPropertyKeys,
-    });
-    const botGives = this.getTradeValue(state, {
-      cash: trade.requestedCash,
-      propertyKeys: trade.requestedPropertyKeys,
-    });
-
-    return (
-      botReceives >=
-      botGives * GAME_BOTS.tradeAcceptanceMargin[this.difficulty(bot)]
-    );
-  }
-
   private shouldPayJailFine(bot: GameEnginePlayer): boolean {
     if (bot.cash < 50) {
       return false;
@@ -563,14 +539,28 @@ export class GameBotService {
     return bot.botDifficulty === 'hard' || bot.jailTurnCount >= 2;
   }
 
-  private getMaxAuctionBid(bot: GameEnginePlayer, tile: OwnableTile): number {
+  private getMaxAuctionBid(
+    state: GameEngineState,
+    bot: GameEnginePlayer,
+    tile: OwnableTile,
+  ): number {
     const difficulty = this.difficulty(bot);
     const strategicPremium =
       tile.kind === 'property' ? this.rentPotentialScore(tile) / 2 : 0;
+    const setCompletionPremium =
+      tile.kind === 'property' && this.wouldCompleteSet(state, bot, tile)
+        ? tile.price * GAME_BOTS.auctionSetCompletionPremium[difficulty]
+        : 0;
+    const blockPremium =
+      tile.kind === 'property' && this.wouldBlockOpponentSet(state, bot, tile)
+        ? tile.price * GAME_BOTS.auctionBlockPremium[difficulty]
+        : 0;
 
     return Math.floor(
       tile.price * GAME_BOTS.auctionMaxPriceRatio[difficulty] +
-        strategicPremium * GAME_BOTS.rentPotentialWeight[difficulty],
+        strategicPremium * GAME_BOTS.rentPotentialWeight[difficulty] +
+        setCompletionPremium +
+        blockPremium,
     );
   }
 
@@ -677,31 +667,6 @@ export class GameBotService {
       tile.rentMultiplierByOwnedCount[
         tile.rentMultiplierByOwnedCount.length - 1
       ] * 4
-    );
-  }
-
-  private getTradeValue(
-    state: GameEngineState,
-    input: { cash: number; propertyKeys: string[] },
-  ): number {
-    return (
-      input.cash +
-      input.propertyKeys.reduce((sum, tileKey) => {
-        const tile = this.getOwnableTile(state, tileKey);
-
-        if (!tile) {
-          return sum;
-        }
-
-        const property = this.findPropertyState(state, tileKey);
-        const buildingValue =
-          tile.kind === 'property'
-            ? (property.houseCount + (property.hasHotel ? 5 : 0)) *
-              (tile.houseCost / 2)
-            : 0;
-
-        return sum + tile.price + buildingValue;
-      }, 0)
     );
   }
 

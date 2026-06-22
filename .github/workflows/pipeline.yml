@@ -83,6 +83,7 @@ jobs:
 
       - name: Validate production Compose
         run: |
+          bash -n deploy/scripts/*.sh
           cp deploy/.env.example .env
           docker compose --env-file .env -f deploy/docker-compose.production.yml config --quiet
 
@@ -142,6 +143,14 @@ jobs:
           sudo -u ubuntu git -C /opt/livepoly/repository checkout --force --detach '${COMMIT_SHA}'
           sudo -u ubuntu env AWS_REGION='${AWS_REGION}' LIVEPOLY_SECRET_ID='${AWS_SECRET_ID}' \
             bash /opt/livepoly/repository/deploy/scripts/deploy.sh '${COMMIT_SHA}'
+          install -m 0644 \
+            /opt/livepoly/current/deploy/systemd/livepoly-cert-renewal.service \
+            /etc/systemd/system/livepoly-cert-renewal.service
+          install -m 0644 \
+            /opt/livepoly/current/deploy/systemd/livepoly-cert-renewal.timer \
+            /etc/systemd/system/livepoly-cert-renewal.timer
+          systemctl daemon-reload
+          systemctl enable --now livepoly-cert-renewal.timer
           EOF
           )
 

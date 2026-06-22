@@ -1,0 +1,12 @@
+[Unit]
+Description=Renew the LivePoly TLS certificate
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/livepoly/current/deploy/docker-compose.production.yml
+
+[Service]
+Type=oneshot
+User=ubuntu
+Group=ubuntu
+ExecStart=/opt/livepoly/current/deploy/scripts/renew-certificates.sh

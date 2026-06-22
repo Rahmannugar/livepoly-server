@@ -60,6 +60,24 @@ certificate with the `certbot` tools profile, change `NGINX_TEMPLATE` in Secrets
 Manager to `https.conf.template`, and redeploy. Certificate data lives in the
 named `letsencrypt` volume.
 
+Deployments install and enable `livepoly-cert-renewal.timer` on EC2. It checks
+for renewal twice daily with a randomized delay. Certbot leaves certificates
+that are not due unchanged; when the certificate file changes, the renewal
+script gracefully reloads Nginx so new connections receive the renewed
+certificate. Inspect the schedule and the latest renewal attempt with:
+
+```sh
+systemctl list-timers livepoly-cert-renewal.timer
+journalctl -u livepoly-cert-renewal.service --no-pager -n 100
+```
+
+The renewal path can be verified safely at any time with:
+
+```sh
+cd /opt/livepoly/current
+dc --profile tools run --rm certbot renew --dry-run
+```
+
 ## Observability
 
 When `NEW_RELIC_INFRA_ENABLED` is `true`, deployment starts New Relic's

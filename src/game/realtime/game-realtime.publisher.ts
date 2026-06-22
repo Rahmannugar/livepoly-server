@@ -42,6 +42,7 @@ export class GameRealtimePublisher {
         {
           gameId,
           events: result.events,
+          emittedAt: new Date().toISOString(),
         } satisfies GameEventsEvent,
       );
     }

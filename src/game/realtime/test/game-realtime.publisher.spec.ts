@@ -97,6 +97,7 @@ describe('GameRealtimePublisher', () => {
       {
         gameId: 'game-1',
         events: result.events,
+        emittedAt: expect.any(String) as string,
       },
     );
   });

@@ -120,6 +120,7 @@ export type GameStateEvent = {
 export type GameEventsEvent = {
   gameId: string;
   events: GameEngineEvent[];
+  emittedAt: string;
 };
 
 export type GameCommandRejectedEvent = {

@@ -5,6 +5,11 @@ type ObservabilityAttributeValue = string | number | boolean | null | undefined;
 
 type ObservabilityAttributes = Record<string, ObservabilityAttributeValue>;
 
+type NewRelicTransaction = {
+  ignore: () => void;
+  end: () => void;
+};
+
 type NewRelicAgent = {
   recordCustomEvent: (
     eventName: string,
@@ -12,7 +17,7 @@ type NewRelicAgent = {
   ) => void;
   incrementMetric: (metricName: string, value?: number) => void;
   recordMetric: (metricName: string, value: number) => void;
-  ignoreTransaction: () => void;
+  getTransaction: () => NewRelicTransaction;
   endTransaction: () => void;
   setTransactionName: (name: string) => void;
   addCustomAttributes: (
@@ -77,7 +82,13 @@ export class ObservabilityService {
   }
 
   ignoreCurrentTransaction(): void {
-    this.newrelic?.ignoreTransaction();
+    if (!this.newrelic) {
+      return;
+    }
+
+    const transaction = this.newrelic.getTransaction();
+    transaction.ignore();
+    transaction.end();
   }
 
   nameCurrentTransaction(

@@ -2,6 +2,7 @@ import { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
 import { RoomsExpiryService } from '../services/rooms-expiry.service';
 import { RoomsStreamService } from '../services/rooms-stream.service';
 import { WAITING_ROOM_EXPIRY_MS } from '../rooms.constants';
+import { ObservabilityService } from '../../infra/observability/observability.service';
 
 describe('RoomsExpiryService', () => {
   const roomsLobbyRepository = {
@@ -23,7 +24,7 @@ describe('RoomsExpiryService', () => {
     service = new RoomsExpiryService(
       roomsLobbyRepository as unknown as RoomsLobbyRepository,
       roomsStreamService as unknown as RoomsStreamService,
-      observabilityService,
+      observabilityService as unknown as ObservabilityService,
     );
   });
 

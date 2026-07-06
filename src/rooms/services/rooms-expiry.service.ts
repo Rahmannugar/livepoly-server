@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { logEvent } from '../../common/logging/structured-log';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { RoomsLobbyRepository } from '../repositories/rooms-lobby.repository';
 import {
@@ -30,6 +31,10 @@ export class RoomsExpiryService {
     if (expiredRooms.length > 0) {
       this.logger.log({
         message: 'rooms.expiry.waiting_rooms_expired',
+        ...logEvent({
+          name: 'rooms.expiry.waiting_rooms_expired',
+          outcome: 'success',
+        }),
         expiredCount: expiredRooms.length,
         cutoff: cutoff.toISOString(),
       });

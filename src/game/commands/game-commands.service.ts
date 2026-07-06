@@ -4,6 +4,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  logEntity,
+  logError,
+  logEvent,
+} from '../../common/logging/structured-log';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import {
   incrementMissedTurn,
@@ -388,7 +393,14 @@ export class GameCommandsService {
 
       this.logger.log({
         message: 'game_flow.command.succeeded',
-        gameId: input.gameId,
+        ...logEvent({
+          name: 'game_flow.command.succeeded',
+          outcome: 'success',
+        }),
+        ...logEntity({
+          gameId: input.gameId,
+          roomPlayerId: input.roomPlayerId,
+        }),
         roomPlayerId: input.roomPlayerId,
         source: input.source ?? 'player',
         intentType: result.intentType,
@@ -414,14 +426,18 @@ export class GameCommandsService {
 
       this.logger.error({
         message: 'game_flow.command.failed',
-        gameId: input.gameId,
+        ...logEvent({ name: 'game_flow.command.failed', outcome: 'failure' }),
+        ...logEntity({
+          gameId: input.gameId,
+          roomPlayerId: input.roomPlayerId,
+        }),
         roomPlayerId: input.roomPlayerId,
         source: input.source ?? 'player',
         intentType: input.intent.type,
-        errorCode: error instanceof GameEngineError ? error.code : undefined,
-        errorName: error instanceof Error ? error.name : undefined,
-        errorMessage: error instanceof Error ? error.message : undefined,
-        stack: error instanceof Error ? error.stack : undefined,
+        ...logError(error, {
+          code: error instanceof GameEngineError ? error.code : undefined,
+          includeStack: true,
+        }),
       });
 
       throw error;

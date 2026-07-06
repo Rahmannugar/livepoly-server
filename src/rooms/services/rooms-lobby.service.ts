@@ -7,6 +7,11 @@ import {
 } from '@nestjs/common';
 import { randomInt } from 'crypto';
 import type { AuthUser } from '../../auth/types/auth-user.type';
+import {
+  logEntity,
+  logError,
+  logEvent,
+} from '../../common/logging/structured-log';
 import { GameCommandsService } from '../../game/commands/game-commands.service';
 import { GameRecoveryService } from '../../game/recovery/game-recovery.service';
 import { GameResultsService } from '../../game/results/game-results.service';
@@ -132,9 +137,12 @@ export class RoomsLobbyService {
     } catch (error) {
       this.logger.error({
         message: 'rooms.expiry.queue_failed',
-        roomId: room.id,
-        roomCode: room.code,
-        error: error instanceof Error ? error.message : String(error),
+        ...logEvent({
+          name: 'rooms.expiry.queue_failed',
+          outcome: 'failure',
+        }),
+        ...logEntity({ roomId: room.id, roomCode: room.code }),
+        ...logError(error, { includeStack: true }),
       });
       this.observabilityService.recordEvent(
         ROOM_EVENTS.waitingExpiryQueueFailed,
@@ -489,9 +497,17 @@ export class RoomsLobbyService {
           } else {
             this.logger.log({
               message: 'game_flow.leave.skipped_bankrupt_player_forfeit',
-              roomId: room.id,
-              roomCode: room.code,
-              gameId: leaveResult.activeGameId,
+              ...logEvent({
+                name: 'game_flow.leave.skipped_bankrupt_player_forfeit',
+                outcome: 'skipped',
+                reason: 'player_already_bankrupt',
+              }),
+              ...logEntity({
+                roomId: room.id,
+                roomCode: room.code,
+                gameId: leaveResult.activeGameId,
+                roomPlayerId: leaveResult.leavingRoomPlayerId,
+              }),
               roomPlayerId: leaveResult.leavingRoomPlayerId,
             });
           }
@@ -567,9 +583,15 @@ export class RoomsLobbyService {
   }) {
     this.logger.log({
       message: 'game_flow.last_human.finalization_started',
-      roomId: input.roomId,
-      roomCode: input.roomCode,
-      gameId: input.gameId,
+      ...logEvent({
+        name: 'game_flow.last_human.finalization_started',
+        outcome: 'started',
+      }),
+      ...logEntity({
+        roomId: input.roomId,
+        roomCode: input.roomCode,
+        gameId: input.gameId,
+      }),
     });
 
     const state = await this.gameRecoveryService.getOrRecover(input.gameId);
@@ -578,9 +600,16 @@ export class RoomsLobbyService {
     if (state.phase === 'finished') {
       this.logger.log({
         message: 'game_flow.last_human.already_finished',
-        roomId: input.roomId,
-        roomCode: input.roomCode,
-        gameId: input.gameId,
+        ...logEvent({
+          name: 'game_flow.last_human.already_finished',
+          outcome: 'skipped',
+          reason: 'already_finished',
+        }),
+        ...logEntity({
+          roomId: input.roomId,
+          roomCode: input.roomCode,
+          gameId: input.gameId,
+        }),
         phase: state.phase,
         turnNumber: state.turnNumber,
       });
@@ -607,9 +636,15 @@ export class RoomsLobbyService {
 
     this.logger.log({
       message: 'game_flow.last_human.finish_intent_executed',
-      roomId: input.roomId,
-      roomCode: input.roomCode,
-      gameId: input.gameId,
+      ...logEvent({
+        name: 'game_flow.last_human.finish_intent_executed',
+        outcome: 'success',
+      }),
+      ...logEntity({
+        roomId: input.roomId,
+        roomCode: input.roomCode,
+        gameId: input.gameId,
+      }),
       phase: result.state.phase,
       turnNumber: result.state.turnNumber,
       eventTypes: result.events.map((event) => event.type),

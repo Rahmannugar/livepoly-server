@@ -4,6 +4,11 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import {
+  logEntity,
+  logError,
+  logEvent,
+} from '../../common/logging/structured-log';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { DatabaseService } from '../../infra/database/database.service';
 import {
@@ -73,8 +78,14 @@ export class GameResultsService {
 
     this.logger.log({
       message: 'game_flow.result.finalization_started',
-      gameId: input.gameId,
-      roomId: input.state.roomId,
+      ...logEvent({
+        name: 'game_flow.result.finalization_started',
+        outcome: 'started',
+      }),
+      ...logEntity({
+        gameId: input.gameId,
+        roomId: input.state.roomId,
+      }),
       phase: input.state.phase,
       endReason,
       winnerRoomPlayerId,
@@ -118,13 +129,17 @@ export class GameResultsService {
     } catch (error) {
       this.logger.error({
         message: 'game_flow.result.finalization_failed',
-        gameId: input.gameId,
-        roomId: input.state.roomId,
+        ...logEvent({
+          name: 'game_flow.result.finalization_failed',
+          outcome: 'failure',
+        }),
+        ...logEntity({
+          gameId: input.gameId,
+          roomId: input.state.roomId,
+        }),
         endReason,
         winnerRoomPlayerId,
-        errorName: error instanceof Error ? error.name : undefined,
-        errorMessage: error instanceof Error ? error.message : undefined,
-        stack: error instanceof Error ? error.stack : undefined,
+        ...logError(error, { includeStack: true }),
       });
 
       throw error;
@@ -132,8 +147,14 @@ export class GameResultsService {
 
     this.logger.log({
       message: 'game_flow.result.finalization_persisted',
-      gameId: input.gameId,
-      roomId: input.state.roomId,
+      ...logEvent({
+        name: 'game_flow.result.finalization_persisted',
+        outcome: 'success',
+      }),
+      ...logEntity({
+        gameId: input.gameId,
+        roomId: input.state.roomId,
+      }),
       endReason,
       winnerRoomPlayerId,
       playerResultCount: playerResults.length,

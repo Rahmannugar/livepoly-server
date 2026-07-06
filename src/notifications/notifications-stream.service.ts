@@ -6,6 +6,11 @@ import {
   writeSseComment,
   writeSseEvent,
 } from '../common/sse/sse-stream';
+import {
+  logEntity,
+  logError,
+  logEvent,
+} from '../common/logging/structured-log';
 import { PubSubService } from '../infra/pubsub/pubsub.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
 
@@ -100,8 +105,12 @@ export class NotificationsStreamService {
       .catch((error) => {
         this.logger.warn({
           message: 'notification_stream.subscribe_failed',
-          userId,
-          errorName: error instanceof Error ? error.name : undefined,
+          ...logEvent({
+            name: 'notification_stream.subscribe_failed',
+            outcome: 'failure',
+          }),
+          ...logEntity({ userId }),
+          ...logError(error),
         });
         finishSetup('Failed');
         response.end();

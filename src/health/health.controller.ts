@@ -6,6 +6,7 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
+import { logError, logEvent } from '../common/logging/structured-log';
 import { CacheService } from '../infra/cache/cache.service';
 import { DatabaseService } from '../infra/database/database.service';
 import { ObservabilityService } from '../infra/observability/observability.service';
@@ -71,7 +72,8 @@ export class HealthController {
       );
       this.logger.warn({
         message: 'health.ready.failed',
-        errorName: error instanceof Error ? error.name : undefined,
+        ...logEvent({ name: 'health.ready.failed', outcome: 'failure' }),
+        ...logError(error),
       });
       throw new ServiceUnavailableException('Service is not ready');
     }

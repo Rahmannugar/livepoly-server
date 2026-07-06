@@ -1,6 +1,10 @@
 import { InjectQueue } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
 import { Queue } from 'bullmq';
+import {
+  logEntity,
+  logEvent,
+} from '../../common/logging/structured-log';
 import { GAME_JOBS, QUEUES } from '../../infra/queue/queue.constants';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import type { GameEngineState } from '../engine/game-engine.types';
@@ -53,12 +57,17 @@ export class GameBotQueueService {
 
     this.logger.log({
       message: 'game_flow.bot.queued',
-      gameId,
+      ...logEvent({ name: 'game_flow.bot.queued', outcome: 'queued' }),
+      ...logEntity({ gameId, roomPlayerId: decision.roomPlayerId }),
       roomPlayerId: decision.roomPlayerId,
       phase: state.phase,
       turnNumber: state.turnNumber,
       delay,
-      jobId,
+      job: {
+        queueName: QUEUES.game,
+        jobName: GAME_JOBS.executeBotTurn,
+        jobId,
+      },
       intentType: decision.intent.type,
       existingJobState,
     });

@@ -4,6 +4,10 @@ import {
   OnApplicationBootstrap,
   OnModuleDestroy,
 } from '@nestjs/common';
+import {
+  logEntity,
+  logEvent,
+} from '../../common/logging/structured-log';
 import { CacheService } from '../../infra/cache/cache.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
@@ -114,8 +118,14 @@ export class GameTimerWatchdogService
               if (joinedHumanCount === 0) {
                 this.logger.warn({
                   message: 'game_flow.watchdog.persisting_no_human_result',
-                  gameId: candidate.id,
-                  roomId: candidate.roomId,
+                  ...logEvent({
+                    name: 'game_flow.watchdog.persisting_no_human_result',
+                    outcome: 'started',
+                  }),
+                  ...logEntity({
+                    gameId: candidate.id,
+                    roomId: candidate.roomId,
+                  }),
                   phase: state.phase,
                   turnNumber: state.turnNumber,
                 });
@@ -142,8 +152,14 @@ export class GameTimerWatchdogService
           if (joinedHumanCount === 0 || this.hasNoActiveHumanPlayers(state)) {
             this.logger.warn({
               message: 'game_flow.watchdog.finishing_no_active_human_game',
-              gameId: candidate.id,
-              roomId: candidate.roomId,
+              ...logEvent({
+                name: 'game_flow.watchdog.finishing_no_active_human_game',
+                outcome: 'started',
+              }),
+              ...logEntity({
+                gameId: candidate.id,
+                roomId: candidate.roomId,
+              }),
               phase: state.phase,
               turnNumber: state.turnNumber,
               joinedHumanCount,
@@ -166,8 +182,14 @@ export class GameTimerWatchdogService
             );
             this.logger.log({
               message: 'game_flow.watchdog.no_active_human_finish_published',
-              gameId: candidate.id,
-              roomId: candidate.roomId,
+              ...logEvent({
+                name: 'game_flow.watchdog.no_active_human_finish_published',
+                outcome: 'success',
+              }),
+              ...logEntity({
+                gameId: candidate.id,
+                roomId: candidate.roomId,
+              }),
               phase: result.state.phase,
               turnNumber: result.state.turnNumber,
               eventTypes: result.events.map((event) => event.type),
@@ -286,8 +308,15 @@ export class GameTimerWatchdogService
 
     this.logger.warn({
       message: 'game_flow.watchdog.executing_overdue_bot_action',
-      gameId,
-      roomId: state.roomId,
+      ...logEvent({
+        name: 'game_flow.watchdog.executing_overdue_bot_action',
+        outcome: 'started',
+      }),
+      ...logEntity({
+        gameId,
+        roomId: state.roomId,
+        roomPlayerId: decision.roomPlayerId,
+      }),
       phase: state.phase,
       turnNumber: state.turnNumber,
       roomPlayerId: decision.roomPlayerId,
@@ -305,8 +334,15 @@ export class GameTimerWatchdogService
 
     this.logger.log({
       message: 'game_flow.watchdog.overdue_bot_action_published',
-      gameId,
-      roomId: result.state.roomId,
+      ...logEvent({
+        name: 'game_flow.watchdog.overdue_bot_action_published',
+        outcome: 'success',
+      }),
+      ...logEntity({
+        gameId,
+        roomId: result.state.roomId,
+        roomPlayerId: decision.roomPlayerId,
+      }),
       phase: result.state.phase,
       turnNumber: result.state.turnNumber,
       roomPlayerId: decision.roomPlayerId,

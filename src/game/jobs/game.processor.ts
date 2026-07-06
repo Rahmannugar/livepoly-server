@@ -1,6 +1,12 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bullmq';
+import {
+  logEntity,
+  logError,
+  logEvent,
+  logJob,
+} from '../../common/logging/structured-log';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 import { GameBotQueueService } from '../bots/game-bot-queue.service';
 import { GameBotService } from '../bots/game-bot.service';
@@ -86,8 +92,9 @@ export class GameProcessor extends WorkerHost {
 
     this.logger.log({
       message: 'game_flow.bot.started',
-      jobId: job.id,
-      gameId: job.data.gameId,
+      ...logEvent({ name: 'game_flow.bot.started', outcome: 'started' }),
+      ...logJob(QUEUES.game, job),
+      ...logEntity({ gameId: job.data.gameId }),
       phase: state.phase,
       turnNumber: state.turnNumber,
       currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
@@ -98,8 +105,9 @@ export class GameProcessor extends WorkerHost {
     if (!decision) {
       this.logger.warn({
         message: 'game_flow.bot.skipped',
-        jobId: job.id,
-        gameId: job.data.gameId,
+        ...logEvent({ name: 'game_flow.bot.skipped', outcome: 'skipped' }),
+        ...logJob(QUEUES.game, job),
+        ...logEntity({ gameId: job.data.gameId }),
         phase: state.phase,
         turnNumber: state.turnNumber,
         currentTurnRoomPlayerId: state.currentTurnRoomPlayerId,
@@ -130,8 +138,12 @@ export class GameProcessor extends WorkerHost {
 
       this.logger.log({
         message: 'game_flow.bot.executed',
-        jobId: job.id,
-        gameId: job.data.gameId,
+        ...logEvent({ name: 'game_flow.bot.executed', outcome: 'success' }),
+        ...logJob(QUEUES.game, job),
+        ...logEntity({
+          gameId: job.data.gameId,
+          roomPlayerId: decision.roomPlayerId,
+        }),
         roomPlayerId: decision.roomPlayerId,
         intentType: decision.intent.type,
         phase: result.state.phase,
@@ -152,14 +164,18 @@ export class GameProcessor extends WorkerHost {
     } catch (error) {
       this.logger.error({
         message: 'game_flow.bot.failed',
-        jobId: job.id,
-        gameId: job.data.gameId,
+        ...logEvent({ name: 'game_flow.bot.failed', outcome: 'failure' }),
+        ...logJob(QUEUES.game, job),
+        ...logEntity({
+          gameId: job.data.gameId,
+          roomPlayerId: decision.roomPlayerId,
+        }),
         roomPlayerId: decision.roomPlayerId,
         intentType: decision.intent.type,
-        errorCode: error instanceof GameEngineError ? error.code : undefined,
-        errorName: error instanceof Error ? error.name : undefined,
-        errorMessage: error instanceof Error ? error.message : undefined,
-        stack: error instanceof Error ? error.stack : undefined,
+        ...logError(error, {
+          code: error instanceof GameEngineError ? error.code : undefined,
+          includeStack: true,
+        }),
       });
 
       this.observabilityService.recordEvent(GAME_EVENTS.botTurnFailed, {
@@ -223,6 +239,21 @@ export class GameProcessor extends WorkerHost {
 
       this.observabilityService.recordMetric(GAME_METRICS.turnTimerExecuted);
     } catch (error) {
+      this.logger.error({
+        message: 'game_flow.turn_timer.failed',
+        ...logEvent({
+          name: 'game_flow.turn_timer.failed',
+          outcome: 'failure',
+        }),
+        ...logJob(QUEUES.game, job),
+        ...logEntity({ gameId: job.data.gameId }),
+        intentType: intent.type,
+        ...logError(error, {
+          code: error instanceof GameEngineError ? error.code : undefined,
+          includeStack: true,
+        }),
+      });
+
       this.observabilityService.recordEvent(GAME_EVENTS.turnTimerFailed, {
         jobId: job.id,
         gameId: job.data.gameId,
@@ -343,6 +374,18 @@ export class GameProcessor extends WorkerHost {
 
       this.observabilityService.recordMetric(GAME_METRICS.turnTimerFailed);
 
+      this.logger.error({
+        message: 'game_flow.expiry.failed',
+        ...logEvent({ name: 'game_flow.expiry.failed', outcome: 'failure' }),
+        ...logJob(QUEUES.game, job),
+        ...logEntity({ gameId: job.data.gameId }),
+        intentType: 'finish_game_by_time',
+        ...logError(error, {
+          code: error instanceof GameEngineError ? error.code : undefined,
+          includeStack: true,
+        }),
+      });
+
       throw error;
     }
   }
@@ -451,6 +494,17 @@ export class GameProcessor extends WorkerHost {
         GAME_METRICS.leaderboardRefreshSucceeded,
       );
     } catch (error) {
+      this.logger.error({
+        message: 'game_flow.leaderboard_refresh.failed',
+        ...logEvent({
+          name: 'game_flow.leaderboard_refresh.failed',
+          outcome: 'failure',
+          reason: job.data.reason,
+        }),
+        ...logJob(QUEUES.game, job),
+        ...logError(error, { includeStack: true }),
+      });
+
       this.observabilityService.recordEvent(
         GAME_EVENTS.leaderboardRefreshFailed,
         {

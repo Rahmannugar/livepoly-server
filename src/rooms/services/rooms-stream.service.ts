@@ -6,6 +6,11 @@ import {
   writeSseComment,
   writeSseEvent,
 } from '../../common/sse/sse-stream';
+import {
+  logEntity,
+  logError,
+  logEvent,
+} from '../../common/logging/structured-log';
 import { PubSubService } from '../../infra/pubsub/pubsub.service';
 import { ObservabilityService } from '../../infra/observability/observability.service';
 
@@ -106,8 +111,12 @@ export class RoomsStreamService {
       .catch((error) => {
         this.logger.warn({
           message: 'room_stream.subscribe_failed',
-          roomCode: code,
-          errorName: error instanceof Error ? error.name : undefined,
+          ...logEvent({
+            name: 'room_stream.subscribe_failed',
+            outcome: 'failure',
+          }),
+          ...logEntity({ roomCode: code }),
+          ...logError(error),
         });
         finishSetup('Failed');
         response.end();
@@ -131,10 +140,13 @@ export class RoomsStreamService {
     } catch (error) {
       this.logger.warn({
         message: 'room_stream.publish_failed',
-        roomId: input.roomId,
-        roomCode: input.roomCode,
+        ...logEvent({
+          name: 'room_stream.publish_failed',
+          outcome: 'failure',
+        }),
+        ...logEntity({ roomId: input.roomId, roomCode: input.roomCode }),
         event: input.event,
-        errorName: error instanceof Error ? error.name : undefined,
+        ...logError(error),
       });
     }
   }

@@ -48,9 +48,19 @@ GitHub OIDC and invokes the instance through SSM. No permanent AWS access key or
 public SSH port is required.
 
 Each deployment creates `/opt/livepoly/releases/<commit>`, runs migrations
-against PostgreSQL directly, starts the stack, and checks readiness through
-Nginx. The `current` symlink changes only after readiness succeeds. The newest
-three release directories remain on the host.
+against PostgreSQL directly, rolls the two API containers one at a time behind
+Nginx, restarts the worker last, and checks readiness through Nginx. Nginx is
+reloaded after each API container becomes healthy so it resolves the recreated
+container address. The `current` symlink changes only after readiness succeeds.
+The newest three release directories remain on the host.
+
+Rolling deploys require backward-compatible migrations because the old and new
+API versions can overlap briefly. Use expand/contract changes for schema work:
+add compatible structures first, deploy application reads/writes, backfill when
+needed, and remove old structures only after old versions are no longer running.
+The worker is single-instance, so worker replacement is a short restart rather
+than a zero-downtime rolling handoff; BullMQ retry and recovery paths should
+handle interrupted background work.
 
 ## TLS
 

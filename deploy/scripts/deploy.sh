@@ -59,34 +59,130 @@ new_relic_infra_enabled="$(
   awk -F= '$1=="NEW_RELIC_INFRA_ENABLED"{gsub(/^"|"$/,"",$2); print $2}' .env \
     | tail -n 1
 )"
+api_domain="$(
+  awk -F= '$1=="API_DOMAIN"{gsub(/^"|"$/,"",$2); print $2}' .env \
+    | tail -n 1
+)"
+api_domain="${api_domain:-api.livepoly.site}"
 
+service_container_id() {
+  "${compose[@]}" ps -q "$1" | tail -n 1
+}
+
+is_service_running() {
+  local service="$1"
+  local container_id
+
+  container_id="$(service_container_id "$service")"
+  if [[ -z "$container_id" ]]; then
+    return 1
+  fi
+
+  [[ "$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)" == "true" ]]
+}
+
+wait_for_service_healthy() {
+  local service="$1"
+  local container_id
+  local health_status
+
+  echo "Waiting for ${service} to become healthy"
+
+  for attempt in {1..40}; do
+    container_id="$(service_container_id "$service")"
+    if [[ -n "$container_id" ]]; then
+      health_status="$(
+        docker inspect \
+          --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{if .State.Running}}running{{else}}stopped{{end}}{{end}}' \
+          "$container_id" 2>/dev/null || true
+      )"
+
+      if [[ "$health_status" == "healthy" || "$health_status" == "running" ]]; then
+        return 0
+      fi
+    fi
+
+    if [[ "$attempt" -eq 40 ]]; then
+      "${compose[@]}" ps
+      "${compose[@]}" logs --tail=100 "$service"
+      echo "Service ${service} did not become healthy" >&2
+      exit 1
+    fi
+
+    sleep 3
+  done
+}
+
+reload_nginx_if_running() {
+  if is_service_running nginx; then
+    echo "Reloading nginx"
+    "${compose[@]}" exec -T nginx nginx -s reload
+  fi
+}
+
+roll_api_service() {
+  local service="$1"
+
+  echo "Rolling ${service}"
+  "${compose[@]}" up -d --no-deps --force-recreate "$service"
+  wait_for_service_healthy "$service"
+  reload_nginx_if_running
+}
+
+wait_for_public_readiness() {
+  echo "Checking public readiness"
+
+  for attempt in {1..20}; do
+    if curl --fail --silent --show-error \
+      --header "Host: ${api_domain}" \
+      http://127.0.0.1/health/ready >/dev/null; then
+      return 0
+    fi
+
+    if [[ "$attempt" -eq 20 ]]; then
+      "${compose[@]}" ps
+      "${compose[@]}" logs --tail=100 api-1 api-2 nginx
+      echo "Deployment did not become ready" >&2
+      exit 1
+    fi
+
+    sleep 3
+  done
+}
+
+echo "Building production images"
 "${compose[@]}" build api-1 pgbouncer
-"${compose[@]}" down --remove-orphans --timeout 30
-"${compose[@]}" up -d postgres redis pgbouncer
+
+echo "Starting data services"
+"${compose[@]}" up -d --remove-orphans postgres redis pgbouncer
+wait_for_service_healthy postgres
+wait_for_service_healthy redis
+wait_for_service_healthy pgbouncer
+
+echo "Running migrations"
 "${compose[@]}" --profile tools run --rm migrate
-"${compose[@]}" up -d --remove-orphans api-1 api-2 worker nginx
+
+roll_api_service api-1
+roll_api_service api-2
+
+echo "Ensuring nginx is running"
+"${compose[@]}" up -d --no-deps nginx
+wait_for_service_healthy nginx
+
+echo "Restarting worker"
+"${compose[@]}" up -d --no-deps --force-recreate worker
+wait_for_service_healthy worker
 
 if [[ "$new_relic_infra_enabled" == "true" ]]; then
-  "${compose[@]}" --profile monitoring up -d newrelic-infra
+  echo "Ensuring New Relic infrastructure agent is running"
+  "${compose[@]}" --profile monitoring up -d --no-deps newrelic-infra
+else
+  echo "Stopping New Relic infrastructure agent because it is disabled"
+  "${compose[@]}" --profile monitoring stop newrelic-infra >/dev/null 2>&1 || true
 fi
 
-for attempt in {1..20}; do
-  if curl --fail --silent --show-error \
-    --header 'Host: api.livepoly.site' \
-    http://127.0.0.1/health/ready >/dev/null; then
-    ln -sfn "$release_dir" "${deployment_root}/current"
-    break
-  fi
-
-  if [[ "$attempt" -eq 20 ]]; then
-    "${compose[@]}" ps
-    "${compose[@]}" logs --tail=100 api-1 api-2 nginx
-    echo "Deployment did not become ready" >&2
-    exit 1
-  fi
-
-  sleep 3
-done
+wait_for_public_readiness
+ln -sfn "$release_dir" "${deployment_root}/current"
 
 mapfile -t stale_releases < <(
   find "$releases_dir" -mindepth 1 -maxdepth 1 -type d -printf '%T@ %p\n' \

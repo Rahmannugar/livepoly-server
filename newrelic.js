@@ -9,6 +9,15 @@ exports.config = {
   distributed_tracing: {
     enabled: true,
   },
+  transaction_tracer: {
+    enabled: true,
+  },
+  slow_sql: {
+    enabled: true,
+  },
+  error_collector: {
+    enabled: true,
+  },
   rules: {
     ignore: [
       '^/health/live$',

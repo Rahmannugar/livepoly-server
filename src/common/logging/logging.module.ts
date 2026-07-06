@@ -1,14 +1,17 @@
 import { randomUUID } from 'node:crypto';
+import { hostname } from 'node:os';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { Module } from '@nestjs/common';
 import { LoggerModule } from 'nestjs-pino';
 import {
   getRequestPath,
+  getRequestTelemetryUrl,
   shouldSuppressHttpRequestLog,
 } from '../observability/http-telemetry-policy';
 import { RequestWithId } from '../types/request-with-id';
 
 const REQUEST_ID_HEADER = 'x-request-id';
+const SERVICE_NAME = 'livepoly-server';
 
 function isValidRequestId(value: string): boolean {
   return /^[a-zA-Z0-9._:-]{1,128}$/.test(value);
@@ -17,6 +20,7 @@ function isValidRequestId(value: string): boolean {
 type RequestLogContext = IncomingMessage & {
   id?: string | number | object;
   baseUrl?: string;
+  originalUrl?: string;
   route?: { path?: unknown };
   params?: unknown;
   user?: {
@@ -34,7 +38,7 @@ function requestCompletionObject(
   const routePath =
     typeof context.route?.path === 'string'
       ? `${context.baseUrl ?? ''}${context.route.path}`
-      : getRequestPath(request.url);
+      : getRequestPath(getRequestTelemetryUrl(context));
 
   return {
     requestId:
@@ -98,20 +102,47 @@ function getEntityIdentifiers(params: unknown) {
   return Object.keys(identifiers).length > 0 ? identifiers : undefined;
 }
 
+function getServiceRole(): 'api' | 'worker' {
+  return process.env.INSTANCE_ROLE === 'worker' ? 'worker' : 'api';
+}
+
+function getServiceInstanceId(): string {
+  return process.env.SERVICE_INSTANCE_ID || process.env.HOSTNAME || hostname();
+}
+
+function getBaseLogFields() {
+  const appName = process.env.NEW_RELIC_APP_NAME;
+
+  return {
+    pid: process.pid,
+    hostname: hostname(),
+    service: {
+      name: SERVICE_NAME,
+      role: getServiceRole(),
+      instanceId: getServiceInstanceId(),
+      appName: appName || undefined,
+    },
+  };
+}
+
 @Module({
   imports: [
     LoggerModule.forRoot({
       pinoHttp: {
+        base: getBaseLogFields(),
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
         autoLogging: {
           ignore: (request) =>
-            shouldSuppressHttpRequestLog(request.method, request.url),
+            shouldSuppressHttpRequestLog(
+              request.method,
+              getRequestTelemetryUrl(request),
+            ),
         },
         quietReqLogger: true,
         quietResLogger: true,
         customLogLevel: (_request, response, error) => {
           if (error || response.statusCode >= 500) return 'error';
-          if (response.statusCode >= 400) return 'warn';
+          if (response.statusCode === 429) return 'warn';
           return 'info';
         },
         customSuccessMessage: (_request, response) =>

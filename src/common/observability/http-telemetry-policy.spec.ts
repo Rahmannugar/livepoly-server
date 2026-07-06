@@ -1,5 +1,6 @@
 import {
   getRequestPath,
+  getRequestTelemetryUrl,
   shouldIgnoreHttpTransaction,
   shouldSuppressHttpRequestLog,
 } from './http-telemetry-policy';
@@ -36,5 +37,24 @@ describe('HTTP telemetry policy', () => {
 
   it('normalizes query strings away from request paths', () => {
     expect(getRequestPath('/users/search?q=player')).toBe('/users/search');
+  });
+
+  it('prefers the original Express URL when middleware has rewritten request.url', () => {
+    expect(
+      getRequestTelemetryUrl({
+        originalUrl: '/health/live',
+        url: '/',
+      }),
+    ).toBe('/health/live');
+
+    expect(
+      shouldSuppressHttpRequestLog(
+        'GET',
+        getRequestTelemetryUrl({
+          originalUrl: '/health/live',
+          url: '/',
+        }),
+      ),
+    ).toBe(true);
   });
 });

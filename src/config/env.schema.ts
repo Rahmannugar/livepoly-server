@@ -11,7 +11,7 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
-    NEW_RELIC_APP_NAME: z.string().min(1).default('LivePoly Server'),
+    NEW_RELIC_APP_NAME: z.string().min(1).default('livepoly'),
     NEW_RELIC_LICENSE_KEY: z.string().optional(),
     NEW_RELIC_LOG_LEVEL: z.string().min(1).default('info'),
     JWT_ACCESS_SECRET: z.string().min(32),
